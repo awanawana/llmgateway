@@ -22,6 +22,7 @@
 		"paths": {
 			"@/*": ["./src/*"],
 			"@llmgateway/*": ["../../packages/*/src"],
+			"@llmgateway/db/schema": ["../../packages/db/src/schema"],
 			"content-collections": ["./.content-collections/generated"]
 		}
 	},

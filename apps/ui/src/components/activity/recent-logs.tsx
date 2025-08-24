@@ -1,5 +1,6 @@
 "use client";
 
+import { UnifiedFinishReason } from "@llmgateway/db/schema";
 import { models, providers } from "@llmgateway/models";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
@@ -22,15 +23,7 @@ import { useApi } from "@/lib/fetch-client";
 
 import type { Log } from "@llmgateway/db";
 
-const UnifiedFinishReason = {
-	COMPLETED: "completed",
-	LENGTH_LIMIT: "length_limit",
-	CONTENT_FILTER: "content_filter",
-	GATEWAY_ERROR: "gateway_error",
-	UPSTREAM_ERROR: "upstream_error",
-	CANCELED: "canceled",
-	UNKNOWN: "unknown",
-} as const;
+// Use shared UnifiedFinishReason from @llmgateway/db
 
 interface RecentLogsProps {
 	initialData?:
@@ -262,7 +255,12 @@ export function RecentLogs({ initialData, projectId }: RecentLogsProps) {
 					</SelectTrigger>
 					<SelectContent>
 						<SelectItem value="all">All unified reasons</SelectItem>
-						{Object.entries(UnifiedFinishReason).map(([key, value]) => (
+						{(
+							Object.entries(UnifiedFinishReason as Record<string, string>) as [
+								string,
+								string,
+							][]
+						).map(([key, value]) => (
 							<SelectItem key={value} value={value}>
 								{key
 									.toLowerCase()
