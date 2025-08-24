@@ -104,13 +104,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     bash \
     gosu \
-    && wget https://download.redis.io/redis-stable.tar.gz \
-    && tar -xzf redis-stable.tar.gz \
-    && cd redis-stable \
-    && make \
-    && make install \
-    && cd .. \
-    && rm -rf redis-stable redis-stable.tar.gz \
+    redis-server \
     && adduser --system --group --no-create-home redis \
     && apt-get remove -y build-essential wget gnupg lsb-release \
     && apt-get autoremove -y \
