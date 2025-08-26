@@ -2129,29 +2129,76 @@ chat.openapi(completions, async (c) => {
 						(cachedStreamingResponse.metadata as any)?.toolResults || null,
 				});
 
-				// Return cached streaming response by replaying chunks with original timing
+				// Return cached streaming response with adaptive batching for small chunks
 				return streamSSE(c, async (stream) => {
-					let previousTimestamp = 0;
+					const batchChunks = (
+						chunks: typeof cachedStreamingResponse.chunks,
+					) => {
+						const batches = [];
+						let currentBatch = [];
+						let currentBatchSize = 0;
+						let currentBatchDelay = 0;
+						const MIN_CHUNK_SIZE = 50; // Minimum characters to consider a chunk substantial
+						const MAX_BATCH_SIZE = 500; // Maximum characters per batch
+						const MIN_DELAY = 20; // Minimum delay between batches (ms)
 
-					for (const chunk of cachedStreamingResponse.chunks) {
-						// Calculate delay based on original chunk timing
-						const delay = Math.max(0, chunk.timestamp - previousTimestamp);
-						// Cap the delay to prevent excessively long waits (max 1 second)
-						const cappedDelay = Math.min(delay, 1000);
+						for (let i = 0; i < chunks.length; i++) {
+							const chunk = chunks[i];
+							const chunkSize = chunk.data.length;
+							const nextDelay =
+								i < chunks.length - 1
+									? Math.max(0, chunks[i + 1].timestamp - chunk.timestamp)
+									: 0;
 
-						if (cappedDelay > 0) {
+							// If chunk is large enough or batch is getting full, finalize current batch
+							if (
+								chunkSize >= MIN_CHUNK_SIZE ||
+								currentBatchSize + chunkSize > MAX_BATCH_SIZE ||
+								i === chunks.length - 1
+							) {
+								currentBatch.push(chunk);
+								currentBatchSize += chunkSize;
+
+								batches.push({
+									chunks: [...currentBatch],
+									totalSize: currentBatchSize,
+									delay: Math.max(currentBatchDelay, MIN_DELAY),
+								});
+
+								currentBatch = [];
+								currentBatchSize = 0;
+								currentBatchDelay = 0;
+							} else {
+								// Add small chunk to current batch
+								currentBatch.push(chunk);
+								currentBatchSize += chunkSize;
+								currentBatchDelay = Math.max(currentBatchDelay, nextDelay);
+							}
+						}
+
+						return batches;
+					};
+
+					const batches = batchChunks(cachedStreamingResponse.chunks);
+
+					for (const batch of batches) {
+						// Stream all chunks in this batch rapidly
+						for (const chunk of batch.chunks) {
+							await stream.writeSSE({
+								data: chunk.data,
+								id: String(chunk.eventId),
+								event: chunk.event,
+							});
+						}
+
+						// Wait before next batch (except for the last batch)
+						if (batch !== batches[batches.length - 1] && batch.delay > 0) {
+							// Cap the delay to prevent excessively long waits (max 1 second)
+							const cappedDelay = Math.min(batch.delay, 1000);
 							await new Promise<void>((resolve) => {
 								setTimeout(() => resolve(), cappedDelay);
 							});
 						}
-
-						await stream.writeSSE({
-							data: chunk.data,
-							id: String(chunk.eventId),
-							event: chunk.event,
-						});
-
-						previousTimestamp = chunk.timestamp;
 					}
 				});
 			}
