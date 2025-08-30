@@ -37,6 +37,7 @@ import {
 	setCache,
 	setStreamingCache,
 } from "../lib/cache";
+import { compressContextIfNeeded } from "../lib/context-compression";
 import { calculateCosts } from "../lib/costs";
 import { insertLog } from "../lib/logs";
 import {
@@ -1692,6 +1693,18 @@ const completionsRequestSchema = z.object({
 			description: "Controls the reasoning effort for reasoning-capable models",
 			example: "medium",
 		}),
+	customization: z
+		.object({
+			compressContext: z.boolean().optional().openapi({
+				description:
+					"Use in-memory RAG to compress context when above 90% of context window",
+				example: true,
+			}),
+		})
+		.optional()
+		.openapi({
+			description: "Additional customization options for request processing",
+		}),
 });
 
 const completions = createRoute({
@@ -1847,6 +1860,7 @@ chat.openapi(completions, async (c) => {
 		tools,
 		tool_choice,
 		reasoning_effort,
+		customization,
 	} = validationResult.data;
 
 	// Extract and validate source from x-source header
@@ -2463,6 +2477,57 @@ chat.openapi(completions, async (c) => {
 		});
 	}
 
+	// Apply context compression if enabled and needed
+	let processedMessages = messages;
+	if (customization?.compressContext && finalModelInfo) {
+		// Get context size from the model info
+		let contextSize = 8192; // Default fallback
+
+		if (usedProvider === "custom") {
+			contextSize = 8192; // Use default for custom models
+		} else {
+			const providerMapping = finalModelInfo.providers.find(
+				(p) => p.providerId === usedProvider && p.modelName === usedModel,
+			);
+			if (
+				providerMapping &&
+				"contextSize" in providerMapping &&
+				providerMapping.contextSize
+			) {
+				contextSize = providerMapping.contextSize;
+			}
+		}
+
+		// Get embeddings API key (prefer organization's OpenAI key, fallback to env)
+		let embeddingsApiKey = usedToken;
+		if (usedProvider !== "openai") {
+			// Try to get OpenAI key for embeddings
+			const openaiProviderKey = await db.query.providerKey.findFirst({
+				where: {
+					status: { eq: "active" },
+					organizationId: { eq: project.organizationId },
+					provider: { eq: "openai" },
+				},
+			});
+			embeddingsApiKey = openaiProviderKey?.token || process.env.OPENAI_API_KEY;
+		}
+
+		try {
+			processedMessages = await compressContextIfNeeded(
+				messages,
+				contextSize,
+				customization,
+				embeddingsApiKey || undefined,
+			);
+		} catch (error) {
+			console.warn(
+				"Context compression failed, using original messages:",
+				error,
+			);
+			processedMessages = messages;
+		}
+	}
+
 	// Check if caching is enabled for this project
 	const { enabled: cachingEnabled, duration: cacheDuration } =
 		await isCachingEnabled(project.id);
@@ -2473,7 +2538,7 @@ chat.openapi(completions, async (c) => {
 	if (cachingEnabled) {
 		const cachePayload = {
 			model: usedModel,
-			messages,
+			messages: processedMessages,
 			temperature,
 			max_tokens,
 			top_p,
@@ -2717,7 +2782,7 @@ chat.openapi(completions, async (c) => {
 	const requestBody = await prepareRequestBody(
 		usedProvider,
 		usedModel,
-		messages,
+		processedMessages,
 		stream,
 		temperature,
 		max_tokens,
