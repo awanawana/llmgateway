@@ -1,4 +1,5 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+import { logger } from "@llmgateway/logger";
 import {
 	models as modelsList,
 	providers,
@@ -43,6 +44,9 @@ const modelSchema = z.object({
 			tools: z.boolean(),
 			parallelToolCalls: z.boolean(),
 			reasoning: z.boolean(),
+			stability: z
+				.enum(["stable", "beta", "unstable", "experimental"])
+				.optional(),
 		}),
 	),
 	pricing: z.object({
@@ -62,6 +66,7 @@ const modelSchema = z.object({
 	free: z.boolean().optional(),
 	deprecated_at: z.string().optional(),
 	deactivated_at: z.string().optional(),
+	stability: z.enum(["stable", "beta", "unstable", "experimental"]).optional(),
 });
 
 const listModelsResponseSchema = z.object({
@@ -80,12 +85,14 @@ const listModels = createRoute({
 				.string()
 				.optional()
 				.transform((val) => val === "true")
-				.describe("Include deactivated models in the response"),
+				.describe("Include deactivated models in the response")
+				.openapi({ example: "false" }),
 			exclude_deprecated: z
 				.string()
 				.optional()
 				.transform((val) => val === "true")
-				.describe("Exclude deprecated models from the response"),
+				.describe("Exclude deprecated models from the response")
+				.openapi({ example: "false" }),
 		}),
 	},
 	responses: {
@@ -196,6 +203,7 @@ modelsApi.openapi(listModels, async (c) => {
 						tools: provider.tools || false,
 						parallelToolCalls: provider.parallelToolCalls || false,
 						reasoning: provider.reasoning || false,
+						stability: provider.stability || model.stability,
 					};
 				}),
 				pricing: {
@@ -220,12 +228,16 @@ modelsApi.openapi(listModels, async (c) => {
 				free: model.free || false,
 				deprecated_at: model.deprecatedAt?.toISOString(),
 				deactivated_at: model.deactivatedAt?.toISOString(),
+				stability: model.stability,
 			};
 		});
 
 		return c.json({ data: modelData });
 	} catch (error) {
-		console.error("Error in models endpoint:", error);
+		logger.error(
+			"Error in models endpoint",
+			error instanceof Error ? error : new Error(String(error)),
+		);
 		throw new HTTPException(500, { message: "Internal server error" });
 	}
 });
@@ -247,13 +259,11 @@ function getSupportedParametersFromModel(model: ModelDefinition): string[] {
 
 	// Start with explicit supported parameters if any provider defines them
 	for (const provider of model.providers) {
-		const supportedParameters = (provider as any)?.supportedParameters as
-			| string[]
-			| undefined;
+		const supportedParameters = provider.supportedParameters;
 		if (supportedParameters && supportedParameters.length > 0) {
 			const params = [...supportedParameters];
 			// If any provider supports reasoning, expose the reasoning parameter
-			if (model.providers.some((p: any) => p?.reasoning)) {
+			if (model.providers.some((p) => p?.reasoning)) {
 				if (!params.includes("reasoning")) {
 					params.push("reasoning");
 				}
@@ -264,7 +274,7 @@ function getSupportedParametersFromModel(model: ModelDefinition): string[] {
 
 	// If no provider has explicit supported parameters, return defaults
 	const params = [...defaultCommonParams];
-	if (model.providers.some((p: any) => p?.reasoning)) {
+	if (model.providers.some((p) => p?.reasoning)) {
 		params.push("reasoning");
 	}
 	return params;
