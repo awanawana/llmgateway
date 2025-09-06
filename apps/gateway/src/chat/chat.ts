@@ -1822,7 +1822,7 @@ const completionsRequestSchema = z.object({
 		}),
 	customization: z
 		.object({
-			compressContext: z.boolean().optional().openapi({
+			compress_context: z.boolean().optional().openapi({
 				description:
 					"Use in-memory RAG to compress context when above 90% of context window",
 				example: true,
@@ -2758,7 +2758,7 @@ chat.openapi(completions, async (c) => {
 
 	// Apply context compression if enabled and needed
 	let processedMessages = messages;
-	if (customization?.compressContext && finalModelInfo) {
+	if (customization?.compress_context && finalModelInfo) {
 		// Get context size from the model info
 		let contextSize = 8192; // Default fallback
 
@@ -2778,7 +2778,7 @@ chat.openapi(completions, async (c) => {
 		}
 
 		// Get embeddings API key (prefer organization's OpenAI key, fallback to env)
-		let embeddingsApiKey = usedToken;
+		let embeddingsApiKey: string | undefined = usedToken;
 		if (usedProvider !== "openai") {
 			// Try to get OpenAI key for embeddings
 			const openaiProviderKey = await db.query.providerKey.findFirst({
@@ -2788,7 +2788,8 @@ chat.openapi(completions, async (c) => {
 					provider: { eq: "openai" },
 				},
 			});
-			embeddingsApiKey = openaiProviderKey?.token || process.env.OPENAI_API_KEY;
+			embeddingsApiKey =
+				openaiProviderKey?.token || process.env.OPENAI_API_KEY || undefined;
 		}
 
 		try {

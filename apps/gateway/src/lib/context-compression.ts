@@ -162,10 +162,10 @@ export class ContextCompressor {
 export async function compressContextIfNeeded(
 	messages: ChatMessage[],
 	contextWindowSize: number,
-	customization?: { compressContext?: boolean },
+	customization?: { compress_context?: boolean },
 	embeddingsApiKey?: string,
 ): Promise<ChatMessage[]> {
-	if (!customization?.compressContext) {
+	if (!customization?.compress_context) {
 		return messages;
 	}
 

@@ -20,6 +20,7 @@
 		"@hono/zod-openapi": "^0.19.6",
 		"@hono/zod-validator": "^0.7.0",
 		"@langchain/community": "0.3.53",
+		"@langchain/core": "0.3.75",
 		"@langchain/openai": "0.6.9",
 		"@llmgateway/db": "workspace:*",
 		"@llmgateway/logger": "workspace:*",
