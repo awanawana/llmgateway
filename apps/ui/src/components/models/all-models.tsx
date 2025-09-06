@@ -757,7 +757,7 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 
 	const renderTableView = () => (
 		<div className="rounded-md border">
-			<div className="relative w-full overflow-auto h-[63vh]">
+			<div className="relative w-full">
 				<Table className="relative">
 					<TableHeader className="sticky top-0">
 						<TableRow>

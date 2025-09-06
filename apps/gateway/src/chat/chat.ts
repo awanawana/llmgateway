@@ -829,6 +829,9 @@ function transformToOpenAIFormat(
 	cachedTokens: number | null,
 	toolResults: any,
 	images: ImageObject[],
+	requestedModel: string,
+	requestedProvider: string | null,
+	baseModelName: string,
 ) {
 	let transformedResponse = json;
 
@@ -839,7 +842,7 @@ function transformToOpenAIFormat(
 				id: `chatcmpl-${Date.now()}`,
 				object: "chat.completion",
 				created: Math.floor(Date.now() / 1000),
-				model: usedModel,
+				model: `${usedProvider}/${baseModelName}`,
 				choices: [
 					{
 						index: 0,
@@ -876,6 +879,13 @@ function transformToOpenAIFormat(
 						},
 					}),
 				},
+				metadata: {
+					requested_model: requestedModel,
+					requested_provider: requestedProvider,
+					used_model: baseModelName,
+					used_provider: usedProvider,
+					underlying_used_model: usedModel,
+				},
 			};
 			break;
 		}
@@ -884,7 +894,7 @@ function transformToOpenAIFormat(
 				id: `chatcmpl-${Date.now()}`,
 				object: "chat.completion",
 				created: Math.floor(Date.now() / 1000),
-				model: usedModel,
+				model: `${usedProvider}/${baseModelName}`,
 				choices: [
 					{
 						index: 0,
@@ -920,6 +930,13 @@ function transformToOpenAIFormat(
 						},
 					}),
 				},
+				metadata: {
+					requested_model: requestedModel,
+					requested_provider: requestedProvider,
+					used_model: baseModelName,
+					used_provider: usedProvider,
+					underlying_used_model: usedModel,
+				},
 			};
 			break;
 		}
@@ -931,7 +948,7 @@ function transformToOpenAIFormat(
 					id: `chatcmpl-${Date.now()}`,
 					object: "chat.completion",
 					created: Math.floor(Date.now() / 1000),
-					model: usedModel,
+					model: `${usedProvider}/${baseModelName}`,
 					choices: [
 						{
 							index: 0,
@@ -956,6 +973,13 @@ function transformToOpenAIFormat(
 							reasoning_tokens: reasoningTokens,
 						}),
 					},
+					metadata: {
+						requested_model: requestedModel,
+						requested_provider: requestedProvider,
+						used_model: baseModelName,
+						used_provider: usedProvider,
+						underlying_used_model: usedModel,
+					},
 				};
 			} else {
 				// Always transform reasoning field to reasoning_content even if response already has an id
@@ -967,6 +991,15 @@ function transformToOpenAIFormat(
 						delete message.reasoning;
 					}
 				}
+				// Add metadata to existing response
+				transformedResponse.model = `${usedProvider}/${baseModelName}`;
+				transformedResponse.metadata = {
+					requested_model: requestedModel,
+					requested_provider: requestedProvider,
+					used_model: baseModelName,
+					used_provider: usedProvider,
+					underlying_used_model: usedModel,
+				};
 			}
 			break;
 		}
@@ -978,7 +1011,7 @@ function transformToOpenAIFormat(
 					id: json.id || `chatcmpl-${Date.now()}`,
 					object: "chat.completion",
 					created: json.created_at || Math.floor(Date.now() / 1000),
-					model: json.model || usedModel,
+					model: `${usedProvider}/${baseModelName}`,
 					choices: [
 						{
 							index: 0,
@@ -1009,9 +1042,41 @@ function transformToOpenAIFormat(
 							},
 						}),
 					},
+					metadata: {
+						requested_model: requestedModel,
+						requested_provider: requestedProvider,
+						used_model: baseModelName,
+						used_provider: usedProvider,
+						underlying_used_model: usedModel,
+					},
+				};
+			} else {
+				// For standard chat completions format, update model field and add metadata
+				if (transformedResponse && typeof transformedResponse === "object") {
+					transformedResponse.model = `${usedProvider}/${baseModelName}`;
+					transformedResponse.metadata = {
+						requested_model: requestedModel,
+						requested_provider: requestedProvider,
+						used_model: baseModelName,
+						used_provider: usedProvider,
+						underlying_used_model: usedModel,
+					};
+				}
+			}
+			break;
+		}
+		default: {
+			// For any other provider, add metadata to existing response
+			if (transformedResponse && typeof transformedResponse === "object") {
+				transformedResponse.model = `${usedProvider}/${baseModelName}`;
+				transformedResponse.metadata = {
+					requested_model: requestedModel,
+					requested_provider: requestedProvider,
+					used_model: baseModelName,
+					used_provider: usedProvider,
+					underlying_used_model: usedModel,
 				};
 			}
-			// If not responses format, leave as is (standard chat completions format)
 			break;
 		}
 	}
@@ -1767,6 +1832,11 @@ const completionsRequestSchema = z.object({
 		.openapi({
 			description: "Additional customization options for request processing",
 		}),
+	free_models_only: z.boolean().optional().default(false).openapi({
+		description:
+			"When used with auto routing, only route to free models (models with zero input and output pricing)",
+		example: false,
+	}),
 });
 
 const completions = createRoute({
@@ -1841,6 +1911,13 @@ const completions = createRoute({
 									cached_tokens: z.number().optional(),
 								})
 								.optional(),
+						}),
+						metadata: z.object({
+							requested_model: z.string(),
+							requested_provider: z.string().nullable(),
+							used_model: z.string(),
+							used_provider: z.string(),
+							underlying_used_model: z.string(),
 						}),
 					}),
 				},
@@ -1923,6 +2000,7 @@ chat.openapi(completions, async (c) => {
 		tool_choice,
 		reasoning_effort,
 		customization,
+		free_models_only,
 	} = validationResult.data;
 
 	// Extract and validate source from x-source header
@@ -2287,7 +2365,13 @@ chat.openapi(completions, async (c) => {
 
 		// Find the cheapest model that meets our context size requirements
 		// Only consider hardcoded models for auto selection
-		const allowedAutoModels = ["gpt-5-nano", "gpt-4.1-nano"];
+		let allowedAutoModels = ["gpt-5-nano", "gpt-4.1-nano"];
+
+		// If free_models_only is true, expand to include free models
+		if (free_models_only) {
+			allowedAutoModels = [...allowedAutoModels, "kimi-k2-free"];
+		}
+
 		let selectedModel: ModelDefinition | undefined;
 		let selectedProviders: any[] = [];
 		let lowestPrice = Number.MAX_VALUE;
@@ -2324,6 +2408,12 @@ chat.openapi(completions, async (c) => {
 				for (const provider of suitableProviders) {
 					const totalPrice =
 						((provider.inputPrice || 0) + (provider.outputPrice || 0)) / 2;
+
+					// If free_models_only is true, only consider free models (totalPrice === 0)
+					if (free_models_only && totalPrice > 0) {
+						continue;
+					}
+
 					if (totalPrice < lowestPrice) {
 						lowestPrice = totalPrice;
 						selectedModel = modelDef;
@@ -2335,20 +2425,44 @@ chat.openapi(completions, async (c) => {
 
 		// If we found a suitable model, use the cheapest provider from it
 		if (selectedModel && selectedProviders.length > 0) {
-			const cheapestResult = getCheapestFromAvailableProviders(
-				selectedProviders,
-				selectedModel,
-			);
+			// If free_models_only is true, filter to only free providers
+			const finalProviders = free_models_only
+				? selectedProviders.filter((provider) => {
+						const totalPrice =
+							((provider.inputPrice || 0) + (provider.outputPrice || 0)) / 2;
+						return totalPrice === 0;
+					})
+				: selectedProviders;
 
-			if (cheapestResult) {
-				usedProvider = cheapestResult.providerId;
-				usedModel = cheapestResult.modelName;
-			} else {
-				// Fallback to first available provider if price comparison fails
-				usedProvider = selectedProviders[0].providerId;
-				usedModel = selectedProviders[0].modelName;
+			if (finalProviders.length > 0) {
+				const cheapestResult = getCheapestFromAvailableProviders(
+					finalProviders,
+					selectedModel,
+				);
+
+				if (cheapestResult) {
+					usedProvider = cheapestResult.providerId;
+					usedModel = cheapestResult.modelName;
+				} else {
+					// Fallback to first available provider if price comparison fails
+					usedProvider = finalProviders[0].providerId;
+					usedModel = finalProviders[0].modelName;
+				}
+			} else if (free_models_only) {
+				// If no free models are available, return error
+				throw new HTTPException(400, {
+					message:
+						"No free models are available for auto routing. Remove free_models_only parameter or use a specific model.",
+				});
 			}
 		} else {
+			if (free_models_only) {
+				// If free_models_only is true but no suitable model found, return error
+				throw new HTTPException(400, {
+					message:
+						"No free models are available for auto routing. Remove free_models_only parameter or use a specific model.",
+				});
+			}
 			// Default fallback if no suitable model is found - use cheapest allowed model
 			usedModel = "gpt-5-nano";
 			usedProvider = "openai";
@@ -4389,6 +4503,9 @@ chat.openapi(completions, async (c) => {
 		cachedTokens,
 		toolResults,
 		images,
+		modelInput,
+		requestedProvider || null,
+		baseModelName,
 	);
 
 	const baseLogEntry = createLogEntry(

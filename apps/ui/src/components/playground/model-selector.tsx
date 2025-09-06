@@ -165,7 +165,8 @@ export function ModelSelector({
 				{uniqueModels.map((model) => (
 					<div key={model.id}>
 						<DropdownMenuItem
-							onSelect={() => onModelSelect(model.id)}
+							// onSelect={() => onModelSelect(model.id)}
+							onClick={() => onModelSelect(model.id)}
 							className="flex items-center justify-between py-3"
 						>
 							<div className="flex items-center gap-2">
