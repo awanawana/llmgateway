@@ -27,7 +27,6 @@ docker run -d \
   -p 4001:4001 \
   -p 4002:4002 \
   -v ~/llmgateway_data:/var/lib/postgresql/data \
-  -e OPENAI_API_KEY=sk-your_openai_key_here \
   -e AUTH_SECRET=your-secret-key-here \
   ghcr.io/theopenco/llmgateway-unified:latest
 ```
