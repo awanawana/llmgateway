@@ -7,7 +7,7 @@ export interface AppConfig {
 	docsUrl: string;
 	posthogKey?: string;
 	posthogHost?: string;
-	crispId?: string;
+	brevoConversationsId?: string;
 }
 
 export function getConfig(): AppConfig {
@@ -21,6 +21,6 @@ export function getConfig(): AppConfig {
 		docsUrl: process.env.DOCS_URL || "http://localhost:3005",
 		posthogKey: process.env.POSTHOG_KEY,
 		posthogHost: process.env.POSTHOG_HOST,
-		crispId: process.env.CRISP_ID,
+		brevoConversationsId: process.env.BREVO_CONVERSATIONS_ID,
 	};
 }

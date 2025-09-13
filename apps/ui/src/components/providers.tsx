@@ -39,15 +39,28 @@ export function Providers({ children, config }: ProvidersProps) {
 		autocapture: true,
 	};
 
-	// Set up Crisp if configured
+	// Set up Brevo Conversations if configured
 	useEffect(() => {
-		if (config.crispId) {
-			// Dynamically import Crisp to avoid SSR issues
-			import("crisp-sdk-web").then(({ Crisp }) => {
-				Crisp.configure(config.crispId!);
-			});
+		if (config.brevoConversationsId) {
+			// Set up Brevo Conversations script
+			(window as any).BrevoConversationsID = config.brevoConversationsId;
+			(window as any).BrevoConversations =
+				(window as any).BrevoConversations ||
+				function () {
+					((window as any).BrevoConversations.q =
+						(window as any).BrevoConversations.q || []).push(arguments);
+				};
+
+			// Load the Brevo script
+			const script = document.createElement("script");
+			script.async = true;
+			script.src =
+				"https://conversations-widget.brevo.com/brevo-conversations.js";
+			if (document.head) {
+				document.head.appendChild(script);
+			}
 		}
-	}, [config.crispId]);
+	}, [config.brevoConversationsId]);
 
 	return (
 		<AppConfigProvider config={config}>
