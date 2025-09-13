@@ -8,9 +8,6 @@ on:
       - main
       - hotfix
   pull_request:
-    paths:
-      - "infra/**.dockerfile"
-      - ".github/workflows/images.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
