@@ -7,10 +7,10 @@ import { useAppConfig } from "@/lib/config";
 
 export function BrevoWidget() {
 	const config = useAppConfig();
-	const { user } = useUser();
+	const { user, isLoading } = useUser();
 
 	useEffect(() => {
-		if (!config.brevoConversationsId) {
+		if (!config.brevoConversationsId && isLoading) {
 			return;
 		}
 
@@ -50,7 +50,7 @@ export function BrevoWidget() {
 				existingScript.remove();
 			}
 		};
-	}, [config.brevoConversationsId, user?.email]);
+	}, [config.brevoConversationsId, user?.email, isLoading]);
 
 	// Update user email when it changes
 	useEffect(() => {
