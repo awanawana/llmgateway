@@ -395,9 +395,6 @@ importers:
       clsx:
         specifier: ^2.0.0
         version: 2.1.1
-      crisp-sdk-web:
-        specifier: 1.0.25
-        version: 1.0.25
       date-fns:
         specifier: 4.1.0
         version: 4.1.0
@@ -4926,9 +4923,6 @@ packages:
     peerDependenciesMeta:
       typescript:
         optional: true
-
-  crisp-sdk-web@1.0.25:
-    resolution: {integrity: sha512-CWTHFFeHRV0oqiXoPh/aIAKhFs6xcIM4NenGPnClAMCZUDQgQsF1OWmZWmnVNjJriXUmWRgDfeUxcxygS0dCRA==}
 
   cross-env-shell@7.0.3:
     resolution: {integrity: sha512-ZEtnHInQRRzuAbmMpUqu/mk1jaZun14WdcmnpzZZ6Bpi1BLTPkbKioQ6+wkFssf+m/DpdttDpsCX6g8zU9W40A==}
@@ -13484,8 +13478,6 @@ snapshots:
       parse-json: 5.2.0
     optionalDependencies:
       typescript: 5.8.3
-
-  crisp-sdk-web@1.0.25: {}
 
   cross-env-shell@7.0.3: {}
 
