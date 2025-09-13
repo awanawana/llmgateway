@@ -4,8 +4,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ThemeProvider } from "next-themes";
 import { PostHogProvider } from "posthog-js/react";
-import { useMemo, useEffect } from "react";
+import { useMemo } from "react";
 
+import { BrevoWidget } from "@/components/brevo-widget";
 import { Toaster } from "@/lib/components/toaster";
 import { AppConfigProvider } from "@/lib/config";
 
@@ -39,29 +40,6 @@ export function Providers({ children, config }: ProvidersProps) {
 		autocapture: true,
 	};
 
-	// Set up Brevo Conversations if configured
-	useEffect(() => {
-		if (config.brevoConversationsId) {
-			// Set up Brevo Conversations script
-			(window as any).BrevoConversationsID = config.brevoConversationsId;
-			(window as any).BrevoConversations =
-				(window as any).BrevoConversations ||
-				function () {
-					((window as any).BrevoConversations.q =
-						(window as any).BrevoConversations.q || []).push(arguments);
-				};
-
-			// Load the Brevo script
-			const script = document.createElement("script");
-			script.async = true;
-			script.src =
-				"https://conversations-widget.brevo.com/brevo-conversations.js";
-			if (document.head) {
-				document.head.appendChild(script);
-			}
-		}
-	}, [config.brevoConversationsId]);
-
 	return (
 		<AppConfigProvider config={config}>
 			<ThemeProvider
@@ -84,6 +62,7 @@ export function Providers({ children, config }: ProvidersProps) {
 					{process.env.NODE_ENV === "development" && (
 						<ReactQueryDevtools buttonPosition="bottom-right" />
 					)}
+					<BrevoWidget />
 				</QueryClientProvider>
 				<Toaster />
 			</ThemeProvider>
