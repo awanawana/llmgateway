@@ -1,12 +1,13 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
-import { db, eq, tables } from "@llmgateway/db";
-import { providers, validateProviderKey } from "@llmgateway/models";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 
-import { maskToken } from "../lib/maskToken";
+import { maskToken } from "@/lib/maskToken";
 
-import type { ServerTypes } from "../vars";
+import { db, eq, tables } from "@llmgateway/db";
+import { providers, validateProviderKey } from "@llmgateway/models";
+
+import type { ServerTypes } from "@/vars";
 import type { ProviderId } from "@llmgateway/models";
 
 export const keysProvider = new OpenAPIHono<ServerTypes>();

@@ -1,13 +1,14 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
-import { db, eq, tables } from "@llmgateway/db";
 import { HTTPException } from "hono/http-exception";
 import Stripe from "stripe";
 import { z } from "zod";
 
-import { calculateFees } from "../lib/fee-calculator";
-import { ensureStripeCustomer } from "../stripe";
+import { ensureStripeCustomer } from "@/stripe";
 
-import type { ServerTypes } from "../vars";
+import { db, eq, tables } from "@llmgateway/db";
+import { calculateFees } from "@llmgateway/shared";
+
+import type { ServerTypes } from "@/vars";
 
 export const stripe = new Stripe(
 	process.env.STRIPE_SECRET_KEY || "sk_test_123",

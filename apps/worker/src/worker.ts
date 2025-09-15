@@ -1,3 +1,6 @@
+import Stripe from "stripe";
+import { z } from "zod";
+
 import {
 	getOrganization,
 	consumeFromQueue,
@@ -14,15 +17,15 @@ import {
 	tables,
 	apiKey,
 	inArray,
+	type LogInsertData,
 } from "@llmgateway/db";
 import { logger } from "@llmgateway/logger";
 import { hasErrorCode } from "@llmgateway/models";
-import z from "zod";
+import { calculateFees } from "@llmgateway/shared";
 
-import { calculateFees } from "../../api/src/lib/fee-calculator";
-import { stripe } from "../../api/src/routes/payments";
-
-import type { LogInsertData } from "./lib/logs";
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_123", {
+	apiVersion: "2025-04-30.basil",
+});
 
 const AUTO_TOPUP_LOCK_KEY = "auto_topup_check";
 const CREDIT_PROCESSING_LOCK_KEY = "credit_processing";
@@ -35,6 +38,7 @@ const BATCH_PROCESSING_INTERVAL_SECONDS =
 
 const schema = z.object({
 	id: z.string(),
+	request_id: z.string(),
 	organization_id: z.string(),
 	project_id: z.string(),
 	cost: z.number().nullable(),
@@ -42,6 +46,12 @@ const schema = z.object({
 	api_key_id: z.string(),
 	project_mode: z.enum(["api-keys", "credits", "hybrid"]),
 	used_mode: z.enum(["api-keys", "credits"]),
+	duration: z.number(),
+	requested_model: z.string(),
+	requested_provider: z.string().nullable(),
+	used_model: z.string(),
+	used_provider: z.string(),
+	response_size: z.number(),
 });
 
 export async function acquireLock(key: string): Promise<boolean> {
@@ -287,6 +297,7 @@ async function batchProcessLogs(): Promise<void> {
 			const rows = await tx
 				.select({
 					id: log.id,
+					request_id: log.requestId,
 					organization_id: log.organizationId,
 					project_id: log.projectId,
 					cost: log.cost,
@@ -294,6 +305,12 @@ async function batchProcessLogs(): Promise<void> {
 					api_key_id: log.apiKeyId,
 					project_mode: tables.project.mode,
 					used_mode: log.usedMode,
+					duration: log.duration,
+					requested_model: log.requestedModel,
+					requested_provider: log.requestedProvider,
+					used_model: log.usedModel,
+					used_provider: log.usedProvider,
+					response_size: log.responseSize,
 				})
 				.from(log)
 				.leftJoin(tables.project, eq(tables.project.id, log.projectId))
@@ -318,6 +335,27 @@ async function batchProcessLogs(): Promise<void> {
 
 			for (const raw of unprocessedLogs.rows) {
 				const row = schema.parse(raw);
+
+				// Log each processed log with JSON format
+				logger.info("Processing log", {
+					kind: "log-process",
+					logId: row.id,
+					requestId: row.request_id,
+					organizationId: row.organization_id,
+					projectId: row.project_id,
+					cost: row.cost,
+					cached: row.cached,
+					apiKeyId: row.api_key_id,
+					projectMode: row.project_mode,
+					usedMode: row.used_mode,
+					duration: row.duration,
+					requestedModel: row.requested_model,
+					requestedProvider: row.requested_provider,
+					usedModel: row.used_model,
+					usedProvider: row.used_provider,
+					responseSize: row.response_size,
+				});
+
 				if (row.cost && row.cost > 0 && !row.cached) {
 					// Always update API key usage for non-cached logs with cost
 					const currentApiKeyCost = apiKeyCosts.get(row.api_key_id) || 0;

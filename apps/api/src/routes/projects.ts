@@ -1,9 +1,10 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
-import { db, eq, tables } from "@llmgateway/db";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 
-import type { ServerTypes } from "../vars";
+import { db, eq, tables } from "@llmgateway/db";
+
+import type { ServerTypes } from "@/vars";
 
 export const projects = new OpenAPIHono<ServerTypes>();
 

@@ -1,4 +1,15 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+import { trace } from "@opentelemetry/api";
+import { encode, encodeChat } from "gpt-tokenizer";
+import { HTTPException } from "hono/http-exception";
+import { streamSSE } from "hono/streaming";
+
+import { calculateCosts } from "@/lib/costs";
+import { throwIamException, validateModelAccess } from "@/lib/iam";
+import { insertLog } from "@/lib/logs";
+import { getProviderEnvVar, hasProviderEnvironmentToken } from "@/lib/provider";
+import { checkFreeModelRateLimit } from "@/lib/rate-limit";
+
 import {
 	checkCustomProviderExists,
 	generateCacheKey,
@@ -39,19 +50,8 @@ import {
 	hasMaxTokens,
 	providers,
 } from "@llmgateway/models";
-import { encode, encodeChat } from "gpt-tokenizer";
-import { HTTPException } from "hono/http-exception";
-import { streamSSE } from "hono/streaming";
 
-import { calculateCosts } from "../lib/costs";
-import { insertLog } from "../lib/logs";
-import {
-	getProviderEnvVar,
-	hasProviderEnvironmentToken,
-} from "../lib/provider";
-import { checkFreeModelRateLimit } from "../lib/rate-limit";
-
-import type { ServerTypes } from "../vars";
+import type { ServerTypes } from "@/vars";
 import type { Context } from "hono";
 
 // Helper function to validate free model usage
@@ -253,6 +253,9 @@ function createLogEntry(
 	upstreamRequest?: unknown,
 	upstreamResponse?: unknown,
 ) {
+	const activeSpan = trace.getActiveSpan();
+	const traceId = activeSpan?.spanContext().traceId || null;
+
 	return {
 		requestId,
 		organizationId: project.organizationId,
@@ -276,6 +279,7 @@ function createLogEntry(
 		mode: project.mode,
 		source: source || null,
 		customHeaders: Object.keys(customHeaders).length > 0 ? customHeaders : null,
+		traceId,
 		// Only include raw payloads if x-debug header is set to true
 		rawRequest: debugMode ? rawRequest || null : null,
 		rawResponse: debugMode ? rawResponse || null : null,
@@ -2054,7 +2058,8 @@ chat.openapi(completions, async (c) => {
 	const source = validateAndNormalizeSource(c.req.header("x-source"));
 
 	// Check if debug mode is enabled via x-debug header
-	const debugMode = c.req.header("x-debug") === "true";
+	const debugMode =
+		c.req.header("x-debug") === "true" || process.env.NODE_ENV !== "production";
 
 	// Constants for raw data logging
 	const MAX_RAW_DATA_SIZE = 1 * 1024 * 1024; // 1MB limit for raw logging data
@@ -2291,6 +2296,16 @@ chat.openapi(completions, async (c) => {
 		throw new HTTPException(500, {
 			message: "Could not find project",
 		});
+	}
+
+	// Validate IAM rules for model access
+	const iamValidation = await validateModelAccess(
+		apiKey.id,
+		requestedModel,
+		requestedProvider,
+	);
+	if (!iamValidation.allowed) {
+		throwIamException(iamValidation.reason!);
 	}
 
 	// Enforce Pro plan when using custom X-LLMGateway-* headers in hosted paid mode
