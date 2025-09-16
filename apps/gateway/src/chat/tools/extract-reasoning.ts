@@ -20,7 +20,7 @@ export function extractReasoning(data: any, provider: Provider): string {
 		case "google-ai-studio": {
 			const parts = data.candidates?.[0]?.content?.parts || [];
 			const reasoningParts = parts.filter((part: any) => part.thought);
-			return reasoningParts.map((part: any) => part.text).join("") || "";
+			return reasoningParts.map((part: any) => part.thought).join("") || "";
 		}
 		default: // OpenAI format
 			return (
