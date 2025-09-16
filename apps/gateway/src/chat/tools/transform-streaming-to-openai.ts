@@ -259,10 +259,27 @@ export function transformStreamingToOpenai(
 				};
 			} else if (data.candidates?.[0]?.finishReason) {
 				const finishReason = data.candidates[0].finishReason;
+				const parts = data.candidates[0].content?.parts || [];
 				// Check if there are function calls in this response
-				const hasFunctionCalls = data.candidates?.[0]?.content?.parts?.some(
-					(part: any) => part.functionCall,
-				);
+				const hasFunctionCalls = parts.some((part: any) => part.functionCall);
+
+				const delta: any = {
+					role: "assistant",
+				};
+
+				// If there are function calls, include the function_call object in delta
+				if (hasFunctionCalls) {
+					const firstFunctionCall = parts.find(
+						(part: any) => part.functionCall,
+					)?.functionCall;
+					if (firstFunctionCall) {
+						delta.function_call = {
+							name: firstFunctionCall.name,
+							arguments: JSON.stringify(firstFunctionCall.args || {}),
+						};
+					}
+				}
+
 				transformedData = {
 					id: data.responseId || `chatcmpl-${Date.now()}`,
 					object: "chat.completion.chunk",
@@ -271,9 +288,7 @@ export function transformStreamingToOpenai(
 					choices: [
 						{
 							index: data.candidates[0].index || 0,
-							delta: {
-								role: "assistant",
-							},
+							delta,
 							finish_reason:
 								finishReason === "STOP"
 									? hasFunctionCalls
