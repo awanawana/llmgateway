@@ -471,6 +471,52 @@ export function transformStreamingToOpenai(
 						break;
 					}
 
+					// Generic function-call deltas (names can vary; handle broadly)
+					case "response.function_call.delta":
+					case "response.function_call_arguments.delta":
+					case "response.function_call_arguments.appended": {
+						const name =
+							data.item?.name ||
+							data.function_call?.name ||
+							data.part?.name ||
+							"";
+						const callId =
+							data.item?.id ||
+							data.item?.call_id ||
+							data.function_call?.call_id ||
+							`call_${Date.now()}`;
+						const argsText =
+							typeof data.delta === "string"
+								? data.delta
+								: data.delta?.arguments || data.arguments_delta || "";
+						transformedData = {
+							id: data.response?.id || `chatcmpl-${Date.now()}`,
+							object: "chat.completion.chunk",
+							created:
+								data.response?.created_at || Math.floor(Date.now() / 1000),
+							model: data.response?.model || usedModel,
+							choices: [
+								{
+									index: 0,
+									delta: {
+										role: "assistant",
+										tool_calls: [
+											{
+												index: 0,
+												id: callId,
+												type: "function",
+												function: { name, arguments: argsText },
+											},
+										],
+									},
+									finish_reason: null,
+								},
+							],
+							usage: null,
+						};
+						break;
+					}
+
 					default:
 						// Unknown event type - still provide basic OpenAI format structure
 						transformedData = {
