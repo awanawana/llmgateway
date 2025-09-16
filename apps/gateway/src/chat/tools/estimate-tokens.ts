@@ -20,9 +20,18 @@ export function estimateTokens(
 	let calculatedCompletionTokens = completionTokens;
 
 	// Always estimate missing tokens for any provider
-	if (!promptTokens || !completionTokens) {
+	if (
+		promptTokens === null ||
+		promptTokens === undefined ||
+		completionTokens === null ||
+		completionTokens === undefined
+	) {
 		// Estimate prompt tokens using encodeChat for better accuracy
-		if (!promptTokens && messages && messages.length > 0) {
+		if (
+			(promptTokens === null || promptTokens === undefined) &&
+			messages &&
+			messages.length > 0
+		) {
 			try {
 				// Convert messages to the format expected by gpt-tokenizer
 				const chatMessages: ChatMessage[] = messages.map((m) => ({
@@ -49,7 +58,10 @@ export function estimateTokens(
 		}
 
 		// Estimate completion tokens using encode for better accuracy
-		if (!completionTokens && content) {
+		if (
+			(completionTokens === null || completionTokens === undefined) &&
+			content
+		) {
 			try {
 				calculatedCompletionTokens = encode(content).length;
 			} catch (error) {
