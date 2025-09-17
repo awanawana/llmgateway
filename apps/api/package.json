@@ -9,6 +9,9 @@
 	],
 	"scripts": {
 		"build": "tsc && resolve-tspaths && pnpm run generate",
+		"build:executable": "tsc && resolve-tspaths && bun build dist/serve.js --compile --minify --sourcemap --bytecode --outfile api-server.out",
+		"build:executable:linux-arm64": "tsc && resolve-tspaths && bun build dist/serve.js --compile --target=bun-linux-arm64 --minify --sourcemap --bytecode --outfile api-server-linux-arm64.out",
+		"build:executable:linux-x64": "tsc && resolve-tspaths && bun build dist/serve.js --compile --target=bun-linux-x64 --minify --sourcemap --bytecode --outfile api-server-linux-x64.out",
 		"dev": "concurrently \"tsc-watch --onSuccess 'resolve-tspaths'\" \"nodemon dist/serve.js\"",
 		"format": "eslint --fix . && prettier --write .",
 		"generate": "node ./dist/scripts/generate-openapi.js",

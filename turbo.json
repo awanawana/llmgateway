@@ -28,6 +28,18 @@
 				"openapi.json"
 			]
 		},
+		"build:executable": {
+			"dependsOn": ["build"],
+			"outputs": ["*.out"]
+		},
+		"build:executable:linux-x64": {
+			"dependsOn": ["build"],
+			"outputs": ["*-linux-x64.out"]
+		},
+		"build:executable:linux-arm64": {
+			"dependsOn": ["build"],
+			"outputs": ["*-linux-arm64.out"]
+		},
 		"generate": {
 			"dependsOn": ["build", "^generate"],
 			"outputs": ["openapi.json", "content/**", "migrations", "**/v1.d.ts"]

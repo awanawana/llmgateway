@@ -10,26 +10,31 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xz-utils \
     ca-certificates \
     tini \
+    unzip \
     && rm -rf /var/lib/apt/lists/* \
     && /usr/bin/tini --version
 
 # Create app directory
 WORKDIR /app
 
-# Copy .tool-versions to get Node.js and pnpm versions
+# Copy .tool-versions to get versions
 COPY .tool-versions ./
 
-# Install Node.js and pnpm based on .tool-versions
+# Install Node.js, Bun and pnpm based on .tool-versions
 RUN NODE_VERSION=$(cat .tool-versions | grep 'nodejs' | cut -d ' ' -f 2) && \
     PNPM_VERSION=$(cat .tool-versions | grep 'pnpm' | cut -d ' ' -f 2) && \
     ARCH=$(uname -m) && \
-    echo "Installing Node.js v${NODE_VERSION} and pnpm v${PNPM_VERSION} for ${ARCH}" && \
+    echo "Installing Node.js v${NODE_VERSION}, Bun and pnpm v${PNPM_VERSION} for ${ARCH}" && \
     \
-    # Map architecture names for Node.js official builds
+    # Map architecture names for Node.js and Bun official builds
     if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then \
         NODE_ARCH="arm64"; \
+        BUN_ARCH="aarch64"; \
+        PNPM_ARCH="arm64"; \
     elif [ "$ARCH" = "x86_64" ]; then \
         NODE_ARCH="x64"; \
+        BUN_ARCH="x64"; \
+        PNPM_ARCH="x64"; \
     else \
         echo "Unsupported architecture: ${ARCH}" && exit 1; \
     fi && \
@@ -39,17 +44,21 @@ RUN NODE_VERSION=$(cat .tool-versions | grep 'nodejs' | cut -d ' ' -f 2) && \
     tar -xJf node-official.tar.xz --strip-components=1 -C /usr/local && \
     rm node-official.tar.xz && \
     \
+    # Download and install Bun
+    curl -fsSL "https://github.com/oven-sh/bun/releases/latest/download/bun-linux-${BUN_ARCH}.zip" -o bun.zip && \
+    unzip bun.zip && \
+    mv bun-linux-${BUN_ARCH}/bun /usr/local/bin/bun && \
+    chmod +x /usr/local/bin/bun && \
+    rm -rf bun.zip bun-linux-${BUN_ARCH} && \
+    \
     # Install pnpm
-    if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then \
-        curl -fsSL "https://github.com/pnpm/pnpm/releases/download/v${PNPM_VERSION}/pnpm-linuxstatic-arm64" -o /usr/local/bin/pnpm; \
-    else \
-        curl -fsSL "https://github.com/pnpm/pnpm/releases/download/v${PNPM_VERSION}/pnpm-linuxstatic-x64" -o /usr/local/bin/pnpm; \
-    fi && \
+    curl -fsSL "https://github.com/pnpm/pnpm/releases/download/v${PNPM_VERSION}/pnpm-linuxstatic-${PNPM_ARCH}" -o /usr/local/bin/pnpm && \
     chmod +x /usr/local/bin/pnpm && \
     \
     # Verify installations
     echo "Final versions installed:" && \
     node -v && \
+    bun -v && \
     pnpm -v && \
     \
     # verify that node -v matches .tool-versions nodejs version
@@ -90,55 +99,94 @@ RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --froze
 # Copy source code
 COPY . .
 
-# Build all apps
-RUN --mount=type=cache,target=/app/.turbo pnpm build
+# Build all apps and create executables for API and Gateway
+RUN --mount=type=cache,target=/app/.turbo pnpm build && \
+    ARCH=$(uname -m) && \
+    if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then \
+        pnpm build:executables:linux-arm64; \
+    else \
+        pnpm build:executables:linux-x64; \
+    fi
 
 FROM debian:12-slim AS runtime
 
 # Install base runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends bash && rm -rf /var/lib/apt/lists/*
 
-# copy nodejs, pnpm, and tini from builder stage
+# copy nodejs, bun, pnpm, and tini from builder stage
 COPY --from=builder /usr/local/bin/node /usr/local/bin/node
+COPY --from=builder /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=builder /usr/local/bin/pnpm /usr/local/bin/pnpm
 COPY --from=builder /usr/bin/tini /tini
 
 # Verify installations
-RUN node -v && pnpm -v
+RUN node -v && bun -v && pnpm -v
 
 ENTRYPOINT ["/tini", "--"]
 
 ARG APP_VERSION
 ENV APP_VERSION=$APP_VERSION
 
-FROM runtime AS api
-WORKDIR /app/temp
-COPY --from=builder /app/apps ./apps
-COPY --from=builder /app/packages ./packages
-COPY --from=builder /app/.npmrc /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml ./
-RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm --filter=api --prod deploy ../dist/api
-RUN rm -rf /app/temp
-WORKDIR /app/dist/api
+FROM debian:12-slim AS api
+WORKDIR /app
+# Copy the standalone executable based on architecture
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then \
+        echo "Using ARM64 executable"; \
+    else \
+        echo "Using x64 executable"; \
+    fi
+
+# Copy the appropriate executable
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then \
+        echo "api-server-linux-arm64" > /tmp/executable_name; \
+    else \
+        echo "api-server-linux-x64" > /tmp/executable_name; \
+    fi
+
+COPY --from=builder /app/apps/api/api-server-linux-*.out ./
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then \
+        mv api-server-linux-arm64.out api-server 2>/dev/null || true; \
+    else \
+        mv api-server-linux-x64.out api-server 2>/dev/null || true; \
+    fi && \
+    chmod +x api-server && \
+    ls -la
+
 # copy migrations files for API service to run migrations at runtime
 COPY --from=builder /app/packages/db/migrations ./migrations
 EXPOSE 80
 ENV PORT=80
 ENV NODE_ENV=production
 ENV TELEMETRY_ACTIVE=true
-CMD ["node", "--enable-source-maps", "dist/serve.js"]
+CMD ["./api-server"]
 
-FROM runtime AS gateway
-WORKDIR /app/temp
-COPY --from=builder /app/apps ./apps
-COPY --from=builder /app/packages ./packages
-COPY --from=builder /app/.npmrc /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml ./
-RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm --filter=gateway --prod deploy ../dist/gateway
-RUN rm -rf /app/temp
-WORKDIR /app/dist/gateway
+FROM debian:12-slim AS gateway
+WORKDIR /app
+# Copy the standalone executable based on architecture
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then \
+        echo "Using ARM64 executable"; \
+    else \
+        echo "Using x64 executable"; \
+    fi
+
+COPY --from=builder /app/apps/gateway/gateway-server-linux-*.out ./
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then \
+        mv gateway-server-linux-arm64.out gateway-server 2>/dev/null || true; \
+    else \
+        mv gateway-server-linux-x64.out gateway-server 2>/dev/null || true; \
+    fi && \
+    chmod +x gateway-server && \
+    ls -la
+
 EXPOSE 80
 ENV PORT=80
 ENV NODE_ENV=production
-CMD ["node", "--enable-source-maps", "dist/serve.js"]
+CMD ["./gateway-server"]
 
 FROM runtime AS ui
 WORKDIR /app/temp

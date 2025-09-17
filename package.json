@@ -8,6 +8,9 @@
 	],
 	"scripts": {
 		"build": "TURBO_TOKEN=turbotokenoss turbo run build",
+		"build:executables": "turbo run build:executable",
+		"build:executables:linux-arm64": "turbo run build:executable:linux-arm64",
+		"build:executables:linux-x64": "turbo run build:executable:linux-x64",
 		"clean": "find . -path \"./node_modules\" -prune -o \\( -type d -name \"dist\" -o -name \".turbo\" -o -name \".source\" -o -name \".vercel\" -o -name \".out\" -o -name \".vinxi\" -o -name \".next\" \\) -exec rm -rf {} +",
 		"clean:node_modules": "find . -type d -name \"node_modules\" -exec rm -rf {} +",
 		"dev": "turbo run dev",
