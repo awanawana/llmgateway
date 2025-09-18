@@ -1,6 +1,8 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 
+import { logger } from "@llmgateway/logger";
+
 import type { ServerTypes } from "@/vars.js";
 
 export const anthropic = new OpenAPIHono<ServerTypes>();
@@ -174,9 +176,19 @@ anthropic.openapi(messages, async (c) => {
 	try {
 		rawRequest = await c.req.json();
 	} catch (error) {
-		// console.log("Failed to parse JSON from request:", error);
+		// Extract request ID for correlation
+		const requestId = c.req.header("x-request-id") || "unknown";
+
+		logger.error("JSON parsing failed in Anthropic /v1/messages", {
+			requestId,
+			error: error instanceof Error ? error.message : String(error),
+			contentType: c.req.header("content-type"),
+			userAgent: c.req.header("user-agent"),
+			referer: c.req.header("referer"),
+		});
+
 		throw new HTTPException(400, {
-			message: `Invalid JSON in request body: ${error}`,
+			message: `Invalid JSON in request body: ${error instanceof Error ? error.message : String(error)}`,
 		});
 	}
 

@@ -337,11 +337,19 @@ chat.openapi(completions, async (c) => {
 	let rawBody: unknown;
 	try {
 		rawBody = await c.req.json();
-	} catch {
+	} catch (error) {
+		logger.error("JSON parsing failed in chat completions", {
+			requestId,
+			error: error instanceof Error ? error.message : String(error),
+			contentType: c.req.header("content-type"),
+			userAgent: c.req.header("user-agent"),
+			referer: c.req.header("referer"),
+		});
+
 		return c.json(
 			{
 				error: {
-					message: "Invalid JSON in request body",
+					message: `Invalid JSON in request body: ${error instanceof Error ? error.message : String(error)}`,
 					type: "invalid_request_error",
 					param: null,
 					code: "invalid_json",
@@ -1678,7 +1686,22 @@ chat.openapi(completions, async (c) => {
 				if (finishReason === "client_error") {
 					try {
 						errorData = JSON.parse(errorResponseText);
-					} catch {
+					} catch (parseError) {
+						// Log the JSON parsing failure with context
+						logger.error("Failed to parse provider error response", {
+							requestId,
+							provider: usedProvider,
+							model: usedModel,
+							status: res.status,
+							statusText: res.statusText,
+							parseError:
+								parseError instanceof Error
+									? parseError.message
+									: String(parseError),
+							responsePreview: errorResponseText.substring(0, 200),
+							responseLength: errorResponseText.length,
+						});
+
 						// If we can't parse the original error, fall back to our format
 						errorData = {
 							error: {
@@ -2824,7 +2847,24 @@ chat.openapi(completions, async (c) => {
 							responseText: errorResponseText,
 							message: originalError.error?.message || errorResponseText,
 						};
-					} catch {
+					} catch (parseError) {
+						// Log the JSON parsing failure for analysis
+						logger.error(
+							"Failed to parse provider error response in errorDetails",
+							{
+								requestId,
+								provider: usedProvider,
+								model: usedModel,
+								status: res.status,
+								statusText: res.statusText,
+								parseError:
+									parseError instanceof Error
+										? parseError.message
+										: String(parseError),
+								responsePreview: errorResponseText.substring(0, 200),
+								responseLength: errorResponseText.length,
+							},
+						);
 						// If parsing fails, use default format
 					}
 				}
@@ -2848,7 +2888,24 @@ chat.openapi(completions, async (c) => {
 			try {
 				const originalError = JSON.parse(errorResponseText);
 				return c.json(originalError, res.status as 400);
-			} catch {
+			} catch (parseError) {
+				// Log the JSON parsing failure for final response handling
+				logger.error(
+					"Failed to parse provider error response for final response",
+					{
+						requestId,
+						provider: usedProvider,
+						model: usedModel,
+						status: res.status,
+						statusText: res.statusText,
+						parseError:
+							parseError instanceof Error
+								? parseError.message
+								: String(parseError),
+						responsePreview: errorResponseText.substring(0, 200),
+						responseLength: errorResponseText.length,
+					},
+				);
 				// If we can't parse the original error, fall back to our format
 			}
 		}
