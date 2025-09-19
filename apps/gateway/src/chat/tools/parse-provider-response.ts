@@ -115,7 +115,9 @@ export function parseProviderResponse(
 						? "length"
 						: googleFinishReason === "SAFETY"
 							? "content_filter"
-							: "stop" // Safe fallback for unknown reasons
+							: googleFinishReason === "tool_calls"
+								? "tool_calls" // Handle when Google returns tool_calls directly
+								: "stop" // Safe fallback for unknown reasons
 				: null;
 			promptTokens = json.usageMetadata?.promptTokenCount || null;
 			completionTokens = json.usageMetadata?.candidatesTokenCount || null;
