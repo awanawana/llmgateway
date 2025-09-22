@@ -1,6 +1,10 @@
 import { encodeChat } from "gpt-tokenizer";
 
-import { type ChatMessage, DEFAULT_TOKENIZER_MODEL } from "./types.js";
+import {
+	type ChatMessage,
+	DEFAULT_TOKENIZER_MODEL,
+	extractTextFromMessageContent,
+} from "./types.js";
 
 /**
  * Transforms streaming chunk to OpenAI format for non-OpenAI providers
@@ -10,8 +14,7 @@ export function calculatePromptTokensFromMessages(messages: any[]): number {
 	try {
 		const chatMessages: ChatMessage[] = messages.map((m: any) => ({
 			role: m.role,
-			content:
-				typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+			content: extractTextFromMessageContent(m.content),
 			name: m.name,
 		}));
 		return encodeChat(chatMessages, DEFAULT_TOKENIZER_MODEL).length;

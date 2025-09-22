@@ -2,7 +2,11 @@ import { encode, encodeChat } from "gpt-tokenizer";
 
 import { logger } from "@llmgateway/logger";
 
-import { type ChatMessage, DEFAULT_TOKENIZER_MODEL } from "./types.js";
+import {
+	type ChatMessage,
+	DEFAULT_TOKENIZER_MODEL,
+	extractTextFromMessageContent,
+} from "./types.js";
 
 import type { Provider } from "@llmgateway/models";
 
@@ -27,10 +31,7 @@ export function estimateTokens(
 				// Convert messages to the format expected by gpt-tokenizer
 				const chatMessages: ChatMessage[] = messages.map((m) => ({
 					role: m.role,
-					content:
-						typeof m.content === "string"
-							? m.content
-							: JSON.stringify(m.content),
+					content: extractTextFromMessageContent(m.content),
 					name: m.name,
 				}));
 				calculatedPromptTokens = encodeChat(

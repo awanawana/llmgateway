@@ -54,7 +54,11 @@ import { getProviderEnv } from "./tools/get-provider-env.js";
 import { parseProviderResponse } from "./tools/parse-provider-response.js";
 import { transformResponseToOpenai } from "./tools/transform-response-to-openai.js";
 import { transformStreamingToOpenai } from "./tools/transform-streaming-to-openai.js";
-import { type ChatMessage, DEFAULT_TOKENIZER_MODEL } from "./tools/types.js";
+import {
+	type ChatMessage,
+	DEFAULT_TOKENIZER_MODEL,
+	extractTextFromMessageContent,
+} from "./tools/types.js";
 import { validateFreeModelUsage } from "./tools/validate-free-model-usage.js";
 
 import type { ServerTypes } from "@/vars.js";
@@ -716,10 +720,7 @@ chat.openapi(completions, async (c) => {
 			try {
 				const chatMessages: ChatMessage[] = messages.map((m) => ({
 					role: m.role as "user" | "assistant" | "system" | undefined,
-					content:
-						typeof m.content === "string"
-							? m.content
-							: JSON.stringify(m.content),
+					content: extractTextFromMessageContent(m.content),
 					name: m.name,
 				}));
 				requiredContextSize = encodeChat(
@@ -2530,7 +2531,7 @@ chat.openapi(completions, async (c) => {
 							// Convert messages to the format expected by gpt-tokenizer
 							const chatMessages: any[] = messages.map((m) => ({
 								role: m.role as "user" | "assistant" | "system" | undefined,
-								content: m.content || "",
+								content: extractTextFromMessageContent(m.content) || "",
 								name: m.name,
 							}));
 							calculatedPromptTokens = encodeChat(
