@@ -1,18 +1,24 @@
+// eslint-disable-next-line import/order
+import "dotenv/config";
+
 import { swaggerUI } from "@hono/swagger-ui";
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
-import { db } from "@llmgateway/db";
-import { logger } from "@llmgateway/logger";
-import "dotenv/config";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 
-import { authHandler } from "./auth/handler";
-import { routes } from "./routes";
-import { beacon } from "./routes/beacon";
-import { stripeRoutes } from "./stripe";
+import { db } from "@llmgateway/db";
+import { logger } from "@llmgateway/logger";
+import { HealthChecker } from "@llmgateway/shared";
 
-import type { ServerTypes } from "./vars";
+import { redisClient } from "./auth/config.js";
+import { authHandler } from "./auth/handler.js";
+import { tracingMiddleware } from "./middleware/tracing.js";
+import { beacon } from "./routes/beacon.js";
+import { routes } from "./routes/index.js";
+import { stripeRoutes } from "./stripe.js";
+
+import type { ServerTypes } from "./vars.js";
 
 export const config = {
 	servers: [
@@ -28,6 +34,9 @@ export const config = {
 };
 
 export const app = new OpenAPIHono<ServerTypes>();
+
+// Add tracing middleware first
+app.use("*", tracingMiddleware);
 
 app.use(
 	"*",
@@ -93,6 +102,10 @@ const root = createRoute({
 									connected: z.boolean(),
 									error: z.string().optional(),
 								}),
+								redis: z.object({
+									connected: z.boolean(),
+									error: z.string().optional(),
+								}),
 							}),
 						})
 						.openapi({}),
@@ -100,33 +113,49 @@ const root = createRoute({
 			},
 			description: "Health check response.",
 		},
+		503: {
+			content: {
+				"application/json": {
+					schema: z
+						.object({
+							message: z.string(),
+							version: z.string(),
+							health: z.object({
+								status: z.string(),
+								database: z.object({
+									connected: z.boolean(),
+									error: z.string().optional(),
+								}),
+								redis: z.object({
+									connected: z.boolean(),
+									error: z.string().optional(),
+								}),
+							}),
+						})
+						.openapi({}),
+				},
+			},
+			description: "Service unavailable - Redis or database connection failed.",
+		},
 	},
 });
 
 app.openapi(root, async (c) => {
-	const health = {
-		status: "ok",
-		redis: { connected: false, error: undefined as string | undefined },
-		database: { connected: false, error: undefined as string | undefined },
-	};
+	const TIMEOUT_MS = Number(process.env.TIMEOUT_MS) || 5000;
 
-	try {
-		await db.query.user.findFirst({});
-		health.database.connected = true;
-	} catch (error) {
-		health.status = "error";
-		health.database.error = "Database connection failed";
-		logger.error(
-			"Database healthcheck failed",
-			error instanceof Error ? error : new Error(String(error)),
-		);
-	}
-
-	return c.json({
-		message: "OK",
-		version: process.env.APP_VERSION || "v0.0.0-unknown",
-		health,
+	const healthChecker = new HealthChecker({
+		redisClient,
+		db,
+		logger,
 	});
+
+	const health = await healthChecker.performHealthChecks({
+		timeoutMs: TIMEOUT_MS,
+	});
+
+	const { response, statusCode } = healthChecker.createHealthResponse(health);
+
+	return c.json(response, statusCode as 200 | 503);
 });
 
 app.route("/stripe", stripeRoutes);

@@ -1,4 +1,7 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
+import { HTTPException } from "hono/http-exception";
+import { z } from "zod";
+
 import {
 	and,
 	asc,
@@ -18,10 +21,8 @@ import {
 	toolResults,
 	tools,
 } from "@llmgateway/db";
-import { HTTPException } from "hono/http-exception";
-import { z } from "zod";
 
-import type { ServerTypes } from "../vars";
+import type { ServerTypes } from "@/vars.js";
 
 export const logs = new OpenAPIHono<ServerTypes>();
 

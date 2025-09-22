@@ -1,4 +1,4 @@
-import type { ModelDefinition } from "@llmgateway/models";
+import type { ModelDefinition } from "@/models.js";
 
 export const mistralModels = [
 	{
@@ -22,28 +22,6 @@ export const mistralModels = [
 			},
 		],
 		jsonOutput: false,
-	},
-	{
-		id: "mistral-nemo-instruct-2407",
-		name: "Mistral Nemo Instruct 2407",
-		family: "mistral",
-		deprecatedAt: undefined,
-		deactivatedAt: undefined,
-		providers: [
-			{
-				providerId: "nebius",
-				modelName: "mistralai/Mistral-Nemo-Instruct-2407",
-				inputPrice: 0.04 / 1e6,
-				outputPrice: 0.12 / 1e6,
-				requestPrice: 0,
-				contextSize: 128000,
-				maxOutput: undefined,
-				streaming: true,
-				vision: false,
-				tools: false,
-			},
-		],
-		jsonOutput: true,
 	},
 	{
 		id: "mixtral-8x7b-instruct-together",
@@ -109,6 +87,6 @@ export const mistralModels = [
 				tools: false,
 			},
 		],
-		jsonOutput: true,
+		jsonOutput: false,
 	},
 ] as const satisfies ModelDefinition[];

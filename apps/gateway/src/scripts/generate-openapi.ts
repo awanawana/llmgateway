@@ -1,7 +1,8 @@
-import { logger } from "@llmgateway/logger";
 import { writeFileSync } from "fs";
 
-import { app, config } from "..";
+import { app, config } from "@/app.js";
+
+import { logger } from "@llmgateway/logger";
 
 async function generateOpenAPI() {
 	const spec = app.getOpenAPIDocument(config);

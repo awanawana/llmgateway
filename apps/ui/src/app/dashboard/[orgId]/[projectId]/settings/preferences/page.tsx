@@ -1,9 +1,5 @@
 import { Suspense } from "react";
 
-import { CachingSettingsRsc } from "./_components/caching-settings-rsc";
-import { ProjectModeSettingsRsc } from "./_components/project-mode-settings-rsc";
-import { CachingSettingsSkeleton } from "./_skeletons/caching-settings-skeleton";
-import { ProjectModeSkeleton } from "./_skeletons/project-mode-skeleton";
 import {
 	Card,
 	CardContent,
@@ -11,6 +7,12 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/lib/components/card";
+
+import { ArchiveProjectSettings } from "./_components/archive-project";
+import { CachingSettingsRsc } from "./_components/caching-settings-rsc";
+import { ProjectModeSettingsRsc } from "./_components/project-mode-settings-rsc";
+import { CachingSettingsSkeleton } from "./_skeletons/caching-settings-skeleton";
+import { ProjectModeSkeleton } from "./_skeletons/project-mode-skeleton";
 
 export default async function PreferencesPage({
 	params,
@@ -50,6 +52,20 @@ export default async function PreferencesPage({
 						<CardContent>
 							<Suspense fallback={<CachingSettingsSkeleton />}>
 								<CachingSettingsRsc orgId={orgId} projectId={projectId} />
+							</Suspense>
+						</CardContent>
+					</Card>
+
+					<Card className="border-destructive/20">
+						<CardHeader>
+							<CardTitle className="text-destructive">Danger Zone</CardTitle>
+							<CardDescription>
+								Irreversible and destructive actions
+							</CardDescription>
+						</CardHeader>
+						<CardContent>
+							<Suspense fallback={<div>Loading...</div>}>
+								<ArchiveProjectSettings orgId={orgId} projectId={projectId} />
 							</Suspense>
 						</CardContent>
 					</Card>

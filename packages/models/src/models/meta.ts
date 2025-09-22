@@ -1,4 +1,4 @@
-import type { ModelDefinition } from "@llmgateway/models";
+import type { ModelDefinition } from "@/models.js";
 
 export const metaModels = [
 	{
@@ -47,50 +47,6 @@ export const metaModels = [
 		],
 	},
 	{
-		id: "llama-3.1-70b-instruct-free",
-		name: "Meta Llama 3.1 70B Instruct FP8 (Free)",
-		family: "meta",
-		free: true,
-		deprecatedAt: undefined,
-		deactivatedAt: undefined,
-		providers: [
-			{
-				providerId: "cloudrift",
-				modelName: "meta-llama/Meta-Llama-3.1-70B-Instruct-FP8",
-				inputPrice: 0.0 / 1e6,
-				outputPrice: 0.0 / 1e6,
-				requestPrice: 0,
-				contextSize: 16380,
-				maxOutput: undefined,
-				streaming: true,
-				vision: false,
-				tools: false,
-			},
-		],
-	},
-	{
-		id: "llama-3.3-70b-instruct-free",
-		name: "Meta Llama 3.3 70B Instruct (Free)",
-		family: "meta",
-		free: true,
-		deprecatedAt: undefined,
-		deactivatedAt: undefined,
-		providers: [
-			{
-				providerId: "routeway",
-				modelName: "llama-3.3-70b-instruct:free",
-				inputPrice: 0.0 / 1e6,
-				outputPrice: 0.0 / 1e6,
-				requestPrice: 0,
-				contextSize: 128000,
-				maxOutput: undefined,
-				streaming: true,
-				vision: false,
-				tools: false,
-			},
-		],
-	},
-	{
 		id: "llama-3.2-11b-instruct",
 		name: "Llama 3.2 11B Instruct",
 		family: "meta",
@@ -112,26 +68,6 @@ export const metaModels = [
 		],
 	},
 	{
-		id: "llama-4-maverick-17b-128e-instruct",
-		name: "Llama 4 Maverick 17B 128E Instruct",
-		family: "meta",
-		deprecatedAt: undefined,
-		deactivatedAt: undefined,
-		providers: [
-			{
-				providerId: "cloudrift",
-				modelName: "meta-llama/Llama-4-Maverick-17B-128E-Instruct",
-				inputPrice: 0.1 / 1e6,
-				outputPrice: 0.35 / 1e6,
-				requestPrice: 0,
-				contextSize: 1_050_000,
-				streaming: true,
-				vision: false,
-				tools: false,
-			},
-		],
-	},
-	{
 		id: "llama-3.1-nemotron-ultra-253b",
 		name: "Llama 3.1 Nemotron Ultra 253B",
 		family: "meta",
@@ -141,28 +77,6 @@ export const metaModels = [
 			{
 				providerId: "nebius",
 				modelName: "nvidia/Llama-3_1-Nemotron-Ultra-253B-v1",
-				inputPrice: 0.6 / 1e6,
-				outputPrice: 1.8 / 1e6,
-				requestPrice: 0,
-				contextSize: 128000,
-				maxOutput: undefined,
-				streaming: true,
-				vision: false,
-				tools: false,
-			},
-		],
-		jsonOutput: true,
-	},
-	{
-		id: "llama-3.3-nemotron-super-498",
-		name: "Llama 3.3 Nemotron Super 498",
-		family: "meta",
-		deprecatedAt: undefined,
-		deactivatedAt: undefined,
-		providers: [
-			{
-				providerId: "nebius",
-				modelName: "nvidia/Llama-3_3-Nemotron-Super-49B-v1",
 				inputPrice: 0.6 / 1e6,
 				outputPrice: 1.8 / 1e6,
 				requestPrice: 0,
@@ -195,7 +109,7 @@ export const metaModels = [
 				tools: false,
 			},
 		],
-		jsonOutput: true,
+		jsonOutput: false,
 	},
 	{
 		id: "llama-3.3-70b-instruct",
@@ -265,28 +179,6 @@ export const metaModels = [
 	// 	jsonOutput: false,
 	// },
 	{
-		id: "openbio-llama3-70b",
-		name: "OpenBio Llama3 70B",
-		family: "meta",
-		deprecatedAt: undefined,
-		deactivatedAt: undefined,
-		providers: [
-			{
-				providerId: "nebius",
-				modelName: "aaditya/Llama3-OpenBioLLM-70B",
-				inputPrice: 0.13 / 1e6,
-				outputPrice: 0.4 / 1e6,
-				requestPrice: 0,
-				contextSize: 8192,
-				maxOutput: undefined,
-				streaming: true,
-				vision: false,
-				tools: false,
-			},
-		],
-		jsonOutput: true,
-	},
-	{
 		id: "llama-4-scout",
 		name: "Llama 4 Scout",
 		family: "meta",
@@ -306,6 +198,6 @@ export const metaModels = [
 				tools: true,
 			},
 		],
-		jsonOutput: true,
+		jsonOutput: false,
 	},
 ] as const satisfies ModelDefinition[];

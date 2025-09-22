@@ -1,6 +1,7 @@
 {
 	"extends": "../../tsconfig.json",
 	"compilerOptions": {
+		"declaration": false,
 		"target": "es5",
 		"lib": ["dom", "dom.iterable", "esnext"],
 		"allowJs": true,
@@ -21,16 +22,16 @@
 		],
 		"paths": {
 			"@/*": ["./src/*"],
-			"@llmgateway/*": ["../../packages/*/src"],
 			"content-collections": ["./.content-collections/generated"]
 		}
 	},
 	"include": [
-		"next-env.d.ts",
 		"**/*.ts",
 		"**/*.tsx",
+		"./.content-collections/generated/index.d.ts",
 		".next/types/**/*.ts",
-		"./.content-collections/generated/index.d.ts"
+		"next-env.d.ts",
+		".next-dev/types/**/*.ts"
 	],
 	"exclude": ["node_modules"]
 }

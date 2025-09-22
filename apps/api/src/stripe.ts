@@ -1,13 +1,14 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
-import { db, eq, sql, tables } from "@llmgateway/db";
-import { logger } from "@llmgateway/logger";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 
-import { posthog } from "./posthog";
-import { stripe } from "./routes/payments";
+import { db, eq, sql, tables } from "@llmgateway/db";
+import { logger } from "@llmgateway/logger";
 
-import type { ServerTypes } from "./vars";
+import { posthog } from "./posthog.js";
+import { stripe } from "./routes/payments.js";
+
+import type { ServerTypes } from "./vars.js";
 import type Stripe from "stripe";
 
 export async function ensureStripeCustomer(
@@ -206,7 +207,7 @@ stripeRoutes.openapi(webhookHandler, async (c) => {
 				await handleTrialWillEnd(event);
 				break;
 			default:
-				logger.info(`Unhandled event type: ${event.type}`);
+				logger.warn(`Unhandled event type: ${event.type}`);
 		}
 
 		return c.json({ received: true });

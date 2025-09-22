@@ -1,8 +1,9 @@
-import { db, tables } from "@llmgateway/db";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
-import { app } from "..";
-import { createTestUser, deleteAll } from "../testing";
+import { app } from "@/index.js";
+import { createTestUser, deleteAll } from "@/testing.js";
+
+import { db, tables } from "@llmgateway/db";
 
 describe("logs route", () => {
 	let token: string;

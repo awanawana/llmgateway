@@ -1,10 +1,11 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
-import { logger } from "@llmgateway/logger";
 import { z } from "zod";
 
-import { posthog } from "../posthog";
+import { posthog } from "@/posthog.js";
 
-import type { ServerTypes } from "../vars";
+import { logger } from "@llmgateway/logger";
+
+import type { ServerTypes } from "@/vars.js";
 
 export const beacon = new OpenAPIHono<ServerTypes>();
 

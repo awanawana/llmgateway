@@ -16,6 +16,11 @@ import {
 } from "@/lib/components/dialog";
 import { Input } from "@/lib/components/input";
 import { Label } from "@/lib/components/label";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/lib/components/tooltip";
 import { toast } from "@/lib/components/use-toast";
 import { useApi } from "@/lib/fetch-client";
 
@@ -25,11 +30,15 @@ import type React from "react";
 interface CreateApiKeyDialogProps {
 	children: React.ReactNode;
 	selectedProject: Project;
+	disabled?: boolean;
+	disabledMessage?: string;
 }
 
 export function CreateApiKeyDialog({
 	children,
 	selectedProject,
+	disabled = false,
+	disabledMessage,
 }: CreateApiKeyDialogProps) {
 	const queryClient = useQueryClient();
 	const posthog = usePostHog();
@@ -76,8 +85,9 @@ export function CreateApiKeyDialog({
 					setApiKey(createdKey.token);
 					setStep("created");
 				},
-				onError: () => {
-					toast({ title: "Failed to create API key.", variant: "destructive" });
+				onError: (error: any) => {
+					const errorMessage = error?.message || "Failed to create API key.";
+					toast({ title: errorMessage, variant: "destructive" });
 				},
 			},
 		);
@@ -101,9 +111,23 @@ export function CreateApiKeyDialog({
 		}, 300);
 	};
 
+	const triggerElement = disabled ? (
+		<Tooltip>
+			<TooltipTrigger asChild>
+				<div>{children}</div>
+			</TooltipTrigger>
+			<TooltipContent>
+				<p>{disabledMessage || "API key limit reached"}</p>
+			</TooltipContent>
+		</Tooltip>
+	) : (
+		children
+	);
+
 	return (
-		<Dialog open={open} onOpenChange={setOpen}>
-			<DialogTrigger asChild>{children}</DialogTrigger>
+		<Dialog open={open} onOpenChange={disabled ? undefined : setOpen}>
+			{!disabled && <DialogTrigger asChild>{triggerElement}</DialogTrigger>}
+			{disabled && triggerElement}
 			<DialogContent className="sm:max-w-[500px]">
 				{step === "form" ? (
 					<>
@@ -113,6 +137,10 @@ export function CreateApiKeyDialog({
 								Create a new API key to access LLM Gateway.
 								<span className="block mt-1">
 									Project: {selectedProject.name}
+								</span>
+								<span className="block mt-2 text-xs">
+									💡 After creation, you can configure IAM rules to control
+									access to specific models, providers, or pricing tiers.
 								</span>
 							</DialogDescription>
 						</DialogHeader>
@@ -180,6 +208,10 @@ export function CreateApiKeyDialog({
 							<DialogDescription>
 								Your API key has been created. Please copy it now as you won't
 								be able to see it again.
+								<span className="block mt-2 text-xs">
+									💡 You can now configure IAM rules for this key to control
+									model access from the API Keys page.
+								</span>
 							</DialogDescription>
 						</DialogHeader>
 						<div className="space-y-4 py-4">

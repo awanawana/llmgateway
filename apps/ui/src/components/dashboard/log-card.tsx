@@ -54,7 +54,10 @@ export function LogCard({ log }: { log: Partial<Log> }) {
 		StatusIcon = AlertCircle;
 		color = "text-red-500";
 		bgColor = "bg-red-100";
-	} else if (log.unifiedFinishReason !== "completed") {
+	} else if (
+		log.unifiedFinishReason !== "completed" &&
+		log.unifiedFinishReason !== "tool_calls"
+	) {
 		StatusIcon = AlertCircle;
 		color = "text-yellow-500";
 		bgColor = "bg-yellow-100";
@@ -71,7 +74,16 @@ export function LogCard({ log }: { log: Partial<Log> }) {
 				<div className="flex-1 space-y-1 min-w-0">
 					<div className="flex items-start justify-between gap-4">
 						<p className="font-medium break-words max-w-none line-clamp-2">
-							{log.content || <i className="italic">–</i>}
+							{log.content ||
+								(log.unifiedFinishReason === "tool_calls" && log.toolResults ? (
+									Array.isArray(log.toolResults) ? (
+										`Tool calls: ${log.toolResults.map((tr) => tr.function?.name || "unknown").join(", ")}`
+									) : (
+										"Tool calls executed"
+									)
+								) : (
+									<i className="italic">–</i>
+								))}
 						</p>
 						<Badge
 							variant={log.hasError ? "destructive" : "default"}
@@ -91,7 +103,12 @@ export function LogCard({ log }: { log: Partial<Log> }) {
 						</div>
 						<div className="flex items-center gap-1">
 							<Clock className="h-3.5 w-3.5" />
-							<span>{log.totalTokens} tokens</span>
+							<span>
+								{log.totalTokens} tokens
+								{log.cachedTokens && Number(log.cachedTokens) > 0 && (
+									<span className="ml-1">({log.cachedTokens} cached)</span>
+								)}
+							</span>
 						</div>
 						<div className="flex items-center gap-1">
 							<Clock className="h-3.5 w-3.5" />
@@ -145,6 +162,14 @@ export function LogCard({ log }: { log: Partial<Log> }) {
 								<div>{log.requestedModel}</div>
 								<div className="text-muted-foreground">Used Model</div>
 								<div>{log.usedModel}</div>
+								{log.usedModelMapping && (
+									<>
+										<div className="text-muted-foreground">
+											Used Model Provider Mapping
+										</div>
+										<div>{log.usedModelMapping}</div>
+									</>
+								)}
 								<div className="text-muted-foreground">Provider</div>
 								<div>{log.usedProvider}</div>
 							</div>
@@ -170,6 +195,14 @@ export function LogCard({ log }: { log: Partial<Log> }) {
 								<div>{log.completionTokens}</div>
 								<div className="text-muted-foreground">Total Tokens</div>
 								<div className="font-medium">{log.totalTokens}</div>
+								{log.cachedTokens && Number(log.cachedTokens) > 0 && (
+									<>
+										<div className="text-muted-foreground">
+											Cached Input Tokens
+										</div>
+										<div className="font-medium">{log.cachedTokens}</div>
+									</>
+								)}
 								{log.reasoningTokens && (
 									<>
 										<div className="text-muted-foreground">
@@ -234,6 +267,16 @@ export function LogCard({ log }: { log: Partial<Log> }) {
 								<div>
 									{log.outputCost ? `$${log.outputCost.toFixed(6)}` : "$0"}
 								</div>
+								{!!log.cachedInputCost && Number(log.cachedInputCost) > 0 && (
+									<>
+										<div className="text-muted-foreground">
+											Cached Input Cost
+										</div>
+										<div className="">
+											{`$${Number(log.cachedInputCost).toFixed(6)}`}
+										</div>
+									</>
+								)}
 								<div className="text-muted-foreground">Request Cost</div>
 								<div>
 									{log.requestCost ? `$${log.requestCost.toFixed(6)}` : "$0"}
@@ -242,6 +285,16 @@ export function LogCard({ log }: { log: Partial<Log> }) {
 								<div className="font-medium">
 									{log.cost ? `$${log.cost.toFixed(6)}` : "$0"}
 								</div>
+								{log.discount && log.discount !== 1 && (
+									<>
+										<div className="text-muted-foreground">
+											Discount Applied
+										</div>
+										<div className="font-medium text-green-600">
+											{((1 - log.discount) * 100).toFixed(0)}% off
+										</div>
+									</>
+								)}
 							</div>
 						</div>
 						<div className="space-y-2">
@@ -423,7 +476,7 @@ export function LogCard({ log }: { log: Partial<Log> }) {
 																	<div className="text-muted-foreground">
 																		Arguments:
 																	</div>
-																	<pre className="text-xs bg-white dark:bg-gray-900 rounded border p-2 overflow-auto max-h-32">
+																	<pre className="text-xs bg-white dark:bg-gray-900 rounded border p-2 overflow-auto max-h-32 text-wrap">
 																		{typeof toolCall.function.arguments ===
 																		"string"
 																			? toolCall.function.arguments

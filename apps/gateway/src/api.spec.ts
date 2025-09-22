@@ -1,4 +1,3 @@
-import { db, tables, eq } from "@llmgateway/db";
 import {
 	afterAll,
 	beforeEach,
@@ -8,12 +7,14 @@ import {
 	test,
 } from "vitest";
 
-import { app } from ".";
+import { db, tables, eq } from "@llmgateway/db";
+
+import { app } from "./app.js";
 import {
 	startMockServer,
 	stopMockServer,
-} from "./test-utils/mock-openai-server";
-import { clearCache, waitForLogs } from "./test-utils/test-helpers";
+} from "./test-utils/mock-openai-server.js";
+import { clearCache, waitForLogs } from "./test-utils/test-helpers.js";
 
 describe("test", () => {
 	let mockServerUrl: string;

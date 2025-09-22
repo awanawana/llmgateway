@@ -53,17 +53,6 @@ export const providers = [
 		announcement: null,
 	},
 	{
-		id: "google-vertex",
-		name: "Google Vertex AI",
-		description:
-			"Google Vertex AI is a platform for building and deploying large language models.",
-		streaming: true,
-		cancellation: true,
-		color: "#d95656",
-		website: "https://cloud.google.com/vertex-ai",
-		announcement: null,
-	},
-	{
 		id: "google-ai-studio",
 		name: "Google AI Studio",
 		description:
@@ -230,7 +219,18 @@ export const providers = [
 		cancellation: true,
 		jsonOutput: true,
 		color: "#4f46e5",
-		website: "https://api.routeway.ai",
+		website: "https://routeway.ai",
+		announcement: null,
+	},
+	{
+		id: "routeway-discount",
+		name: "RouteWay Discount",
+		description: "RouteWay's discounted models with special pricing",
+		streaming: true,
+		cancellation: true,
+		jsonOutput: true,
+		color: "#4f46e5",
+		website: "https://routeway.ai",
 		announcement: null,
 	},
 	{

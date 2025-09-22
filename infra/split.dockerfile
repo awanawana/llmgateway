@@ -3,6 +3,7 @@ FROM debian:12-slim AS builder
 
 # Install base dependencies including tini for better caching
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
     curl \
     bash \
     tar \
@@ -62,18 +63,29 @@ RUN NODE_VERSION=$(cat .tool-versions | grep 'nodejs' | cut -d ' ' -f 2) && \
         exit 1; \
     fi
 
+# verify that pnpm store path
+RUN STORE_PATH="/root/.local/share/pnpm/store" && \
+    if [ "${STORE_PATH#/root/.local/share/pnpm/store}" = "${STORE_PATH}" ]; then \
+        echo "pnpm store path mismatch: ${STORE_PATH}"; \
+        exit 1; \
+    fi && \
+    echo "pnpm store path matches: ${STORE_PATH}"
+
 # Copy package files and install dependencies
 COPY .npmrc package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json ./apps/api/
+COPY apps/docs/package.json ./apps/docs/
 COPY apps/gateway/package.json ./apps/gateway/
 COPY apps/ui/package.json ./apps/ui/
-COPY apps/docs/package.json ./apps/docs/
-COPY packages/auth/package.json ./packages/auth/
+COPY apps/worker/package.json ./apps/worker/
 COPY packages/db/package.json ./packages/db/
 COPY packages/models/package.json ./packages/models/
 COPY packages/logger/package.json ./packages/logger/
+COPY packages/cache/package.json ./packages/cache/
+COPY packages/instrumentation/package.json ./packages/instrumentation/
+COPY packages/shared/package.json ./packages/shared/
 
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
 
 # Copy source code
 COPY . .
@@ -82,8 +94,6 @@ COPY . .
 RUN --mount=type=cache,target=/app/.turbo pnpm build
 
 FROM debian:12-slim AS runtime
-ARG APP_VERSION
-ENV APP_VERSION=$APP_VERSION
 
 # Install base runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends bash && rm -rf /var/lib/apt/lists/*
@@ -98,12 +108,15 @@ RUN node -v && pnpm -v
 
 ENTRYPOINT ["/tini", "--"]
 
+ARG APP_VERSION
+ENV APP_VERSION=$APP_VERSION
+
 FROM runtime AS api
 WORKDIR /app/temp
 COPY --from=builder /app/apps ./apps
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/.npmrc /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml ./
-RUN pnpm --filter=api --prod deploy ../dist/api
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm --filter=api --prod deploy ../dist/api
 RUN rm -rf /app/temp
 WORKDIR /app/dist/api
 # copy migrations files for API service to run migrations at runtime
@@ -112,43 +125,54 @@ EXPOSE 80
 ENV PORT=80
 ENV NODE_ENV=production
 ENV TELEMETRY_ACTIVE=true
-CMD ["pnpm", "start"]
+CMD ["node", "--enable-source-maps", "dist/serve.js"]
 
 FROM runtime AS gateway
 WORKDIR /app/temp
 COPY --from=builder /app/apps ./apps
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/.npmrc /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml ./
-RUN pnpm --filter=gateway --prod deploy ../dist/gateway
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm --filter=gateway --prod deploy ../dist/gateway
 RUN rm -rf /app/temp
 WORKDIR /app/dist/gateway
 EXPOSE 80
 ENV PORT=80
 ENV NODE_ENV=production
-CMD ["pnpm", "start"]
+CMD ["node", "--enable-source-maps", "dist/serve.js"]
 
 FROM runtime AS ui
 WORKDIR /app/temp
 COPY --from=builder /app/apps ./apps
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/.npmrc /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml ./
-RUN pnpm --filter=ui --prod deploy ../dist/ui
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm --filter=ui --prod deploy ../dist/ui
 RUN rm -rf /app/temp
 WORKDIR /app/dist/ui
 EXPOSE 80
 ENV PORT=80
 ENV NODE_ENV=production
-CMD ["pnpm", "start"]
+CMD ["./node_modules/.bin/next", "start"]
+
+FROM runtime AS worker
+WORKDIR /app/temp
+COPY --from=builder /app/apps ./apps
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/.npmrc /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml ./
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm --filter=worker --prod deploy ../dist/worker
+RUN rm -rf /app/temp
+WORKDIR /app/dist/worker
+ENV NODE_ENV=production
+CMD ["node", "--enable-source-maps", "dist/index.js"]
 
 FROM runtime AS docs
 WORKDIR /app/temp
 COPY --from=builder /app/apps ./apps
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/.npmrc /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml ./
-RUN pnpm --filter=docs --prod deploy ../dist/docs
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm --filter=docs --prod deploy ../dist/docs
 RUN rm -rf /app/temp
 WORKDIR /app/dist/docs
 EXPOSE 80
 ENV PORT=80
 ENV NODE_ENV=production
-CMD ["pnpm", "start"]
+CMD ["./node_modules/.bin/next", "start", "-H", "0.0.0.0"]

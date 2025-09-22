@@ -1,10 +1,12 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
-import { auth } from "@llmgateway/auth";
-import { db, eq, tables } from "@llmgateway/db";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 
-import type { ServerTypes } from "../vars";
+import { apiAuth as auth } from "@/auth/config.js";
+
+import { db, eq, tables } from "@llmgateway/db";
+
+import type { ServerTypes } from "@/vars.js";
 
 export const user = new OpenAPIHono<ServerTypes>();
 

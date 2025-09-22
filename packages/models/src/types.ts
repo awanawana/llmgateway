@@ -2,12 +2,15 @@
  * Comprehensive TypeScript types for provider API messages and tool definitions
  */
 
-import type { ProviderId } from "./providers";
+import type { ProviderId } from "./providers.js";
 
 // Base content types
 export interface TextContent {
 	type: "text";
 	text: string;
+	cache_control?: {
+		type: "ephemeral";
+	};
 }
 
 export interface ImageUrlContent {
@@ -253,6 +256,7 @@ export interface ModelWithPricing {
 		outputPrice?: number;
 		supportedParameters?: string[];
 		modelName: string;
+		discount?: number;
 	}>;
 }
 

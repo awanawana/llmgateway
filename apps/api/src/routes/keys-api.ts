@@ -1,11 +1,12 @@
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
-import { eq, db, shortid, tables } from "@llmgateway/db";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 
-import { maskToken } from "../lib/maskToken";
+import { maskToken } from "@/lib/maskToken.js";
 
-import type { ServerTypes } from "../vars";
+import { eq, db, shortid, tables } from "@llmgateway/db";
+
+import type { ServerTypes } from "@/vars.js";
 
 export const keysApi = new OpenAPIHono<ServerTypes>();
 
@@ -21,6 +22,31 @@ const apiKeySchema = z.object({
 	usageLimit: z.string().nullable(),
 	usage: z.string(),
 	projectId: z.string(),
+	iamRules: z
+		.array(
+			z.object({
+				id: z.string(),
+				createdAt: z.date(),
+				updatedAt: z.date(),
+				ruleType: z.enum([
+					"allow_models",
+					"deny_models",
+					"allow_pricing",
+					"deny_pricing",
+					"allow_providers",
+					"deny_providers",
+				]),
+				ruleValue: z.object({
+					models: z.array(z.string()).optional(),
+					providers: z.array(z.string()).optional(),
+					pricingType: z.enum(["free", "paid"]).optional(),
+					maxInputPrice: z.number().optional(),
+					maxOutputPrice: z.number().optional(),
+				}),
+				status: z.enum(["active", "inactive"]),
+			}),
+		)
+		.optional(),
 });
 
 // Schema for creating a new API key
@@ -45,6 +71,50 @@ const updateApiKeyStatusSchema = z.object({
 // Schema for updating an API key usage limit
 const updateApiKeyUsageLimitSchema = z.object({
 	usageLimit: z.string().nullable(),
+});
+
+// Schema for IAM rule
+const iamRuleSchema = z.object({
+	id: z.string(),
+	createdAt: z.date(),
+	updatedAt: z.date(),
+	apiKeyId: z.string(),
+	ruleType: z.enum([
+		"allow_models",
+		"deny_models",
+		"allow_pricing",
+		"deny_pricing",
+		"allow_providers",
+		"deny_providers",
+	]),
+	ruleValue: z.object({
+		models: z.array(z.string()).optional(),
+		providers: z.array(z.string()).optional(),
+		pricingType: z.enum(["free", "paid"]).optional(),
+		maxInputPrice: z.number().optional(),
+		maxOutputPrice: z.number().optional(),
+	}),
+	status: z.enum(["active", "inactive"]),
+});
+
+// Schema for creating/updating IAM rules
+const createIamRuleSchema = z.object({
+	ruleType: z.enum([
+		"allow_models",
+		"deny_models",
+		"allow_pricing",
+		"deny_pricing",
+		"allow_providers",
+		"deny_providers",
+	]),
+	ruleValue: z.object({
+		models: z.array(z.string()).optional(),
+		providers: z.array(z.string()).optional(),
+		pricingType: z.enum(["free", "paid"]).optional(),
+		maxInputPrice: z.number().optional(),
+		maxOutputPrice: z.number().optional(),
+	}),
+	status: z.enum(["active", "inactive"]).default("active"),
 });
 
 // Create a new API key
@@ -124,6 +194,46 @@ keysApi.openapi(create, async (c) => {
 		});
 	}
 
+	// Get the organization for the project to check plan limits
+	const project = await db.query.project.findFirst({
+		where: {
+			id: {
+				eq: projectId,
+			},
+		},
+		with: {
+			organization: true,
+		},
+	});
+
+	if (!project?.organization) {
+		throw new HTTPException(404, {
+			message: "Project or organization not found",
+		});
+	}
+
+	// Count existing active API keys for this project
+	const existingApiKeys = await db.query.apiKey.findMany({
+		where: {
+			projectId: {
+				eq: projectId,
+			},
+			status: {
+				ne: "deleted",
+			},
+		},
+	});
+
+	// Check plan limits
+	const maxApiKeys = project.organization.plan === "pro" ? 20 : 5;
+
+	if (existingApiKeys.length >= maxApiKeys) {
+		const planName = project.organization.plan === "pro" ? "Pro" : "Free";
+		throw new HTTPException(400, {
+			message: `API key limit reached. ${planName} plan allows maximum ${maxApiKeys} API keys per project.`,
+		});
+	}
+
 	// Generate a token with a prefix for better identification
 	const prefix =
 		process.env.NODE_ENV === "development" ? `llmgdev_` : "llmgtwy_";
@@ -168,10 +278,17 @@ const list = createRoute({
 								}),
 							)
 							.openapi({}),
+						planLimits: z
+							.object({
+								currentCount: z.number(),
+								maxKeys: z.number(),
+								plan: z.enum(["free", "pro"]),
+							})
+							.optional(),
 					}),
 				},
 			},
-			description: "List of API keys.",
+			description: "List of API keys with plan limits.",
 		},
 	},
 });
@@ -227,7 +344,34 @@ keysApi.openapi(list, async (c) => {
 				in: projectId ? [projectId] : projectIds,
 			},
 		},
+		with: {
+			iamRules: true,
+		},
 	});
+
+	// Get organization plan info if projectId is specified
+	let currentCount = 0;
+	let maxKeys = 0;
+	let plan: "free" | "pro" = "free";
+
+	if (projectId) {
+		const project = await db.query.project.findFirst({
+			where: {
+				id: {
+					eq: projectId,
+				},
+			},
+			with: {
+				organization: true,
+			},
+		});
+
+		if (project?.organization) {
+			plan = project.organization.plan as "free" | "pro";
+			maxKeys = plan === "pro" ? 20 : 5;
+			currentCount = apiKeys.filter((key) => key.status !== "deleted").length;
+		}
+	}
 
 	return c.json({
 		apiKeys: apiKeys.map((key) => ({
@@ -235,6 +379,13 @@ keysApi.openapi(list, async (c) => {
 			maskedToken: maskToken(key.token),
 			token: undefined,
 		})),
+		planLimits: projectId
+			? {
+					currentCount,
+					maxKeys,
+					plan,
+				}
+			: undefined,
 	});
 });
 
@@ -595,6 +746,377 @@ keysApi.openapi(updateUsageLimit, async (c) => {
 			maskedToken: maskToken(updatedApiKey.token),
 			token: undefined,
 		},
+	});
+});
+
+// Create IAM rule for API key
+const createIamRule = createRoute({
+	method: "post",
+	path: "/api/{id}/iam",
+	request: {
+		params: z.object({
+			id: z.string(),
+		}),
+		body: {
+			content: {
+				"application/json": {
+					schema: createIamRuleSchema,
+				},
+			},
+		},
+	},
+	responses: {
+		200: {
+			content: {
+				"application/json": {
+					schema: z.object({
+						message: z.string(),
+						rule: iamRuleSchema,
+					}),
+				},
+			},
+			description: "IAM rule created successfully.",
+		},
+	},
+});
+
+keysApi.openapi(createIamRule, async (c) => {
+	const user = c.get("user");
+	if (!user) {
+		throw new HTTPException(401, {
+			message: "Unauthorized",
+		});
+	}
+
+	const { id } = c.req.param();
+	const ruleData = c.req.valid("json");
+
+	// Verify user has access to the API key
+	const userOrgs = await db.query.userOrganization.findMany({
+		where: {
+			userId: {
+				eq: user.id,
+			},
+		},
+		with: {
+			organization: {
+				with: {
+					projects: true,
+				},
+			},
+		},
+	});
+
+	const projectIds = userOrgs.flatMap((org) =>
+		org
+			.organization!.projects.filter((project) => project.status !== "deleted")
+			.map((project) => project.id),
+	);
+
+	const apiKey = await db.query.apiKey.findFirst({
+		where: {
+			id: {
+				eq: id,
+			},
+			projectId: {
+				in: projectIds,
+			},
+		},
+	});
+
+	if (!apiKey) {
+		throw new HTTPException(404, {
+			message: "API key not found",
+		});
+	}
+
+	// Create the IAM rule
+	const [rule] = await db
+		.insert(tables.apiKeyIamRule)
+		.values({
+			apiKeyId: id,
+			...ruleData,
+		})
+		.returning();
+
+	return c.json({
+		message: "IAM rule created successfully",
+		rule,
+	});
+});
+
+// List IAM rules for an API key
+const listIamRules = createRoute({
+	method: "get",
+	path: "/api/{id}/iam",
+	request: {
+		params: z.object({
+			id: z.string(),
+		}),
+	},
+	responses: {
+		200: {
+			content: {
+				"application/json": {
+					schema: z.object({
+						rules: z.array(iamRuleSchema),
+					}),
+				},
+			},
+			description: "List of IAM rules for the API key.",
+		},
+	},
+});
+
+keysApi.openapi(listIamRules, async (c) => {
+	const user = c.get("user");
+	if (!user) {
+		throw new HTTPException(401, {
+			message: "Unauthorized",
+		});
+	}
+
+	const { id } = c.req.param();
+
+	// Verify user has access to the API key
+	const userOrgs = await db.query.userOrganization.findMany({
+		where: {
+			userId: {
+				eq: user.id,
+			},
+		},
+		with: {
+			organization: {
+				with: {
+					projects: true,
+				},
+			},
+		},
+	});
+
+	const projectIds = userOrgs.flatMap((org) =>
+		org
+			.organization!.projects.filter((project) => project.status !== "deleted")
+			.map((project) => project.id),
+	);
+
+	const apiKey = await db.query.apiKey.findFirst({
+		where: {
+			id: {
+				eq: id,
+			},
+			projectId: {
+				in: projectIds,
+			},
+		},
+	});
+
+	if (!apiKey) {
+		throw new HTTPException(404, {
+			message: "API key not found",
+		});
+	}
+
+	// Get all IAM rules for this API key
+	const rules = await db.query.apiKeyIamRule.findMany({
+		where: {
+			apiKeyId: {
+				eq: id,
+			},
+		},
+	});
+
+	return c.json({ rules });
+});
+
+// Update IAM rule
+const updateIamRule = createRoute({
+	method: "patch",
+	path: "/api/{id}/iam/{ruleId}",
+	request: {
+		params: z.object({
+			id: z.string(),
+			ruleId: z.string(),
+		}),
+		body: {
+			content: {
+				"application/json": {
+					schema: createIamRuleSchema.partial(),
+				},
+			},
+		},
+	},
+	responses: {
+		200: {
+			content: {
+				"application/json": {
+					schema: z.object({
+						message: z.string(),
+						rule: iamRuleSchema,
+					}),
+				},
+			},
+			description: "IAM rule updated successfully.",
+		},
+	},
+});
+
+keysApi.openapi(updateIamRule, async (c) => {
+	const user = c.get("user");
+	if (!user) {
+		throw new HTTPException(401, {
+			message: "Unauthorized",
+		});
+	}
+
+	const { id, ruleId } = c.req.param();
+	const updateData = c.req.valid("json");
+
+	// Verify user has access to the API key and rule
+	const userOrgs = await db.query.userOrganization.findMany({
+		where: {
+			userId: {
+				eq: user.id,
+			},
+		},
+		with: {
+			organization: {
+				with: {
+					projects: true,
+				},
+			},
+		},
+	});
+
+	const projectIds = userOrgs.flatMap((org) =>
+		org
+			.organization!.projects.filter((project) => project.status !== "deleted")
+			.map((project) => project.id),
+	);
+
+	const apiKey = await db.query.apiKey.findFirst({
+		where: {
+			id: {
+				eq: id,
+			},
+			projectId: {
+				in: projectIds,
+			},
+		},
+	});
+
+	if (!apiKey) {
+		throw new HTTPException(404, {
+			message: "API key not found",
+		});
+	}
+
+	// Update the IAM rule
+	const [updatedRule] = await db
+		.update(tables.apiKeyIamRule)
+		.set(updateData)
+		.where(eq(tables.apiKeyIamRule.id, ruleId))
+		.returning();
+
+	if (!updatedRule) {
+		throw new HTTPException(404, {
+			message: "IAM rule not found",
+		});
+	}
+
+	return c.json({
+		message: "IAM rule updated successfully",
+		rule: updatedRule,
+	});
+});
+
+// Delete IAM rule
+const deleteIamRule = createRoute({
+	method: "delete",
+	path: "/api/{id}/iam/{ruleId}",
+	request: {
+		params: z.object({
+			id: z.string(),
+			ruleId: z.string(),
+		}),
+	},
+	responses: {
+		200: {
+			content: {
+				"application/json": {
+					schema: z.object({
+						message: z.string(),
+					}),
+				},
+			},
+			description: "IAM rule deleted successfully.",
+		},
+	},
+});
+
+keysApi.openapi(deleteIamRule, async (c) => {
+	const user = c.get("user");
+	if (!user) {
+		throw new HTTPException(401, {
+			message: "Unauthorized",
+		});
+	}
+
+	const { id, ruleId } = c.req.param();
+
+	// Verify user has access to the API key
+	const userOrgs = await db.query.userOrganization.findMany({
+		where: {
+			userId: {
+				eq: user.id,
+			},
+		},
+		with: {
+			organization: {
+				with: {
+					projects: true,
+				},
+			},
+		},
+	});
+
+	const projectIds = userOrgs.flatMap((org) =>
+		org
+			.organization!.projects.filter((project) => project.status !== "deleted")
+			.map((project) => project.id),
+	);
+
+	const apiKey = await db.query.apiKey.findFirst({
+		where: {
+			id: {
+				eq: id,
+			},
+			projectId: {
+				in: projectIds,
+			},
+		},
+	});
+
+	if (!apiKey) {
+		throw new HTTPException(404, {
+			message: "API key not found",
+		});
+	}
+
+	// Delete the IAM rule
+	const result = await db
+		.delete(tables.apiKeyIamRule)
+		.where(eq(tables.apiKeyIamRule.id, ruleId))
+		.returning();
+
+	if (!result.length) {
+		throw new HTTPException(404, {
+			message: "IAM rule not found",
+		});
+	}
+
+	return c.json({
+		message: "IAM rule deleted successfully",
 	});
 });
 

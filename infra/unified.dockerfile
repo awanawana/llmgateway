@@ -1,11 +1,9 @@
 FROM debian:12-slim
 
-ARG APP_VERSION
-ENV APP_VERSION=$APP_VERSION
-
 # Install base dependencies and runtime requirements
 # Add PostgreSQL 17 official repository
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
     wget \
     ca-certificates \
     gnupg \
@@ -18,13 +16,30 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     supervisor \
     tini \
     gosu \
+    dpkg-dev \
+    gcc \
+    g++ \
+    libc6-dev \
+    libssl-dev \
+    make \
+    git \
+    cmake \
     && wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
     && echo "deb http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
     && apt-get update && apt-get install -y --no-install-recommends \
     postgresql-17 \
     postgresql-contrib-17 \
     postgresql-client-17 \
-    redis-server \
+    && cd /usr/src \
+    && wget -O redis-stable.tar.gz https://github.com/redis/redis/archive/refs/tags/8.2.1.tar.gz \
+    && tar xvf redis-stable.tar.gz \
+    && cd redis-8.2.1 \
+    && export BUILD_TLS=yes \
+    && make -j "$(nproc)" all \
+    && make install \
+    && cd /usr/src \
+    && rm -rf redis-stable.tar.gz redis-8.2.1 \
+    && adduser --system --group --no-create-home redis \
     && apt-get remove -y build-essential wget gnupg lsb-release \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
@@ -77,18 +92,29 @@ RUN NODE_VERSION=$(cat .tool-versions | grep 'nodejs' | cut -d ' ' -f 2) && \
         exit 1; \
     fi
 
+# verify that pnpm store path
+RUN STORE_PATH="/root/.local/share/pnpm/store" && \
+    if [ "${STORE_PATH#/root/.local/share/pnpm/store}" = "${STORE_PATH}" ]; then \
+        echo "pnpm store path mismatch: ${STORE_PATH}"; \
+        exit 1; \
+    fi && \
+    echo "pnpm store path matches: ${STORE_PATH}"
+
 # Copy package files and install dependencies
 COPY .npmrc package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json ./apps/api/
+COPY apps/docs/package.json ./apps/docs/
 COPY apps/gateway/package.json ./apps/gateway/
 COPY apps/ui/package.json ./apps/ui/
-COPY apps/docs/package.json ./apps/docs/
-COPY packages/auth/package.json ./packages/auth/
+COPY apps/worker/package.json ./apps/worker/
 COPY packages/db/package.json ./packages/db/
 COPY packages/models/package.json ./packages/models/
 COPY packages/logger/package.json ./packages/logger/
+COPY packages/cache/package.json ./packages/cache/
+COPY packages/instrumentation/package.json ./packages/instrumentation/
+COPY packages/shared/package.json ./packages/shared/
 
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
 
 # Copy source code
 COPY . .
@@ -96,13 +122,21 @@ COPY . .
 # Build all apps
 RUN --mount=type=cache,target=/app/.turbo pnpm build
 
-# Create directories
-RUN mkdir -p /app/services /var/log/supervisor /run/postgresql /var/lib/postgresql/data && \
-    chown -R postgres:postgres /var/lib/postgresql
+# Create directories with correct ownership
+RUN mkdir -p /app/services /var/log/supervisor /var/log/postgresql /run/postgresql && \
+    mkdir -p /var/lib/postgresql/data && \
+    chown -R postgres:postgres /var/lib/postgresql && \
+    chmod 755 /var/lib/postgresql && \
+    chmod 700 /var/lib/postgresql/data && \
+    touch /var/log/postgresql.log && \
+    chown postgres:postgres /var/log/postgresql.log && \
+    chown postgres:postgres /run/postgresql
 
 # Deploy all services with a single command
-RUN pnpm --filter=api --prod deploy /app/services/api && \
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm --filter=api --prod deploy /app/services/api && \
     pnpm --filter=gateway --prod deploy /app/services/gateway && \
+    pnpm --filter=worker --prod deploy /app/services/worker && \
     pnpm --filter=ui --prod deploy /app/services/ui && \
     pnpm --filter=docs --prod deploy /app/services/docs
 
@@ -145,6 +179,9 @@ ENV RUN_MIGRATIONS=true
 
 # Use tini as init system
 ENTRYPOINT ["/usr/bin/tini", "--"]
+
+ARG APP_VERSION
+ENV APP_VERSION=$APP_VERSION
 
 # Start all services
 CMD ["/start.sh"]

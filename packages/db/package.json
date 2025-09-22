@@ -2,38 +2,40 @@
 	"name": "@llmgateway/db",
 	"version": "1.0.0",
 	"private": true,
+	"license": "SEE LICENSE IN ../../LICENSE",
 	"type": "module",
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
-			"import": "./dist/index.js",
-			"require": "./dist/index.cjs"
+			"import": "./dist/index.js"
 		}
 	},
-	"main": "./dist/index.cjs",
 	"module": "./dist/index.js",
 	"types": "./dist/index.d.ts",
 	"files": [
 		"dist/"
 	],
 	"scripts": {
-		"build": "tsc && tsup",
+		"build": "tsc && resolve-tspaths",
+		"dev": "tsc-watch --onSuccess 'resolve-tspaths'",
+		"format": "eslint --fix . && prettier --write .",
 		"generate": "pnpm drizzle-kit generate --config drizzle.config.ts",
+		"lint": "eslint . && prettier --check .",
 		"migrate": "pnpm drizzle-kit migrate --config drizzle.config.ts",
 		"push": "pnpm drizzle-kit push --force --config drizzle.config.ts",
-		"reset": "tsx reset.ts",
-		"seed": "tsx seed.ts"
+		"seed": "node dist/seed.js"
 	},
 	"dependencies": {
+		"@llmgateway/cache": "workspace:*",
 		"@llmgateway/logger": "workspace:*",
-		"drizzle-orm": "1.0.0-beta.1-7946562",
+		"drizzle-orm": "1.0.0-beta.1-57a367f",
 		"nanoid": "5.1.5",
-		"pg": "^8.14.1",
+		"pg": "^8.16.3",
 		"zod": "3.25.75"
 	},
 	"devDependencies": {
-		"@types/pg": "^8.11.12",
-		"drizzle-kit": "1.0.0-beta.1-7946562",
-		"tsx": "^4.19.3"
+		"@types/pg": "^8.15.5",
+		"drizzle-kit": "1.0.0-beta.1-57a367f",
+		"ioredis": "5.7.0"
 	}
 }

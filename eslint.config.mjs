@@ -1,9 +1,27 @@
-import lint from "@steebchen/lint-next";
+import lint from "@steebchen/lint-base";
+import importPlugin from "eslint-plugin-import";
+import noRelativeImportPathsPlugin from "eslint-plugin-no-relative-import-paths";
 
 /** @type {import("eslint").Linter.Config[]} */
 export default [
 	...lint,
 	{
+		plugins: {
+			import: importPlugin,
+			"no-relative-import-paths": noRelativeImportPathsPlugin,
+		},
+		settings: {
+			"import/resolver": {
+				typescript: {
+					alwaysTryTypes: true,
+					project: [
+						"./tsconfig.json",
+						"./apps/*/tsconfig.json",
+						"./packages/*/tsconfig.json",
+					],
+				},
+			},
+		},
 		rules: {
 			"@typescript-eslint/consistent-type-assertions": "off",
 			"@typescript-eslint/triple-slash-reference": "off",
@@ -21,6 +39,54 @@ export default [
 					varsIgnorePattern: "^_",
 					argsIgnorePattern: "^_",
 					caughtErrorsIgnorePattern: "^_",
+				},
+			],
+			"import/no-useless-path-segments": [
+				"error",
+				{
+					noUselessIndex: false,
+				},
+			],
+			"import/order": [
+				"error",
+				{
+					groups: [
+						["builtin"],
+						["external"],
+						// Internals
+						["internal", "unknown", "parent", "sibling", "index"],
+						// Types
+						["object", "type"],
+					],
+					"newlines-between": "always",
+					alphabetize: { order: "asc", caseInsensitive: true },
+					warnOnUnassignedImports: true,
+					pathGroups: [
+						{
+							pattern: "^\\u0000",
+							group: "builtin",
+							position: "before",
+						},
+						{
+							pattern: "@/**",
+							group: "internal",
+							position: "before",
+						},
+						{
+							pattern: "@llmgateway/**",
+							group: "internal",
+							position: "before",
+						},
+					],
+					pathGroupsExcludedImportTypes: ["builtin", "type"],
+				},
+			],
+			"no-relative-import-paths/no-relative-import-paths": [
+				"error",
+				{
+					allowSameFolder: true,
+					prefix: "@",
+					rootDir: "./src",
 				},
 			],
 		},
@@ -44,6 +110,7 @@ export default [
 		ignores: [
 			"**/.tanstack/",
 			"**/.next/",
+			"**/.next-dev/",
 			"**/.source/",
 			"**/.output/",
 			"**/.conductor/",

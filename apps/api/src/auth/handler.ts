@@ -1,13 +1,14 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { auth } from "@llmgateway/auth";
 
-import type { ServerTypes } from "../vars";
+import { apiAuth } from "./config.js";
+
+import type { ServerTypes } from "@/vars.js";
 
 // Create a Hono app for auth routes
 export const authHandler = new OpenAPIHono<ServerTypes>();
 
 authHandler.use("*", async (c, next) => {
-	const session = await auth.api.getSession({ headers: c.req.raw.headers });
+	const session = await apiAuth.api.getSession({ headers: c.req.raw.headers });
 
 	if (!session) {
 		c.set("user", null);
@@ -21,5 +22,5 @@ authHandler.use("*", async (c, next) => {
 });
 
 authHandler.on(["POST", "GET"], "/auth/*", (c) => {
-	return auth.handler(c.req.raw);
+	return apiAuth.handler(c.req.raw);
 });

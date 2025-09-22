@@ -1,13 +1,16 @@
-import {
-	models as modelDefinitions,
-	providers as providerDefinitions,
-} from "@llmgateway/models";
 import { notFound } from "next/navigation";
 
 import Footer from "@/components/landing/footer";
 import { Navbar } from "@/components/landing/navbar";
 import { Hero } from "@/components/providers/hero";
 import { ModelCard } from "@/components/shared/model-card";
+
+import {
+	models as modelDefinitions,
+	providers as providerDefinitions,
+} from "@llmgateway/models";
+
+import type { Metadata } from "next";
 
 interface ProviderPageProps {
 	params: Promise<{ id: string }>;
@@ -61,7 +64,9 @@ export async function generateStaticParams() {
 		}));
 }
 
-export async function generateMetadata({ params }: ProviderPageProps) {
+export async function generateMetadata({
+	params,
+}: ProviderPageProps): Promise<Metadata> {
 	const { id } = await params;
 
 	const provider = providerDefinitions.find((p) => p.id === id);

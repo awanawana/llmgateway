@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI agents when working with code in this repository.
 
 ## Development Commands
 
@@ -12,11 +12,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Development
 
+NOTE: these commands can only be run in the root directory of the repository, not in individual app directories.
+
 - `pnpm dev` - Start all development servers (UI on :3002, API on :4002, Gateway on :4001, Docs on :3005)
 - `pnpm build` - Build all applications for production
 - `pnpm clean` - Clean build artifacts and cache directories
 
 ### Code Quality
+
+NOTE: these commands can only be run in the root directory of the repository, not in individual app directories.
 
 Always run `pnpm format` before committing code. Run `pnpm generate` if API routes were modified.
 
@@ -24,10 +28,18 @@ Always run `pnpm format` before committing code. Run `pnpm generate` if API rout
 - `pnpm lint` - Check linting and formatting (without fixing)
 - `pnpm generate` - Regenerate OpenAPI schemas from API routes
 
+### Writing code
+
+This is a pure TypeScript project. Never use `any` or `as any` unless absolutely necessary.
+
 ### Testing
+
+NOTE: these commands can only be run in the root directory of the repository, not in individual app directories.
 
 - `pnpm test:unit` - Run unit tests (\*.spec.ts files)
 - `pnpm test:e2e` - Run end-to-end tests (\*.e2e.ts files)
+
+When running curl commands against the local API, you can use `test-token` as authentication.
 
 #### E2E Test Options
 
@@ -37,18 +49,27 @@ Always run `pnpm format` before committing code. Run `pnpm generate` if API rout
 - `FULL_MODE` - Include free models in tests (default: only paid models)
 - `LOG_MODE` - Enable detailed logging of responses
 
+#### E2E Test Structure
+
+E2E tests are organized for optimal performance:
+
+- **Parallel execution**: Tests run up to 16 in parallel using Vitest's thread pool (minimum 8 threads)
+- **Split structure**:
+  - `apps/gateway/src/api.e2e.ts` - Contains all `.each()` tests that benefit from parallelization
+  - `apps/gateway/src/api-individual.e2e.ts` - Contains individual test cases that need isolation
+- **Concurrent mode**: The main test suite uses `{ concurrent: true }` to enable parallel execution of `.each()` tests
+
 ### Database Operations
 
-- `pnpm push-dev` - Push schema changes to development database
-- `pnpm push-test` - Push schema changes to test database
-- `pnpm migrate` - Run database migrations
-- `pnpm seed` - Seed database with initial data
-- `pnpm reset` - Reset database (destructive)
-- `pnpm sync` - Sync both dev and test databases
+NOTE: these commands can only be run in the root directory of the repository, not in individual app directories.
+
+- `pnpm --filter db push` - Push database schema
+- `pnpm --filter db seed` - Seed database with initial data
+- `pnpm run setup` – Reset db, sync schema, seed data (use this for development)
 
 ## Architecture Overview
 
-**LLMGateway** is a monorepo containing a full-stack LLM API gateway with multiple services:
+**LLM Gateway** is a monorepo containing a full-stack LLM API gateway with multiple services:
 
 ### Core Services
 
@@ -96,15 +117,16 @@ Always run `pnpm format` before committing code. Run `pnpm generate` if API rout
 
 - Use Drizzle ORM with latest object syntax
 - For reads: Use `db().query.<table>.findMany()` or `db().query.<table>.findFirst()`
-- For schema changes: Use `pnpm push` instead of writing migrations which will generate .sql files
-- Always sync schema with `pnpm push` after table/column changes
+- For schema changes: Use `pnpm run setup` instead of writing migrations which will generate .sql files
+- Always sync schema with `pnpm run setup` after table/column changes
 
 ### Code Standards
 
+- Always use top-level `import`, never use require or dynamic imports
 - Use conventional commit message format and limit the commit message title to max 50 characters
 - When writing pull request titles, use the conventional commit message format and limit to max 50 characters
 - Always use pnpm for package management
-- Use localStorage instead of cookies for client-side data persistence
+- Use cookies for user-settings which are not saved in the database to ensure SSR works
 - Apply DRY principles for code reuse
 - No unnecessary code comments
 
@@ -123,6 +145,16 @@ Always run `pnpm format` before committing code. Run `pnpm generate` if API rout
 - Docs: http://localhost:3005
 - PostgreSQL: localhost:5432
 - Redis: localhost:6379
+
+## Folder Structure
+
+- `apps/ui`: Next.js frontend
+- `apps/api`: Hono backend
+- `apps/gateway`: API gateway for routing LLM requests
+- `apps/docs`: Documentation site
+- `packages/db`: Drizzle ORM schema and migrations
+- `packages/models`: Model and provider definitions
+- `packages/shared`: Shared types and utilities
 
 ## Key Features
 
@@ -149,3 +181,21 @@ Always run `pnpm format` before committing code. Run `pnpm generate` if API rout
 - API keys and provider configurations
 - Usage tracking and billing records
 - Analytics and performance metrics
+
+## License
+
+LLM Gateway is available under a dual license:
+
+- **Open Source**: Core functionality is licensed under AGPLv3 - see the [LICENSE](LICENSE) file for details.
+- **Enterprise**: Commercial features in the `ee/` directory require an Enterprise license - see [ee/LICENSE](ee/LICENSE) for details.
+
+### Enterprise features include:
+
+- Advanced billing and subscription management
+- Extended data retention (90 days vs 3 days)
+- Provider API key management (Pro plan)
+- Team and organization management
+- Priority support
+- And more to be defined
+
+For enterprise licensing, please contact us at contact@llmgateway.io

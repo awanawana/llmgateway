@@ -1,8 +1,11 @@
-import { allChangelogs, type Changelog } from "content-collections";
-
 import { ChangelogComponent } from "@/components/changelog";
+import { HeroRSC } from "@/components/landing/hero-rsc";
+
+import type { Changelog } from "content-collections";
 
 export default async function ChangelogPage() {
+	const { allChangelogs } = await import("content-collections");
+
 	const sortedEntries = allChangelogs
 		.sort(
 			(a: Changelog, b: Changelog) =>
@@ -13,6 +16,7 @@ export default async function ChangelogPage() {
 
 	return (
 		<div>
+			<HeroRSC navbarOnly />
 			<ChangelogComponent entries={sortedEntries} />
 		</div>
 	);
