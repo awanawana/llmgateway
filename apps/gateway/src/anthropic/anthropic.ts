@@ -491,6 +491,8 @@ anthropic.openapi(messages, async (c) => {
 				input?: string;
 			}> = [];
 			let usage = { input_tokens: 0, output_tokens: 0 };
+			let finalized = false;
+			let sentMessageStop = false;
 			let currentTextBlockIndex: number | null = null;
 			const toolCallBlockIndex = new Map<number, number>();
 
@@ -509,13 +511,32 @@ anthropic.openapi(messages, async (c) => {
 						if (line.startsWith("data: ")) {
 							const data = line.slice(6).trim();
 							if (data === "[DONE]") {
-								// Send final Anthropic streaming event
+								if (!finalized) {
+									// Close any open blocks and emit final delta
+									for (let i = 0; i < contentBlocks.length; i++) {
+										await stream.writeSSE({
+											data: JSON.stringify({
+												type: "content_block_stop",
+												index: i,
+											}),
+											event: "content_block_stop",
+										});
+									}
+									await stream.writeSSE({
+										data: JSON.stringify({
+											type: "message_delta",
+											delta: { stop_reason: "end_turn", stop_sequence: null },
+											usage,
+										}),
+										event: "message_delta",
+									});
+									finalized = true;
+								}
 								await stream.writeSSE({
-									data: JSON.stringify({
-										type: "message_stop",
-									}),
+									data: JSON.stringify({ type: "message_stop" }),
 									event: "message_stop",
 								});
+								sentMessageStop = true;
 								return;
 							}
 
@@ -699,12 +720,36 @@ anthropic.openapi(messages, async (c) => {
 										}),
 										event: "message_delta",
 									});
+									finalized = true;
 								}
 							} catch {
 								// Ignore parsing errors for individual chunks
 							}
 						}
 					}
+				}
+				if (!sentMessageStop) {
+					if (!finalized) {
+						for (let i = 0; i < contentBlocks.length; i++) {
+							await stream.writeSSE({
+								data: JSON.stringify({ type: "content_block_stop", index: i }),
+								event: "content_block_stop",
+							});
+						}
+						await stream.writeSSE({
+							data: JSON.stringify({
+								type: "message_delta",
+								delta: { stop_reason: "end_turn", stop_sequence: null },
+								usage,
+							}),
+							event: "message_delta",
+						});
+						finalized = true;
+					}
+					await stream.writeSSE({
+						data: JSON.stringify({ type: "message_stop" }),
+						event: "message_stop",
+					});
 				}
 			} catch (error) {
 				throw new HTTPException(500, {
