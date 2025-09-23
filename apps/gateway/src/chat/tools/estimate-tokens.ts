@@ -39,8 +39,9 @@ export function estimateTokens(
 				"Failed to encode chat messages in estimate tokens",
 				error instanceof Error ? error : new Error(String(error)),
 			);
-			calculatedPromptTokens =
-				messages.reduce((acc, m) => acc + (m.content?.length || 0), 0) / 4;
+			calculatedPromptTokens = Math.round(
+				messages.reduce((acc, m) => acc + (m.content?.length || 0), 0) / 4,
+			);
 		}
 	}
 
@@ -54,7 +55,7 @@ export function estimateTokens(
 				"Failed to encode completion text",
 				error instanceof Error ? error : new Error(String(error)),
 			);
-			calculatedCompletionTokens = content.length / 4;
+			calculatedCompletionTokens = Math.round(content.length / 4);
 		}
 	}
 

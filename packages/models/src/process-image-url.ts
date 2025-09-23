@@ -28,7 +28,7 @@ export async function processImageUrl(
 		const base64Data = isBase64 ? data : btoa(data);
 
 		// Validate size (estimate: base64 adds ~33% overhead)
-		const estimatedSize = (base64Data.length * 3) / 4;
+		const estimatedSize = Math.round((base64Data.length * 3) / 4);
 		if (estimatedSize > 20 * 1024 * 1024) {
 			logger.warn("Data URL image size exceeds limit", { estimatedSize });
 			throw new Error("Image size exceeds 20MB limit");
