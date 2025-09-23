@@ -3011,25 +3011,11 @@ chat.openapi(completions, async (c) => {
 		images,
 	} = parseProviderResponse(usedProvider, json, messages);
 
-	// Debug: Log images found in response
-	logger.debug("Gateway - parseProviderResponse extracted images", { images });
-	logger.debug("Gateway - Used provider", { usedProvider });
-	logger.debug("Gateway - Used model", { usedModel });
-
-	// Estimate tokens if not provided by the API
-	const { calculatedPromptTokens, calculatedCompletionTokens } = estimateTokens(
-		usedProvider,
-		messages,
-		content,
-		promptTokens,
-		completionTokens,
-	);
-
 	const costs = calculateCosts(
 		usedModel,
 		usedProvider,
-		calculatedPromptTokens,
-		calculatedCompletionTokens,
+		promptTokens,
+		completionTokens,
 		cachedTokens,
 		{
 			prompt: messages.map((m) => m.content).join("\n"),
@@ -3046,11 +3032,9 @@ chat.openapi(completions, async (c) => {
 		content,
 		reasoningContent,
 		finishReason,
-		calculatedPromptTokens,
-		calculatedCompletionTokens,
-		(calculatedPromptTokens || 0) +
-			(calculatedCompletionTokens || 0) +
-			(reasoningTokens || 0),
+		promptTokens,
+		completionTokens,
+		(promptTokens || 0) + (completionTokens || 0) + (reasoningTokens || 0),
 		reasoningTokens,
 		cachedTokens,
 		toolResults,
@@ -3097,13 +3081,10 @@ chat.openapi(completions, async (c) => {
 		content: content,
 		reasoningContent: reasoningContent,
 		finishReason: finishReason,
-		promptTokens: calculatedPromptTokens?.toString() || null,
-		completionTokens: calculatedCompletionTokens?.toString() || null,
+		promptTokens: promptTokens?.toString() || null,
+		completionTokens: completionTokens?.toString() || null,
 		totalTokens:
-			totalTokens ||
-			(
-				(calculatedPromptTokens || 0) + (calculatedCompletionTokens || 0)
-			).toString(),
+			totalTokens || ((promptTokens || 0) + (completionTokens || 0)).toString(),
 		reasoningTokens: reasoningTokens,
 		cachedTokens: cachedTokens?.toString() || null,
 		hasError: false,
