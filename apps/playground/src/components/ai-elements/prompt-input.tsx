@@ -9,6 +9,7 @@ import {
 	SquareIcon,
 	XIcon,
 } from "lucide-react";
+import { Github } from "lucide-react";
 import { nanoid } from "nanoid";
 import {
 	type ChangeEventHandler,
@@ -32,11 +33,19 @@ import {
 
 import { Button } from "@/components/ui/button";
 import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
 	Select,
 	SelectContent,
@@ -531,6 +540,77 @@ export const PromptInputTools = ({
 		{...props}
 	/>
 );
+
+// Inline Connectors button + dialog (GitHub for now)
+export const PromptInputConnectorsButton = ({
+	className,
+}: {
+	className?: string;
+}) => {
+	const [open, setOpen] = useState(false);
+	const [token, setToken] = useState<string>(
+		typeof window !== "undefined"
+			? (localStorage.getItem("llmgateway_github_token") ?? "")
+			: "",
+	);
+
+	const save = () => {
+		if (typeof window !== "undefined") {
+			if (token) {
+				localStorage.setItem("llmgateway_github_token", token);
+			} else {
+				localStorage.removeItem("llmgateway_github_token");
+			}
+		}
+		setOpen(false);
+	};
+
+	return (
+		<>
+			<PromptInputButton
+				className={className}
+				onClick={() => setOpen(true)}
+				variant="ghost"
+			>
+				<Github className="size-4" />
+				<span className="hidden sm:inline">Connectors</span>
+			</PromptInputButton>
+			<Dialog open={open} onOpenChange={setOpen}>
+				<DialogContent className="sm:max-w-[420px]">
+					<DialogHeader>
+						<DialogTitle>Connectors</DialogTitle>
+					</DialogHeader>
+					<div className="space-y-4">
+						<div className="flex items-center gap-2">
+							<Github className="h-4 w-4" />
+							<h4 className="font-medium">GitHub</h4>
+						</div>
+						<p className="text-sm text-muted-foreground">
+							Add a GitHub personal access token to enable GitHub MCP tools.
+							Stored locally.
+						</p>
+						<div className="space-y-2">
+							<Label htmlFor="gh-token">GitHub Token</Label>
+							<Input
+								id="gh-token"
+								type="password"
+								placeholder="ghp_..."
+								value={token}
+								onChange={(e) => setToken(e.target.value)}
+							/>
+							<div className="flex justify-end gap-2 pt-2">
+								<Button variant="outline" onClick={() => setOpen(false)}>
+									Cancel
+								</Button>
+								<Button onClick={save}>Save</Button>
+							</div>
+						</div>
+					</div>
+				</DialogContent>
+			</Dialog>
+		</>
+	);
+};
 
 export type PromptInputButtonProps = ComponentProps<typeof Button>;
 

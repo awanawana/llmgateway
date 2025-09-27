@@ -1,9 +1,9 @@
-// import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import {
 	streamText,
 	type UIMessage,
 	convertToModelMessages,
-	// experimental_createMCPClient,
+	experimental_createMCPClient,
 } from "ai";
 
 import { getUser } from "@/lib/getUser";
@@ -11,7 +11,7 @@ import { getUser } from "@/lib/getUser";
 import { createLLMGateway } from "@llmgateway/ai-sdk-provider";
 
 import type { LLMGatewayChatModelId } from "@llmgateway/ai-sdk-provider/internal";
-// import type { experimental_MCPClient } from "ai";
+import type { experimental_MCPClient } from "ai";
 
 export const maxDuration = 300; // 5 minutes
 
@@ -19,10 +19,11 @@ interface ChatRequestBody {
 	messages: UIMessage[];
 	model?: LLMGatewayChatModelId;
 	apiKey?: string;
+	githubToken?: string;
 }
 
-// let githubMCP: experimental_MCPClient | null = null;
-// let tools: any | null = null;
+let githubMCP: experimental_MCPClient | null = null;
+let tools: any | null = null;
 
 export async function POST(req: Request) {
 	const user = await getUser();
@@ -34,25 +35,26 @@ export async function POST(req: Request) {
 	}
 
 	const body = await req.json();
-	const { messages, model, apiKey }: ChatRequestBody = body;
+	const { messages, model, apiKey, githubToken }: ChatRequestBody = body;
 
-	// if (!githubMCP) {
-	// 	const transport = new StreamableHTTPClientTransport(
-	// 		new URL("https://api.githubcopilot.com/mcp"),
-	// 		{
-	// 			requestInit: {
-	// 				method: "POST",
-	// 				headers: {
-	// 					Authorization: `Bearer ${githubToken}`,
-	// 				},
-	// 			},
-	// 		},
-	// 	);
-	// 	githubMCP = await experimental_createMCPClient({ transport });
-	// 	if (!tools) {
-	// 		tools = await githubMCP.tools();
-	// 	}
-	// }
+	if (!githubMCP && githubToken) {
+		const transport = new StreamableHTTPClientTransport(
+			new URL("https://api.githubcopilot.com/mcp"),
+			{
+				requestInit: {
+					method: "POST",
+					headers: {
+						Authorization: `Bearer ${githubToken}`,
+					},
+				},
+			},
+		);
+		githubMCP = await experimental_createMCPClient({ transport });
+
+		if (!tools) {
+			tools = await githubMCP.tools();
+		}
+	}
 
 	if (!messages || !Array.isArray(messages)) {
 		return new Response(JSON.stringify({ error: "Missing messages" }), {
@@ -81,9 +83,6 @@ export async function POST(req: Request) {
 		baseUrl: gatewayUrl,
 		headers: {
 			"x-source": "chat.llmgateway.io",
-			"X-LLMGateway-User-ID": user.id,
-			"X-LLMGateway-User-Email": user.email,
-			"X-LLMGateway-User-Name": user.name,
 		},
 	});
 	const selectedModel = (model ??
@@ -94,7 +93,7 @@ export async function POST(req: Request) {
 		const result = streamText({
 			model: llmgateway.chat(selectedModel),
 			messages: convertToModelMessages(messages),
-			// tools,
+			tools,
 		});
 
 		return result.toUIMessageStreamResponse({

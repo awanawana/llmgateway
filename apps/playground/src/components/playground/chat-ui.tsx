@@ -22,6 +22,7 @@ import {
 	PromptInputTools,
 	PromptInputToolbar,
 	PromptInputSubmit,
+	PromptInputConnectorsButton,
 } from "@/components/ai-elements/prompt-input";
 import {
 	Reasoning,
@@ -171,7 +172,7 @@ export const ChatUI = ({
 										.join("");
 									const toolParts = m.parts.filter(
 										(p) => p.type === "dynamic-tool",
-									) as any[];
+									);
 									const reasoningContent = m.parts
 										.filter((p) => p.type === "reasoning")
 										.map((p) => p.text)
@@ -202,7 +203,11 @@ export const ChatUI = ({
 
 											{toolParts.map((tool) => (
 												<Tool key={tool.toolCallId}>
-													<ToolHeader type={tool.type} state={tool.state} />
+													<ToolHeader
+														type={`tool-${tool.toolName}`}
+														state={tool.state}
+														title={tool.toolName}
+													/>
 													<ToolContent>
 														<ToolInput input={tool.input} />
 														<ToolOutput
@@ -302,6 +307,11 @@ export const ChatUI = ({
 									body: {
 										apiKey: userApiKey,
 										model: selectedModel,
+										// Pass GitHub MCP token if available
+										githubToken:
+											(typeof window !== "undefined"
+												? localStorage.getItem("llmgateway_github_token")
+												: null) || undefined,
 									},
 								},
 							);
@@ -334,6 +344,7 @@ export const ChatUI = ({
 										<PromptInputActionAddAttachments />
 									</PromptInputActionMenuContent>
 								</PromptInputActionMenu>
+								<PromptInputConnectorsButton />
 							</PromptInputTools>
 							<div className="flex items-center gap-2">
 								{status === "streaming" ? (
