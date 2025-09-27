@@ -11,7 +11,6 @@ on:
     paths:
       - "**/package.json"
       - "**/tsconfig.json"
-      - "**/tsup.ts"
       - "pnpm-lock.yaml"
       - "infra/**"
       - ".github/workflows/images.yml"
@@ -57,7 +56,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [api, gateway, ui, docs, worker]
+        app: [api, gateway, playground, ui, docs, worker]
         platform: ${{ github.event_name == 'pull_request' && fromJSON('["linux/amd64"]') || fromJSON('["linux/amd64", "linux/arm64"]') }}
     permissions:
       contents: read
@@ -128,7 +127,7 @@ jobs:
     if: needs.setup.result == 'success' && github.event_name != 'pull_request'
     strategy:
       matrix:
-        app: [api, gateway, ui, docs, worker]
+        app: [api, gateway, playground, ui, docs, worker]
     permissions:
       contents: read
       packages: write
@@ -176,7 +175,7 @@ jobs:
       - merge-split
       - build-split
     if: |
-      always() && 
+      always() &&
       (
         (github.event_name != 'pull_request' && needs.setup.result == 'success' && needs.merge-split.result == 'success') ||
         (github.event_name == 'pull_request' && needs.setup.result == 'success' && needs.build-split.result == 'success')
@@ -202,7 +201,7 @@ jobs:
       - name: Build all split Docker images for testing
         run: |
           # Build all split images sequentially
-          for app in api gateway ui docs worker; do
+          for app in api gateway playground ui docs worker; do
             echo "Building $app image..."
             docker build \
               -f infra/split.dockerfile \
@@ -340,7 +339,7 @@ jobs:
       - merge-unified
       - build-unified
     if: |
-      always() && 
+      always() &&
       (
         (github.event_name != 'pull_request' && needs.setup.result == 'success' && needs.merge-unified.result == 'success') ||
         (github.event_name == 'pull_request' && needs.setup.result == 'success' && needs.build-unified.result == 'success')

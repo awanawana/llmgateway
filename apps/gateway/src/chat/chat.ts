@@ -3,27 +3,22 @@ import { encode, encodeChat } from "gpt-tokenizer";
 import { HTTPException } from "hono/http-exception";
 import { streamSSE } from "hono/streaming";
 
-import { validateSource } from "@/chat/tools/validate-source";
-import { calculateCosts } from "@/lib/costs";
-import { throwIamException, validateModelAccess } from "@/lib/iam";
-import { insertLog } from "@/lib/logs";
+import { validateSource } from "@/chat/tools/validate-source.js";
+import { calculateCosts } from "@/lib/costs.js";
+import { throwIamException, validateModelAccess } from "@/lib/iam.js";
+import { insertLog } from "@/lib/logs.js";
 
 import {
-	checkCustomProviderExists,
 	generateCacheKey,
 	generateStreamingCacheKey,
 	getCache,
-	getCustomProviderKey,
-	getOrganization,
-	getProject,
-	getProviderKey,
 	getStreamingCache,
-	isCachingEnabled,
 	setCache,
 	setStreamingCache,
 } from "@llmgateway/cache";
 import {
-	db,
+	cdb as db,
+	isCachingEnabled,
 	type InferSelectModel,
 	shortid,
 	type tables,
@@ -47,22 +42,22 @@ import {
 	providers,
 } from "@llmgateway/models";
 
-import { createLogEntry } from "./tools/create-log-entry";
-import { estimateTokens } from "./tools/estimate-tokens";
-import { extractContent } from "./tools/extract-content";
-import { extractCustomHeaders } from "./tools/extract-custom-headers";
-import { extractReasoning } from "./tools/extract-reasoning";
-import { extractTokenUsage } from "./tools/extract-token-usage";
-import { extractToolCalls } from "./tools/extract-tool-calls";
-import { getFinishReasonFromError } from "./tools/get-finish-reason-from-error";
-import { getProviderEnv } from "./tools/get-provider-env";
-import { parseProviderResponse } from "./tools/parse-provider-response";
-import { transformResponseToOpenai } from "./tools/transform-response-to-openai";
-import { transformStreamingToOpenai } from "./tools/transform-streaming-to-openai";
-import { type ChatMessage, DEFAULT_TOKENIZER_MODEL } from "./tools/types";
-import { validateFreeModelUsage } from "./tools/validate-free-model-usage";
+import { createLogEntry } from "./tools/create-log-entry.js";
+import { estimateTokens } from "./tools/estimate-tokens.js";
+import { extractContent } from "./tools/extract-content.js";
+import { extractCustomHeaders } from "./tools/extract-custom-headers.js";
+import { extractReasoning } from "./tools/extract-reasoning.js";
+import { extractTokenUsage } from "./tools/extract-token-usage.js";
+import { extractToolCalls } from "./tools/extract-tool-calls.js";
+import { getFinishReasonFromError } from "./tools/get-finish-reason-from-error.js";
+import { getProviderEnv } from "./tools/get-provider-env.js";
+import { parseProviderResponse } from "./tools/parse-provider-response.js";
+import { transformResponseToOpenai } from "./tools/transform-response-to-openai.js";
+import { transformStreamingToOpenai } from "./tools/transform-streaming-to-openai.js";
+import { type ChatMessage, DEFAULT_TOKENIZER_MODEL } from "./tools/types.js";
+import { validateFreeModelUsage } from "./tools/validate-free-model-usage.js";
 
-import type { ServerTypes } from "@/vars";
+import type { ServerTypes } from "@/vars.js";
 
 /**
  * Estimates tokens from content length using simple division
@@ -205,7 +200,7 @@ const completionsRequestSchema = z.object({
 		])
 		.optional(),
 	reasoning_effort: z
-		.enum(["low", "medium", "high"])
+		.enum(["minimal", "low", "medium", "high"])
 		.nullable()
 		.optional()
 		.transform((val) => (val === null ? undefined : val))
@@ -379,12 +374,25 @@ chat.openapi(completions, async (c) => {
 		stream,
 		tools,
 		tool_choice,
-		reasoning_effort,
 		free_models_only,
 	} = validationResult.data;
 
-	// Extract and validate source from x-source header
-	const source = validateSource(c.req.header("x-source"));
+	// Extract reasoning_effort as mutable variable for auto-routing modification
+	let reasoning_effort = validationResult.data.reasoning_effort;
+
+	// Extract and validate source from x-source header with HTTP-Referer fallback
+	let source = validateSource(
+		c.req.header("x-source"),
+		c.req.header("HTTP-Referer"),
+	);
+
+	// Match specific user agents and set source if x-source header is not specified
+	if (!source) {
+		const userAgent = c.req.header("User-Agent") || "";
+		if (/^claude-cli\/.+/.test(userAgent)) {
+			source = "claude.com/claude-code";
+		}
+	}
 
 	// Check if debug mode is enabled via x-debug header
 	const debugMode =
@@ -619,11 +627,24 @@ chat.openapi(completions, async (c) => {
 	}
 
 	// Get the project to determine mode for routing decisions
-	const project = await getProject(apiKey.projectId);
+	const project = await db.query.project.findFirst({
+		where: {
+			id: {
+				eq: apiKey.projectId,
+			},
+		},
+	});
 
 	if (!project) {
 		throw new HTTPException(500, {
 			message: "Could not find project",
+		});
+	}
+
+	// Check if project is deleted (archived)
+	if (project.status === "deleted") {
+		throw new HTTPException(410, {
+			message: "Project has been archived and is no longer accessible",
 		});
 	}
 
@@ -641,7 +662,13 @@ chat.openapi(completions, async (c) => {
 	const isHosted = process.env.HOSTED === "true";
 	const isPaidMode = process.env.PAID_MODE === "true";
 	if (Object.keys(customHeaders).length > 0 && isHosted && isPaidMode) {
-		const organization = await getOrganization(project.organizationId);
+		const organization = await db.query.organization.findFirst({
+			where: {
+				id: {
+					eq: project.organizationId,
+				},
+			},
+		});
 		if (!organization) {
 			throw new HTTPException(500, { message: "Could not find organization" });
 		}
@@ -655,11 +682,23 @@ chat.openapi(completions, async (c) => {
 
 	// Validate the custom provider against the database if one was requested
 	if (requestedProvider === "custom" && customProviderName) {
-		const customProviderExists = await checkCustomProviderExists(
-			project.organizationId,
-			customProviderName,
-		);
-		if (!customProviderExists) {
+		const customProviderKey = await db.query.providerKey.findFirst({
+			where: {
+				status: {
+					eq: "active",
+				},
+				organizationId: {
+					eq: project.organizationId,
+				},
+				provider: {
+					eq: "custom",
+				},
+				name: {
+					eq: customProviderName,
+				},
+			},
+		});
+		if (!customProviderKey) {
 			throw new HTTPException(400, {
 				message: `Provider '${customProviderName}' not found.`,
 			});
@@ -765,7 +804,7 @@ chat.openapi(completions, async (c) => {
 
 		// If free_models_only is true, expand to include free models
 		if (free_models_only) {
-			allowedAutoModels = [...allowedAutoModels, "kimi-k2-free"];
+			allowedAutoModels = [...allowedAutoModels, "gpt-4.1-free"];
 		}
 
 		let selectedModel: ModelDefinition | undefined;
@@ -982,6 +1021,27 @@ chat.openapi(completions, async (c) => {
 	const usedModelMapping = usedModel; // Store the original provider model name
 	const usedModelFormatted = `${usedProvider}/${baseModelName}`; // Store in LLMGateway format
 
+	// Auto-set reasoning_effort for auto-routing when model supports reasoning
+	if (
+		requestedModel === "auto" &&
+		reasoning_effort === undefined &&
+		finalModelInfo
+	) {
+		// Check if the selected model supports reasoning
+		const selectedModelSupportsReasoning = finalModelInfo.providers.some(
+			(provider) => (provider as ProviderModelMapping).reasoning === true,
+		);
+
+		if (selectedModelSupportsReasoning) {
+			// Set reasoning_effort to "minimal" for gpt-5* models, "low" for others
+			if (baseModelName.startsWith("gpt-5")) {
+				reasoning_effort = "minimal";
+			} else {
+				reasoning_effort = "low";
+			}
+		}
+	}
+
 	let url: string | undefined;
 
 	// Get the provider key for the selected provider based on project mode
@@ -1002,7 +1062,13 @@ chat.openapi(completions, async (c) => {
 		const isPaidMode = process.env.PAID_MODE === "true";
 
 		if (isHosted && isPaidMode) {
-			const organization = await getOrganization(project.organizationId);
+			const organization = await db.query.organization.findFirst({
+				where: {
+					id: {
+						eq: project.organizationId,
+					},
+				},
+			});
 
 			if (!organization) {
 				throw new HTTPException(500, {
@@ -1020,12 +1086,36 @@ chat.openapi(completions, async (c) => {
 
 		// Get the provider key from the database using cached helper function
 		if (usedProvider === "custom" && customProviderName) {
-			providerKey = await getCustomProviderKey(
-				project.organizationId,
-				customProviderName,
-			);
+			providerKey = await db.query.providerKey.findFirst({
+				where: {
+					status: {
+						eq: "active",
+					},
+					organizationId: {
+						eq: project.organizationId,
+					},
+					provider: {
+						eq: "custom",
+					},
+					name: {
+						eq: customProviderName,
+					},
+				},
+			});
 		} else {
-			providerKey = await getProviderKey(project.organizationId, usedProvider);
+			providerKey = await db.query.providerKey.findFirst({
+				where: {
+					status: {
+						eq: "active",
+					},
+					organizationId: {
+						eq: project.organizationId,
+					},
+					provider: {
+						eq: usedProvider,
+					},
+				},
+			});
 		}
 
 		if (!providerKey) {
@@ -1041,7 +1131,13 @@ chat.openapi(completions, async (c) => {
 		usedToken = providerKey.token;
 	} else if (project.mode === "credits") {
 		// Check if the organization has enough credits using cached helper function
-		const organization = await getOrganization(project.organizationId);
+		const organization = await db.query.organization.findFirst({
+			where: {
+				id: {
+					eq: project.organizationId,
+				},
+			},
+		});
 
 		if (!organization) {
 			throw new HTTPException(500, {
@@ -1049,7 +1145,10 @@ chat.openapi(completions, async (c) => {
 			});
 		}
 
-		if (organization.credits <= 0 && !(modelInfo as ModelDefinition).free) {
+		if (
+			parseFloat(organization.credits || "0") <= 0 &&
+			!(modelInfo as ModelDefinition).free
+		) {
 			throw new HTTPException(402, {
 				message: "Organization has insufficient credits",
 			});
@@ -1059,12 +1158,36 @@ chat.openapi(completions, async (c) => {
 	} else if (project.mode === "hybrid") {
 		// First try to get the provider key from the database
 		if (usedProvider === "custom" && customProviderName) {
-			providerKey = await getCustomProviderKey(
-				project.organizationId,
-				customProviderName,
-			);
+			providerKey = await db.query.providerKey.findFirst({
+				where: {
+					status: {
+						eq: "active",
+					},
+					organizationId: {
+						eq: project.organizationId,
+					},
+					provider: {
+						eq: "custom",
+					},
+					name: {
+						eq: customProviderName,
+					},
+				},
+			});
 		} else {
-			providerKey = await getProviderKey(project.organizationId, usedProvider);
+			providerKey = await db.query.providerKey.findFirst({
+				where: {
+					status: {
+						eq: "active",
+					},
+					organizationId: {
+						eq: project.organizationId,
+					},
+					provider: {
+						eq: usedProvider,
+					},
+				},
+			});
 		}
 
 		if (providerKey) {
@@ -1073,7 +1196,13 @@ chat.openapi(completions, async (c) => {
 			const isPaidMode = process.env.PAID_MODE === "true";
 
 			if (isHosted && isPaidMode) {
-				const organization = await getOrganization(project.organizationId);
+				const organization = await db.query.organization.findFirst({
+					where: {
+						id: {
+							eq: project.organizationId,
+						},
+					},
+				});
 
 				if (!organization) {
 					throw new HTTPException(500, {
@@ -1092,7 +1221,13 @@ chat.openapi(completions, async (c) => {
 			usedToken = providerKey.token;
 		} else {
 			// No API key available, fall back to credits - no pro plan required
-			const organization = await getOrganization(project.organizationId);
+			const organization = await db.query.organization.findFirst({
+				where: {
+					id: {
+						eq: project.organizationId,
+					},
+				},
+			});
 
 			if (!organization) {
 				throw new HTTPException(500, {
@@ -1100,7 +1235,10 @@ chat.openapi(completions, async (c) => {
 				});
 			}
 
-			if (organization.credits <= 0 && !(modelInfo as ModelDefinition).free) {
+			if (
+				parseFloat(organization.credits || "0") <= 0 &&
+				!(modelInfo as ModelDefinition).free
+			) {
 				throw new HTTPException(402, {
 					message:
 						"No API key set for provider and organization has insufficient credits",
@@ -1188,6 +1326,7 @@ chat.openapi(completions, async (c) => {
 
 	if (cachingEnabled) {
 		const cachePayload = {
+			provider: usedProvider,
 			model: usedModel,
 			messages,
 			temperature,
@@ -1300,6 +1439,8 @@ chat.openapi(completions, async (c) => {
 				await insertLog({
 					...baseLogEntry,
 					duration: 0, // No processing time for cached response
+					timeToFirstToken: null, // Not applicable for cached response
+					timeToFirstReasoningToken: null, // Not applicable for cached response
 					responseSize: JSON.stringify(cachedStreamingResponse).length,
 					content: fullContent || null,
 					reasoningContent: fullReasoningContent || null,
@@ -1319,6 +1460,7 @@ chat.openapi(completions, async (c) => {
 					requestCost: 0,
 					cost: 0,
 					estimatedCost: false,
+					discount: null,
 					cached: true,
 					toolResults:
 						(cachedStreamingResponse.metadata as { toolResults?: any })
@@ -1388,6 +1530,8 @@ chat.openapi(completions, async (c) => {
 				await insertLog({
 					...baseLogEntry,
 					duration,
+					timeToFirstToken: null, // Not applicable for cached response
+					timeToFirstReasoningToken: null, // Not applicable for cached response
 					responseSize: JSON.stringify(cachedResponse).length,
 					content: cachedResponse.choices?.[0]?.message?.content || null,
 					reasoningContent:
@@ -1410,6 +1554,7 @@ chat.openapi(completions, async (c) => {
 					requestCost: 0,
 					cost: 0,
 					estimatedCost: false,
+					discount: null,
 					cached: true,
 					toolResults: cachedResponse.choices?.[0]?.message?.tool_calls || null,
 				});
@@ -1514,6 +1659,12 @@ chat.openapi(completions, async (c) => {
 			}> = [];
 			const streamStartTime = Date.now();
 
+			// Timing tracking variables
+			let timeToFirstToken: number | null = null;
+			let timeToFirstReasoningToken: number | null = null;
+			let firstTokenReceived = false;
+			let firstReasoningTokenReceived = false;
+
 			// Helper function to write SSE and capture for cache
 			const writeSSEAndCache = async (sseData: {
 				data: string;
@@ -1600,6 +1751,8 @@ chat.openapi(completions, async (c) => {
 					await insertLog({
 						...baseLogEntry,
 						duration: Date.now() - startTime,
+						timeToFirstToken: null, // Not applicable for canceled request
+						timeToFirstReasoningToken: null, // Not applicable for canceled request
 						responseSize: 0,
 						content: null,
 						reasoningContent: null,
@@ -1615,6 +1768,7 @@ chat.openapi(completions, async (c) => {
 						errorDetails: null,
 						cachedInputCost: null,
 						requestCost: null,
+						discount: null,
 						cached: false,
 						toolResults: null,
 					});
@@ -1723,6 +1877,8 @@ chat.openapi(completions, async (c) => {
 				await insertLog({
 					...baseLogEntry,
 					duration: Date.now() - startTime,
+					timeToFirstToken: null, // Not applicable for error case
+					timeToFirstReasoningToken: null, // Not applicable for error case
 					responseSize: errorResponseText.length,
 					content: null,
 					reasoningContent: null,
@@ -1742,6 +1898,7 @@ chat.openapi(completions, async (c) => {
 					},
 					cachedInputCost: null,
 					requestCost: null,
+					discount: null,
 					cached: false,
 					toolResults: null,
 				});
@@ -1977,7 +2134,9 @@ chat.openapi(completions, async (c) => {
 
 							if (finalTotalTokens === null) {
 								finalTotalTokens =
-									(finalPromptTokens || 0) + (finalCompletionTokens || 0);
+									(finalPromptTokens || 0) +
+									(finalCompletionTokens || 0) +
+									(reasoningTokens || 0);
 							}
 
 							// Send final usage chunk before [DONE] if we have any usage data
@@ -2001,10 +2160,13 @@ chat.openapi(completions, async (c) => {
 									usage: {
 										prompt_tokens: Math.max(1, finalPromptTokens || 1),
 										completion_tokens: finalCompletionTokens || 0,
-										total_tokens: Math.max(
-											1,
-											finalTotalTokens || Math.max(1, finalPromptTokens || 1),
-										),
+										total_tokens: (() => {
+											const fallbackTotal =
+												(finalPromptTokens || 0) +
+												(finalCompletionTokens || 0) +
+												(reasoningTokens || 0);
+											return Math.max(1, finalTotalTokens ?? fallbackTotal);
+										})(),
 									},
 								};
 
@@ -2159,6 +2321,12 @@ chat.openapi(completions, async (c) => {
 							const contentChunk = extractContent(data, usedProvider);
 							if (contentChunk) {
 								fullContent += contentChunk;
+
+								// Track time to first token if this is the first content chunk
+								if (!firstTokenReceived) {
+									timeToFirstToken = Date.now() - startTime;
+									firstTokenReceived = true;
+								}
 							}
 
 							// Extract reasoning content for logging using helper function
@@ -2168,6 +2336,12 @@ chat.openapi(completions, async (c) => {
 							);
 							if (reasoningContentChunk) {
 								fullReasoningContent += reasoningContentChunk;
+
+								// Track time to first reasoning token if this is the first reasoning chunk
+								if (!firstReasoningTokenReceived) {
+									timeToFirstReasoningToken = Date.now() - startTime;
+									firstReasoningTokenReceived = true;
+								}
 							}
 
 							// Extract and accumulate tool calls
@@ -2214,7 +2388,23 @@ chat.openapi(completions, async (c) => {
 							switch (usedProvider) {
 								case "google-ai-studio":
 									if (data.candidates?.[0]?.finishReason) {
-										finishReason = data.candidates[0].finishReason;
+										const googleFinishReason = data.candidates[0].finishReason;
+										// Check if there are function calls in this response
+										const hasFunctionCalls =
+											data.candidates?.[0]?.content?.parts?.some(
+												(part: any) => part.functionCall,
+											);
+										// Map Google finish reasons to OpenAI format
+										finishReason =
+											googleFinishReason === "STOP"
+												? hasFunctionCalls
+													? "tool_calls"
+													: "stop"
+												: googleFinishReason === "MAX_TOKENS"
+													? "length"
+													: googleFinishReason === "SAFETY"
+														? "content_filter"
+														: "stop"; // Safe fallback for unknown reasons
 									}
 									break;
 								case "anthropic":
@@ -2379,7 +2569,9 @@ chat.openapi(completions, async (c) => {
 
 					if (!completionTokens && fullContent) {
 						try {
-							calculatedCompletionTokens = encode(fullContent).length;
+							calculatedCompletionTokens = encode(
+								JSON.stringify(fullContent),
+							).length;
 						} catch (error) {
 							// Fallback to simple estimation if encoding fails
 							logger.error(
@@ -2479,6 +2671,7 @@ chat.openapi(completions, async (c) => {
 					{
 						prompt: messages.map((m) => m.content).join("\n"),
 						completion: fullContent,
+						toolResults: streamingToolCalls || undefined,
 					},
 				);
 
@@ -2521,6 +2714,8 @@ chat.openapi(completions, async (c) => {
 				await insertLog({
 					...baseLogEntry,
 					duration,
+					timeToFirstToken,
+					timeToFirstReasoningToken,
 					responseSize: fullContent.length,
 					content: fullContent,
 					reasoningContent: fullReasoningContent || null,
@@ -2552,6 +2747,7 @@ chat.openapi(completions, async (c) => {
 					requestCost: costs.requestCost,
 					cost: costs.totalCost,
 					estimatedCost: costs.estimatedCost,
+					discount: costs.discount,
 					cached: false,
 					tools,
 					toolResults: streamingToolCalls,
@@ -2658,6 +2854,8 @@ chat.openapi(completions, async (c) => {
 		await insertLog({
 			...baseLogEntry,
 			duration,
+			timeToFirstToken: null, // Not applicable for canceled request
+			timeToFirstReasoningToken: null, // Not applicable for canceled request
 			responseSize: 0,
 			content: null,
 			reasoningContent: null,
@@ -2674,6 +2872,7 @@ chat.openapi(completions, async (c) => {
 			cachedInputCost: null,
 			requestCost: null,
 			estimatedCost: false,
+			discount: null,
 			cached: false,
 			toolResults: null,
 		});
@@ -2738,6 +2937,8 @@ chat.openapi(completions, async (c) => {
 		await insertLog({
 			...baseLogEntry,
 			duration,
+			timeToFirstToken: null, // Not applicable for error case
+			timeToFirstReasoningToken: null, // Not applicable for error case
 			responseSize: errorResponseText.length,
 			content: null,
 			reasoningContent: null,
@@ -2774,6 +2975,7 @@ chat.openapi(completions, async (c) => {
 			cachedInputCost: null,
 			requestCost: null,
 			estimatedCost: false,
+			discount: null,
 			cached: false,
 			toolResults: null,
 		});
@@ -2856,6 +3058,7 @@ chat.openapi(completions, async (c) => {
 		{
 			prompt: messages.map((m) => m.content).join("\n"),
 			completion: content,
+			toolResults: toolResults,
 		},
 	);
 
@@ -2912,6 +3115,8 @@ chat.openapi(completions, async (c) => {
 	await insertLog({
 		...baseLogEntry,
 		duration,
+		timeToFirstToken: null, // Not applicable for non-streaming requests
+		timeToFirstReasoningToken: null, // Not applicable for non-streaming requests
 		responseSize: responseText.length,
 		content: content,
 		reasoningContent: reasoningContent,
@@ -2935,6 +3140,7 @@ chat.openapi(completions, async (c) => {
 		requestCost: costs.requestCost,
 		cost: costs.totalCost,
 		estimatedCost: costs.estimatedCost,
+		discount: costs.discount,
 		cached: false,
 		tools,
 		toolResults,

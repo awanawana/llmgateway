@@ -2,12 +2,15 @@
  * Comprehensive TypeScript types for provider API messages and tool definitions
  */
 
-import type { ProviderId } from "./providers";
+import type { ProviderId } from "./providers.js";
 
 // Base content types
 export interface TextContent {
 	type: "text";
 	text: string;
+	cache_control?: {
+		type: "ephemeral";
+	};
 }
 
 export interface ImageUrlContent {
@@ -180,14 +183,14 @@ export interface OpenAIRequestBody extends BaseRequestBody {
 	stream_options?: {
 		include_usage: boolean;
 	};
-	reasoning_effort?: "low" | "medium" | "high";
+	reasoning_effort?: "minimal" | "low" | "medium" | "high";
 }
 
 export interface OpenAIResponsesRequestBody {
 	model: string;
 	input: OpenAIMessage[];
 	reasoning: {
-		effort: "low" | "medium" | "high";
+		effort: "minimal" | "low" | "medium" | "high";
 		summary: "detailed";
 	};
 	tools?: Array<{
@@ -253,6 +256,7 @@ export interface ModelWithPricing {
 		outputPrice?: number;
 		supportedParameters?: string[];
 		modelName: string;
+		discount?: number;
 	}>;
 }
 
@@ -281,7 +285,7 @@ export type RequestBodyPreparer = (
 	response_format?: OpenAIRequestBody["response_format"],
 	tools?: OpenAITool[],
 	tool_choice?: ToolChoiceType,
-	reasoning_effort?: "low" | "medium" | "high",
+	reasoning_effort?: "minimal" | "low" | "medium" | "high",
 	supportsReasoning?: boolean,
 	isProd?: boolean,
 ) => Promise<ProviderRequestBody>;

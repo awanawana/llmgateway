@@ -10,11 +10,14 @@
 		"openapi.json"
 	],
 	"scripts": {
-		"build": "fumadocs-mdx && tsc && next build && cp ../gateway/openapi.json .",
+		"build": "fumadocs-mdx && next build && cp ../gateway/openapi.json .",
+		"build2": "fumadocs-mdx && tsc && next build && cp ../gateway/openapi.json .",
 		"dev": "next dev --turbo --port 3005",
+		"format": "eslint --fix . && prettier --write .",
 		"gen-docs": "node scripts/generate-docs.mjs",
 		"generate": "pnpm gen-docs",
 		"postinstall": "fumadocs-mdx || true",
+		"lint": "eslint . && prettier --check .",
 		"start": "next start -H 0.0.0.0"
 	},
 	"dependencies": {
@@ -24,7 +27,7 @@
 		"fumadocs-openapi": "9.3.3",
 		"fumadocs-ui": "15.6.10",
 		"gateway": "workspace:*",
-		"lucide-react": "^0.539.0",
+		"lucide-react": "^0.544.0",
 		"next": "15.5.2",
 		"posthog-js": "1.255.1",
 		"react": "^19.1.1",

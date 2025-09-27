@@ -2,7 +2,7 @@ import { encode, encodeChat } from "gpt-tokenizer";
 
 import { logger } from "@llmgateway/logger";
 
-import { type ChatMessage, DEFAULT_TOKENIZER_MODEL } from "./types";
+import { type ChatMessage, DEFAULT_TOKENIZER_MODEL } from "./types.js";
 
 import type { Provider } from "@llmgateway/models";
 
@@ -51,7 +51,7 @@ export function estimateTokens(
 		// Estimate completion tokens using encode for better accuracy
 		if (!completionTokens && content) {
 			try {
-				calculatedCompletionTokens = encode(content).length;
+				calculatedCompletionTokens = encode(JSON.stringify(content)).length;
 			} catch (error) {
 				// Fallback to simple estimation if encoding fails
 				logger.error(

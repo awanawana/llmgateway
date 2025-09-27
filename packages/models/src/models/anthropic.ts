@@ -1,4 +1,4 @@
-import type { ModelDefinition } from "@llmgateway/models";
+import type { ModelDefinition } from "@/models.js";
 
 export const anthropicModels = [
 	{
@@ -9,6 +9,7 @@ export const anthropicModels = [
 		deactivatedAt: undefined,
 		providers: [
 			{
+				test: "skip",
 				providerId: "anthropic",
 				modelName: "claude-3-7-sonnet-latest",
 				inputPrice: 3.0 / 1e6,
@@ -43,6 +44,20 @@ export const anthropicModels = [
 				vision: false,
 				tools: true,
 			},
+			{
+				providerId: "routeway-discount",
+				modelName: "claude-3-5-haiku-20241022-v1:0",
+				inputPrice: 0.8 / 1e6,
+				outputPrice: 4.0 / 1e6,
+				cachedInputPrice: 0.08 / 1e6,
+				discount: 0.5,
+				requestPrice: 0,
+				contextSize: 200000,
+				maxOutput: 8192,
+				streaming: true,
+				vision: false,
+				tools: true,
+			},
 		],
 	},
 	{
@@ -66,6 +81,22 @@ export const anthropicModels = [
 				reasoning: true,
 				tools: true,
 			},
+			{
+				providerId: "routeway-discount",
+				modelName: "claude-3-7-sonnet-20250219-v1:0",
+				inputPrice: 3.0 / 1e6,
+				outputPrice: 15.0 / 1e6,
+				cachedInputPrice: 0.3 / 1e6,
+				discount: 0.5,
+				requestPrice: 0,
+				contextSize: 200000,
+				maxOutput: 8192,
+				streaming: true,
+				vision: false,
+				reasoning: true,
+				reasoningOutput: "omit",
+				tools: true,
+			},
 		],
 	},
 	{
@@ -73,7 +104,7 @@ export const anthropicModels = [
 		name: "Claude 3.5 Sonnet (2024-10-22)",
 		family: "anthropic",
 		deprecatedAt: undefined,
-		deactivatedAt: undefined,
+		deactivatedAt: new Date("2025-10-22T00:00:00Z"),
 		providers: [
 			{
 				providerId: "anthropic",
@@ -119,6 +150,7 @@ export const anthropicModels = [
 		deactivatedAt: undefined,
 		providers: [
 			{
+				test: "skip",
 				providerId: "anthropic",
 				modelName: "claude-sonnet-4-20250514",
 				inputPrice: 3.0 / 1e6,
@@ -127,6 +159,23 @@ export const anthropicModels = [
 				requestPrice: 0,
 				contextSize: 200000,
 				maxOutput: undefined,
+				streaming: true,
+				vision: false,
+				tools: true,
+			},
+			{
+				test: "skip",
+				providerId: "routeway-discount",
+				modelName: "claude-sonnet-4-20250514-v1:0",
+				inputPrice: 3.0 / 1e6,
+				outputPrice: 15.0 / 1e6,
+				cachedInputPrice: 0.3 / 1e6,
+				discount: 0.5,
+				requestPrice: 0,
+				contextSize: 200000,
+				maxOutput: undefined,
+				reasoning: true,
+				reasoningOutput: "omit",
 				streaming: true,
 				vision: false,
 				tools: true,
@@ -141,6 +190,7 @@ export const anthropicModels = [
 		deactivatedAt: undefined,
 		providers: [
 			{
+				test: "skip",
 				providerId: "anthropic",
 				modelName: "claude-opus-4-20250514",
 				inputPrice: 15.0 / 1e6,
@@ -153,18 +203,36 @@ export const anthropicModels = [
 				vision: false,
 				tools: true,
 			},
+			{
+				test: "skip",
+				providerId: "routeway-discount",
+				modelName: "claude-opus-4-20250514-v1:0",
+				inputPrice: 15.0 / 1e6,
+				outputPrice: 75.0 / 1e6,
+				cachedInputPrice: 1.5 / 1e6,
+				discount: 0.5,
+				requestPrice: 0,
+				contextSize: 200000,
+				maxOutput: undefined,
+				reasoning: true,
+				reasoningOutput: "omit",
+				streaming: true,
+				vision: false,
+				tools: true,
+			},
 		],
 	},
 	{
-		id: "claude-opus-4-1",
+		id: "claude-opus-4-1-20250805",
 		name: "Claude Opus 4.1",
 		family: "anthropic",
 		deprecatedAt: undefined,
 		deactivatedAt: undefined,
 		providers: [
 			{
+				test: "skip",
 				providerId: "anthropic",
-				modelName: "claude-opus-4-1",
+				modelName: "claude-opus-4-1-20250805",
 				inputPrice: 15.0 / 1e6,
 				outputPrice: 75.0 / 1e6,
 				cachedInputPrice: 1.5 / 1e6,
@@ -174,6 +242,46 @@ export const anthropicModels = [
 				streaming: true,
 				vision: true,
 				reasoning: true,
+				tools: true,
+			},
+			{
+				test: "skip",
+				providerId: "routeway-discount",
+				modelName: "claude-opus-4-1-20250805-v1:0",
+				inputPrice: 15.0 / 1e6,
+				outputPrice: 75.0 / 1e6,
+				cachedInputPrice: 1.5 / 1e6,
+				discount: 0.5,
+				requestPrice: 0,
+				contextSize: 200000,
+				maxOutput: 32000,
+				streaming: true,
+				vision: true,
+				reasoning: true,
+				reasoningOutput: "omit",
+				tools: true,
+			},
+		],
+	},
+	{
+		id: "claude-3-5-sonnet-20240620",
+		name: "Claude 3.5 Sonnet (Old)",
+		family: "anthropic",
+		deprecatedAt: undefined,
+		deactivatedAt: undefined,
+		providers: [
+			{
+				test: "skip",
+				providerId: "anthropic",
+				modelName: "claude-3-5-sonnet-20240620",
+				inputPrice: 3.0 / 1e6,
+				outputPrice: 15.0 / 1e6,
+				cachedInputPrice: 0.3 / 1e6,
+				requestPrice: 0,
+				contextSize: 200000,
+				maxOutput: 8192,
+				streaming: true,
+				vision: true,
 				tools: true,
 			},
 		],
@@ -186,6 +294,7 @@ export const anthropicModels = [
 		deactivatedAt: undefined,
 		providers: [
 			{
+				test: "skip",
 				providerId: "anthropic",
 				modelName: "claude-3-5-sonnet-latest",
 				inputPrice: 3.0 / 1e6,
@@ -230,6 +339,7 @@ export const anthropicModels = [
 		deactivatedAt: undefined,
 		providers: [
 			{
+				test: "skip",
 				providerId: "anthropic",
 				modelName: "claude-3-opus-20240229",
 				inputPrice: 15.0 / 1e6,

@@ -2,11 +2,11 @@ import {
 	type ModelDefinition,
 	models,
 	type ProviderModelMapping,
-} from "./models";
-import { transformAnthropicMessages } from "./transform-anthropic-messages";
-import { transformGoogleMessages } from "./transform-google-messages";
+} from "./models.js";
+import { transformAnthropicMessages } from "./transform-anthropic-messages.js";
+import { transformGoogleMessages } from "./transform-google-messages.js";
 
-import type { ProviderId } from "./providers";
+import type { ProviderId } from "./providers.js";
 import type {
 	BaseMessage,
 	FunctionParameter,
@@ -15,7 +15,7 @@ import type {
 	OpenAIToolInput,
 	ProviderRequestBody,
 	ToolChoiceType,
-} from "./types";
+} from "./types.js";
 
 /**
  * Transforms messages for models that don't support system roles by converting system messages to user messages
@@ -48,7 +48,7 @@ export async function prepareRequestBody(
 	response_format: OpenAIRequestBody["response_format"],
 	tools?: OpenAIToolInput[],
 	tool_choice?: ToolChoiceType,
-	reasoning_effort?: "low" | "medium" | "high",
+	reasoning_effort?: "minimal" | "low" | "medium" | "high",
 	supportsReasoning?: boolean,
 	isProd = false,
 ): Promise<ProviderRequestBody> {
@@ -77,14 +77,14 @@ export async function prepareRequestBody(
 		requestBody.tool_choice = tool_choice;
 	}
 
+	// Override temperature to 1 for GPT-5 models (they only support temperature = 1)
+	if (usedModel.startsWith("gpt-5")) {
+		// eslint-disable-next-line no-param-reassign
+		temperature = 1;
+	}
+
 	switch (usedProvider) {
 		case "openai": {
-			// Override temperature to 1 for GPT-5 models (they only support temperature = 1)
-			let effectiveTemperature = temperature;
-			if (usedModel.startsWith("gpt-5")) {
-				effectiveTemperature = 1;
-			}
-
 			// Check if messages contain existing tool calls or tool results
 			// If so, use Chat Completions API instead of Responses API
 			const hasExistingToolCalls = messages.some(
@@ -131,8 +131,8 @@ export async function prepareRequestBody(
 				}
 
 				// Add optional parameters if they are provided
-				if (effectiveTemperature !== undefined) {
-					responsesBody.temperature = effectiveTemperature;
+				if (temperature !== undefined) {
+					responsesBody.temperature = temperature;
 				}
 				if (max_tokens !== undefined) {
 					responsesBody.max_output_tokens = max_tokens;
@@ -151,8 +151,8 @@ export async function prepareRequestBody(
 				}
 
 				// Add optional parameters if they are provided
-				if (effectiveTemperature !== undefined) {
-					requestBody.temperature = effectiveTemperature;
+				if (temperature !== undefined) {
+					requestBody.temperature = temperature;
 				}
 				if (max_tokens !== undefined) {
 					// GPT-5 models use max_completion_tokens instead of max_tokens
@@ -208,6 +208,99 @@ export async function prepareRequestBody(
 				requestBody.thinking = {
 					type: "enabled",
 				};
+			}
+			break;
+		}
+		case "routeway-discount": {
+			if (stream) {
+				requestBody.stream_options = {
+					include_usage: true,
+				};
+			}
+			if (response_format) {
+				// Override json_object to json for routeway-discount only for claude models
+				if (
+					response_format.type === "json_object" &&
+					usedModel.startsWith("claude-")
+				) {
+					requestBody.response_format = {
+						...response_format,
+						type: "json",
+					};
+				} else {
+					requestBody.response_format = response_format;
+				}
+			}
+
+			// Add cache_control for claude models while keeping OpenAI format
+			if (usedModel.startsWith("claude-")) {
+				// Track cache_control usage to limit to maximum of 4 blocks
+				let cacheControlCount = 0;
+				const maxCacheControlBlocks = 4;
+
+				requestBody.messages = processedMessages.map((message: any) => {
+					if (Array.isArray(message.content)) {
+						// Handle array content - add cache_control to long text blocks
+						const updatedContent = message.content.map((part: any) => {
+							if (part.type === "text" && part.text && !part.cache_control) {
+								const shouldCache =
+									part.text.length >= 1024 * 4 && // Rough token estimation
+									cacheControlCount < maxCacheControlBlocks;
+								if (shouldCache) {
+									cacheControlCount++;
+									return {
+										...part,
+										cache_control: { type: "ephemeral" },
+									};
+								}
+							}
+							return part;
+						});
+						return {
+							...message,
+							content: updatedContent,
+						};
+					} else if (typeof message.content === "string") {
+						// Handle string content - add cache_control for long prompts
+						const shouldCache =
+							message.content.length >= 1024 * 4 && // Rough token estimation
+							cacheControlCount < maxCacheControlBlocks;
+						if (shouldCache) {
+							cacheControlCount++;
+							return {
+								...message,
+								content: [
+									{
+										type: "text",
+										text: message.content,
+										cache_control: { type: "ephemeral" },
+									},
+								],
+							};
+						}
+					}
+					return message;
+				});
+			}
+
+			// Add optional parameters if they are provided
+			if (temperature !== undefined) {
+				requestBody.temperature = temperature;
+			}
+			if (max_tokens !== undefined) {
+				requestBody.max_tokens = max_tokens;
+			}
+			if (top_p !== undefined) {
+				requestBody.top_p = top_p;
+			}
+			if (frequency_penalty !== undefined) {
+				requestBody.frequency_penalty = frequency_penalty;
+			}
+			if (presence_penalty !== undefined) {
+				requestBody.presence_penalty = presence_penalty;
+			}
+			if (reasoning_effort !== undefined) {
+				requestBody.reasoning_effort = reasoning_effort;
 			}
 			break;
 		}
@@ -290,6 +383,8 @@ export async function prepareRequestBody(
 					tool_calls: m.tool_calls, // Include tool_calls for transformation
 				})),
 				isProd,
+				usedProvider,
+				usedModel,
 			);
 
 			// Transform tools from OpenAI format to Anthropic format

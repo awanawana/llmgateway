@@ -1,6 +1,6 @@
 import { logger } from "@llmgateway/logger";
 
-import { processImageUrl } from "./process-image-url";
+import { processImageUrl } from "./process-image-url.js";
 import {
 	type AnthropicMessage,
 	type BaseMessage,
@@ -10,7 +10,7 @@ import {
 	type TextContent,
 	type ToolResultContent,
 	type ToolUseContent,
-} from "./types";
+} from "./types.js";
 
 /**
  * Transforms Anthropic messages
@@ -18,8 +18,18 @@ import {
 export async function transformAnthropicMessages(
 	messages: BaseMessage[],
 	isProd = false,
+	provider?: string,
+	_model?: string,
 ): Promise<AnthropicMessage[]> {
 	const results: AnthropicMessage[] = [];
+
+	// Determine if we should apply cache_control for long prompts
+	// Apply for anthropic provider only (routeway-discount handles this separately in prepare-request-body)
+	const shouldApplyCacheControl = provider === "anthropic";
+
+	// Track cache_control usage to limit to maximum of 4 blocks
+	let cacheControlCount = 0;
+	const maxCacheControlBlocks = 4;
 
 	// Keep track of all tool_use IDs seen so far to ensure uniqueness
 	const seenToolUseIds = new Set<string>();
@@ -103,12 +113,38 @@ export async function transformAnthropicMessages(
 							} as TextContent;
 						}
 					}
+					if (isTextContent(part) && part.text && !part.cache_control) {
+						// Automatically add cache_control for long text blocks
+						const shouldCache =
+							shouldApplyCacheControl &&
+							part.text.length >= 1024 * 4 && // Rough token estimation
+							cacheControlCount < maxCacheControlBlocks;
+						if (shouldCache) {
+							cacheControlCount++;
+							return {
+								...part,
+								cache_control: { type: "ephemeral" },
+							};
+						}
+					}
 					return part;
 				}),
 			);
 		} else if (m.content && typeof m.content === "string") {
-			// Handle string content
-			content = [{ type: "text", text: m.content } as TextContent];
+			// Handle string content - automatically add cache_control for long prompts (1024+ tokens)
+			const shouldCache =
+				shouldApplyCacheControl &&
+				m.content.length >= 1024 * 4 && // Rough token estimation: 1 token ≈ 4 chars
+				cacheControlCount < maxCacheControlBlocks;
+			const textContent: TextContent = {
+				type: "text",
+				text: m.content,
+				...(shouldCache && { cache_control: { type: "ephemeral" } }),
+			};
+			if (shouldCache) {
+				cacheControlCount++;
+			}
+			content = [textContent];
 		}
 
 		// Handle OpenAI-style tool_calls by converting them to Anthropic tool_use content blocks
@@ -157,7 +193,7 @@ export async function transformAnthropicMessages(
 		// Handle OpenAI-style tool role messages by converting them to Anthropic tool_result content blocks
 		// Use the original role since the mapped role will be "user"
 		const originalRole = m.role === "user" && m.tool_call_id ? "tool" : m.role;
-		if (originalRole === "tool" && m.tool_call_id && m.content) {
+		if (originalRole === "tool" && m.tool_call_id && m.content !== undefined) {
 			// For tool results, we need to check if content is JSON string and parse it appropriately
 			let toolResultContent: string;
 			const contentStr =
@@ -174,6 +210,11 @@ export async function transformAnthropicMessages(
 			} catch {
 				// If it's not valid JSON, use as-is
 				toolResultContent = contentStr;
+			}
+
+			// Anthropic requires non-empty content for tool_result blocks
+			if (!toolResultContent || toolResultContent.trim() === "") {
+				toolResultContent = "No output";
 			}
 
 			// Use the mapped IDs if they exist, otherwise use the original ID

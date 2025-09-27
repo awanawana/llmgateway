@@ -1,4 +1,4 @@
-import type { ModelDefinition } from "@llmgateway/models";
+import type { ModelDefinition } from "@/models.js";
 
 export const googleModels = [
 	{
@@ -20,6 +20,19 @@ export const googleModels = [
 				vision: true,
 				tools: true,
 			},
+			{
+				providerId: "routeway-discount",
+				modelName: "gemini-2.5-pro",
+				inputPrice: 1.25 / 1e6,
+				outputPrice: 10.0 / 1e6,
+				discount: 0.5,
+				requestPrice: 0,
+				contextSize: 1000000,
+				maxOutput: undefined,
+				streaming: true,
+				vision: true,
+				tools: true,
+			},
 		],
 	},
 	{
@@ -30,6 +43,7 @@ export const googleModels = [
 		deactivatedAt: new Date("2025-07-15"),
 		providers: [
 			{
+				test: "skip",
 				providerId: "google-ai-studio",
 				modelName: "gemini-2.5-pro-preview-05-06",
 				inputPrice: 1.25 / 1e6,
@@ -51,6 +65,7 @@ export const googleModels = [
 		deactivatedAt: new Date("2025-07-15"),
 		providers: [
 			{
+				test: "skip",
 				providerId: "google-ai-studio",
 				modelName: "gemini-2.5-pro-preview-06-05",
 				inputPrice: 1.25 / 1e6,
@@ -116,8 +131,59 @@ export const googleModels = [
 			{
 				providerId: "google-ai-studio",
 				modelName: "gemini-2.5-flash",
-				inputPrice: 0.15 / 1e6,
-				outputPrice: 0.6 / 1e6,
+				inputPrice: 0.3 / 1e6,
+				outputPrice: 2.5 / 1e6,
+				cachedInputPrice: 0.075 / 1e6,
+				requestPrice: 0,
+				contextSize: 1000000,
+				maxOutput: undefined,
+				streaming: true,
+				vision: true,
+				tools: true,
+			},
+			{
+				providerId: "routeway-discount",
+				modelName: "gemini-2.5-flash",
+				inputPrice: 0.3 / 1e6,
+				outputPrice: 2.5 / 1e6,
+				cachedInputPrice: 0.075 / 1e6,
+				discount: 0.5,
+				requestPrice: 0,
+				contextSize: 1000000,
+				maxOutput: undefined,
+				streaming: true,
+				vision: true,
+				tools: true,
+			},
+		],
+	},
+	{
+		id: "gemini-2.5-flash-lite",
+		name: "Gemini 2.5 Flash Lite",
+		family: "google",
+		deprecatedAt: undefined,
+		deactivatedAt: undefined,
+		providers: [
+			{
+				providerId: "google-ai-studio",
+				modelName: "gemini-2.5-flash-lite",
+				inputPrice: 0.1 / 1e6,
+				outputPrice: 0.4 / 1e6,
+				cachedInputPrice: 0.025 / 1e6,
+				requestPrice: 0,
+				contextSize: 1000000,
+				maxOutput: undefined,
+				streaming: true,
+				vision: true,
+				tools: true,
+			},
+			{
+				providerId: "routeway-discount",
+				modelName: "gemini-2.5-flash-lite",
+				inputPrice: 0.1 / 1e6,
+				outputPrice: 0.4 / 1e6,
+				cachedInputPrice: 0.025 / 1e6,
+				discount: 0.5,
 				requestPrice: 0,
 				contextSize: 1000000,
 				maxOutput: undefined,
@@ -137,6 +203,7 @@ export const googleModels = [
 		output: ["text", "image"],
 		providers: [
 			{
+				test: "skip",
 				providerId: "google-ai-studio",
 				modelName: "gemini-2.5-flash-image-preview",
 				inputPrice: 0.3 / 1e6,

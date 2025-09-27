@@ -1,6 +1,6 @@
 {
 	"name": "ui",
-	"version": "1.0.0",
+	"version": "0.0.0",
 	"private": true,
 	"license": "SEE LICENSE IN ../../LICENSE",
 	"files": [
@@ -8,9 +8,11 @@
 		".next"
 	],
 	"scripts": {
-		"build": "NODE_OPTIONS=\"--max-old-space-size=8192\" tsc && NODE_OPTIONS=\"--max-old-space-size=8192\" next build",
+		"build": "next build && tsc",
 		"dev": "next dev --port 3002 --turbopack",
-		"generate": "NODE_OPTIONS=\"--max-old-space-size=4096\" openapi-typescript ../api/openapi.json -o ./src/lib/api/v1.d.ts",
+		"format": "eslint --fix . && prettier --write .",
+		"generate": "openapi-typescript ../api/openapi.json -o ./src/lib/api/v1.d.ts",
+		"lint": "eslint . && prettier --check .",
 		"start": "next start"
 	},
 	"dependencies": {
@@ -18,6 +20,7 @@
 		"@content-collections/next": "0.2.1",
 		"@hey-api/client-fetch": "0.13.1",
 		"@hookform/resolvers": "5.1.1",
+		"@llmgateway/db": "workspace:*",
 		"@llmgateway/models": "workspace:*",
 		"@radix-ui/react-accordion": "1.2.12",
 		"@radix-ui/react-alert-dialog": "1.1.15",
@@ -51,7 +54,7 @@
 		"crisp-sdk-web": "1.0.25",
 		"date-fns": "4.1.0",
 		"framer-motion": "12.15.0",
-		"lucide-react": "^0.488.0",
+		"lucide-react": "^0.544.0",
 		"markdown-to-jsx": "7.7.13",
 		"motion": "12.23.12",
 		"next": "15.5.2",
@@ -60,11 +63,12 @@
 		"openapi-react-query": "0.5.0",
 		"posthog-js": "1.255.1",
 		"posthog-node": "5.8.2",
-		"pretty-bytes": "7.0.0",
+		"pretty-bytes": "7.0.1",
 		"prism-react-renderer": "2.4.1",
 		"react": "^19.1.1",
 		"react-dom": "^19.1.1",
 		"react-hook-form": "7.60.0",
+		"react-tweet": "3.2.2",
 		"recharts": "^2.15.2",
 		"sonner": "^2.0.7",
 		"tailwind-merge": "^3.2.0",
@@ -76,7 +80,7 @@
 		"@types/react": "^19.1.13",
 		"@types/react-dom": "^19.1.9",
 		"autoprefixer": "^10.4.20",
-		"openapi-typescript": "7.8.0",
+		"openapi-typescript": "7.9.1",
 		"postcss": "^8.5.6",
 		"tailwindcss": "^4.1.12",
 		"zod": "3.25.75"

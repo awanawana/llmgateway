@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI agents when working with code in this repository.
 
 ## Development Commands
 
@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 NOTE: these commands can only be run in the root directory of the repository, not in individual app directories.
 
-- `pnpm dev` - Start all development servers (UI on :3002, API on :4002, Gateway on :4001, Docs on :3005)
+- `pnpm dev` - Start all development servers (UI on :3002, Playground on :3003, API on :4002, Gateway on :4001, Docs on :3005)
 - `pnpm build` - Build all applications for production
 - `pnpm clean` - Clean build artifacts and cache directories
 
@@ -27,6 +27,10 @@ Always run `pnpm format` before committing code. Run `pnpm generate` if API rout
 - `pnpm format` - Format code and fix linting issues
 - `pnpm lint` - Check linting and formatting (without fixing)
 - `pnpm generate` - Regenerate OpenAPI schemas from API routes
+
+### Writing code
+
+This is a pure TypeScript project. Never use `any` or `as any` unless absolutely necessary.
 
 ### Testing
 
@@ -59,11 +63,13 @@ E2E tests are organized for optimal performance:
 
 NOTE: these commands can only be run in the root directory of the repository, not in individual app directories.
 
+- `pnpm --filter db push` - Push database schema
+- `pnpm --filter db seed` - Seed database with initial data
 - `pnpm run setup` – Reset db, sync schema, seed data (use this for development)
 
 ## Architecture Overview
 
-**LLMGateway** is a monorepo containing a full-stack LLM API gateway with multiple services:
+**LLM Gateway** is a monorepo containing a full-stack LLM API gateway with multiple services:
 
 ### Core Services
 
@@ -134,11 +140,22 @@ NOTE: these commands can only be run in the root directory of the repository, no
 ### Service URLs (Development)
 
 - UI: http://localhost:3002
+- Playground: http://localhost:3003
 - API: http://localhost:4002
 - Gateway: http://localhost:4001
 - Docs: http://localhost:3005
 - PostgreSQL: localhost:5432
 - Redis: localhost:6379
+
+## Folder Structure
+
+- `apps/ui`: Next.js frontend
+- `apps/api`: Hono backend
+- `apps/gateway`: API gateway for routing LLM requests
+- `apps/docs`: Documentation site
+- `packages/db`: Drizzle ORM schema and migrations
+- `packages/models`: Model and provider definitions
+- `packages/shared`: Shared types and utilities
 
 ## Key Features
 
@@ -165,3 +182,21 @@ NOTE: these commands can only be run in the root directory of the repository, no
 - API keys and provider configurations
 - Usage tracking and billing records
 - Analytics and performance metrics
+
+## License
+
+LLM Gateway is available under a dual license:
+
+- **Open Source**: Core functionality is licensed under AGPLv3 - see the [LICENSE](LICENSE) file for details.
+- **Enterprise**: Commercial features in the `ee/` directory require an Enterprise license - see [ee/LICENSE](ee/LICENSE) for details.
+
+### Enterprise features include:
+
+- Advanced billing and subscription management
+- Extended data retention (90 days vs 3 days)
+- Provider API key management (Pro plan)
+- Team and organization management
+- Priority support
+- And more to be defined
+
+For enterprise licensing, please contact us at contact@llmgateway.io

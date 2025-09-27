@@ -6,21 +6,22 @@
 	},
 	"dangerouslyDisablePackageManagerCheck": true,
 	"globalDependencies": [
-		".tool-versions",
 		".npmrc",
+		".tool-versions",
 		"package.json",
 		"pnpm-lock.yaml",
 		"pnpm-workspace.yaml",
-		"tsup.config.ts",
 		"tsconfig.json",
 		"turbo.json"
 	],
+	"concurrency": "16",
 	"tasks": {
 		"build": {
 			"dependsOn": ["^build"],
 			"outputs": [
 				"dist/**",
 				".next/**",
+				".next-dev/**",
 				".vercel/**",
 				".output/**",
 				".vinxi/**",
@@ -30,7 +31,8 @@
 			]
 		},
 		"generate": {
-			"dependsOn": ["^generate"],
+			"cache": false,
+			"dependsOn": ["build", "^generate"],
 			"outputs": ["openapi.json", "content/**", "migrations", "**/v1.d.ts"]
 		},
 		"dev": {
@@ -38,6 +40,9 @@
 			"cache": false
 		},
 		"lint": {},
+		"format": {
+			"cache": false
+		},
 		"test": {}
 	}
 }

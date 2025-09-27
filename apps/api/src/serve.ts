@@ -7,9 +7,9 @@ import {
 } from "@llmgateway/instrumentation";
 import { logger } from "@llmgateway/logger";
 
-import { app } from ".";
-import { redisClient } from "./auth/config";
-import { sendInstallationBeacon } from "./lib/beacon";
+import { redisClient } from "./auth/config.js";
+import { app } from "./index.js";
+import { sendInstallationBeacon } from "./lib/beacon.js";
 
 import type { NodeSDK } from "@opentelemetry/sdk-node";
 
@@ -82,13 +82,13 @@ const gracefulShutdown = async (signal: string, server: ServerType) => {
 		await closeServer(server);
 		logger.info("HTTP server closed");
 
-		logger.info("Closing Redis connection");
-		await redisClient.quit();
-		logger.info("Redis connection closed");
-
 		logger.info("Closing database connection");
 		await closeDatabase();
 		logger.info("Database connection closed");
+
+		logger.info("Closing Redis connection");
+		await redisClient.quit();
+		logger.info("Redis connection closed");
 
 		// Shutdown instrumentation last to ensure all spans are flushed
 		if (sdk) {

@@ -92,11 +92,20 @@ RUN NODE_VERSION=$(cat .tool-versions | grep 'nodejs' | cut -d ' ' -f 2) && \
         exit 1; \
     fi
 
+# verify that pnpm store path
+RUN STORE_PATH="/root/.local/share/pnpm/store" && \
+    if [ "${STORE_PATH#/root/.local/share/pnpm/store}" = "${STORE_PATH}" ]; then \
+        echo "pnpm store path mismatch: ${STORE_PATH}"; \
+        exit 1; \
+    fi && \
+    echo "pnpm store path matches: ${STORE_PATH}"
+
 # Copy package files and install dependencies
 COPY .npmrc package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/docs/package.json ./apps/docs/
 COPY apps/gateway/package.json ./apps/gateway/
+COPY apps/playground/package.json ./apps/playground/
 COPY apps/ui/package.json ./apps/ui/
 COPY apps/worker/package.json ./apps/worker/
 COPY packages/db/package.json ./packages/db/
@@ -106,7 +115,7 @@ COPY packages/cache/package.json ./packages/cache/
 COPY packages/instrumentation/package.json ./packages/instrumentation/
 COPY packages/shared/package.json ./packages/shared/
 
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
 
 # Copy source code
 COPY . .
@@ -125,9 +134,11 @@ RUN mkdir -p /app/services /var/log/supervisor /var/log/postgresql /run/postgres
     chown postgres:postgres /run/postgresql
 
 # Deploy all services with a single command
-RUN pnpm --filter=api --prod deploy /app/services/api && \
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm --filter=api --prod deploy /app/services/api && \
     pnpm --filter=gateway --prod deploy /app/services/gateway && \
     pnpm --filter=worker --prod deploy /app/services/worker && \
+    pnpm --filter=playground --prod deploy /app/services/playground && \
     pnpm --filter=ui --prod deploy /app/services/ui && \
     pnpm --filter=docs --prod deploy /app/services/docs
 
@@ -154,7 +165,7 @@ COPY infra/start.sh /start.sh
 RUN chmod +x /start.sh
 
 # Expose ports
-EXPOSE 3002 3005 4001 4002 5432 6379
+EXPOSE 3002 3003 3005 4001 4002 5432 6379
 
 # Set environment variables
 ENV NODE_ENV=production

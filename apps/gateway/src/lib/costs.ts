@@ -1,7 +1,12 @@
 import { encode, encodeChat } from "gpt-tokenizer";
 
 import { logger } from "@llmgateway/logger";
-import { type Model, type ModelDefinition, models } from "@llmgateway/models";
+import {
+	type Model,
+	type ModelDefinition,
+	models,
+	type ToolCall,
+} from "@llmgateway/models";
 
 // Define ChatMessage type to match what gpt-tokenizer expects
 interface ChatMessage {
@@ -27,6 +32,7 @@ export function calculateCosts(
 		messages?: ChatMessage[];
 		prompt?: string;
 		completion?: string;
+		toolResults?: ToolCall[];
 	},
 ) {
 	// Find the model info - try both base model name and provider model name
@@ -49,6 +55,7 @@ export function calculateCosts(
 			completionTokens,
 			cachedTokens,
 			estimatedCost: false,
+			discount: undefined,
 		};
 	}
 
@@ -77,7 +84,9 @@ export function calculateCosts(
 			} else if (fullOutput.prompt) {
 				// For text prompt
 				try {
-					calculatedPromptTokens = encode(fullOutput.prompt).length;
+					calculatedPromptTokens = encode(
+						JSON.stringify(fullOutput.prompt),
+					).length;
 				} catch (error) {
 					// If encoding fails, leave as null
 					logger.error(`Failed to encode prompt text: ${error}`);
@@ -86,18 +95,39 @@ export function calculateCosts(
 		}
 
 		// Calculate completion tokens
-		if (!completionTokens && fullOutput && fullOutput.completion) {
-			try {
-				calculatedCompletionTokens = encode(fullOutput.completion).length;
-			} catch (error) {
-				// If encoding fails, leave as null
-				logger.error(`Failed to encode completion text: ${error}`);
+		if (!completionTokens && fullOutput) {
+			let completionText = "";
+
+			// Include main completion content
+			if (fullOutput.completion) {
+				completionText += fullOutput.completion;
+			}
+
+			// Include tool results if available
+			if (fullOutput.toolResults && Array.isArray(fullOutput.toolResults)) {
+				for (const toolResult of fullOutput.toolResults) {
+					if (toolResult.function?.name) {
+						completionText += toolResult.function.name;
+					}
+					if (toolResult.function?.arguments) {
+						completionText += JSON.stringify(toolResult.function.arguments);
+					}
+				}
+			}
+
+			if (completionText) {
+				try {
+					calculatedCompletionTokens = encode(completionText).length;
+				} catch (error) {
+					// If encoding fails, leave as null
+					logger.error(`Failed to encode completion text: ${error}`);
+				}
 			}
 		}
 	}
 
-	// If we still don't have token counts, return null costs
-	if (!calculatedPromptTokens || !calculatedCompletionTokens) {
+	// If we don't have prompt tokens, we can't calculate any costs
+	if (!calculatedPromptTokens) {
 		return {
 			inputCost: null,
 			outputCost: null,
@@ -108,7 +138,13 @@ export function calculateCosts(
 			completionTokens: calculatedCompletionTokens,
 			cachedTokens,
 			estimatedCost: isEstimated,
+			discount: undefined,
 		};
+	}
+
+	// Set completion tokens to 0 if not available (but still calculate input costs)
+	if (!calculatedCompletionTokens) {
+		calculatedCompletionTokens = 0;
 	}
 
 	// Find the provider-specific pricing
@@ -127,6 +163,7 @@ export function calculateCosts(
 			completionTokens: calculatedCompletionTokens,
 			cachedTokens,
 			estimatedCost: isEstimated,
+			discount: undefined,
 		};
 	}
 
@@ -134,11 +171,21 @@ export function calculateCosts(
 	const outputPrice = providerInfo.outputPrice || 0;
 	const cachedInputPrice = providerInfo.cachedInputPrice || 0;
 	const requestPrice = providerInfo.requestPrice || 0;
+	const discount = providerInfo.discount || 1;
 
-	const inputCost = calculatedPromptTokens * inputPrice;
-	const outputCost = calculatedCompletionTokens * outputPrice;
-	const cachedInputCost = cachedTokens ? cachedTokens * cachedInputPrice : 0;
-	const requestCost = requestPrice;
+	// Calculate input cost accounting for cached tokens
+	// For Anthropic: calculatedPromptTokens includes all tokens, but we need to subtract cached tokens
+	// that get charged at the discounted rate
+	// For other providers (like OpenAI), prompt_tokens includes cached tokens, so we subtract them too
+	const uncachedPromptTokens = cachedTokens
+		? calculatedPromptTokens - cachedTokens
+		: calculatedPromptTokens;
+	const inputCost = uncachedPromptTokens * inputPrice * discount;
+	const outputCost = calculatedCompletionTokens * outputPrice * discount;
+	const cachedInputCost = cachedTokens
+		? cachedTokens * cachedInputPrice * discount
+		: 0;
+	const requestCost = requestPrice * discount;
 	const totalCost = inputCost + outputCost + cachedInputCost + requestCost;
 
 	return {
@@ -151,5 +198,6 @@ export function calculateCosts(
 		completionTokens: calculatedCompletionTokens,
 		cachedTokens,
 		estimatedCost: isEstimated,
+		discount: discount !== 1 ? discount : undefined,
 	};
 }

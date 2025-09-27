@@ -1,4 +1,4 @@
-import type { ImageObject } from "./types";
+import type { ImageObject } from "./types.js";
 import type { Provider } from "@llmgateway/models";
 
 /**
@@ -43,21 +43,19 @@ export function transformResponseToOpenai(
 							...(toolResults && { tool_calls: toolResults }),
 							...(images && images.length > 0 && { images }),
 						},
-						finish_reason:
-							finishReason === "STOP"
-								? toolResults && toolResults.length > 0
-									? "tool_calls"
-									: "stop"
-								: finishReason?.toLowerCase() || "stop",
+						finish_reason: finishReason || "stop",
 					},
 				],
 				usage: {
 					prompt_tokens: Math.max(1, promptTokens || 1),
 					completion_tokens: completionTokens || 0,
-					total_tokens: Math.max(
-						1,
-						totalTokens || Math.max(1, promptTokens || 1),
-					),
+					total_tokens: (() => {
+						const fallbackTotal =
+							(promptTokens || 0) +
+							(completionTokens || 0) +
+							(reasoningTokens || 0);
+						return Math.max(1, totalTokens ?? fallbackTotal);
+					})(),
 					...(reasoningTokens !== null && {
 						reasoning_tokens: reasoningTokens,
 					}),
@@ -99,16 +97,21 @@ export function transformResponseToOpenai(
 								? "stop"
 								: finishReason === "tool_use"
 									? "tool_calls"
-									: finishReason?.toLowerCase() || "stop",
+									: finishReason === "max_tokens"
+										? "length"
+										: "stop",
 					},
 				],
 				usage: {
 					prompt_tokens: Math.max(1, promptTokens || 1),
 					completion_tokens: completionTokens || 0,
-					total_tokens: Math.max(
-						1,
-						totalTokens || Math.max(1, promptTokens || 1),
-					),
+					total_tokens: (() => {
+						const fallbackTotal =
+							(promptTokens || 0) +
+							(completionTokens || 0) +
+							(reasoningTokens || 0);
+						return Math.max(1, totalTokens ?? fallbackTotal);
+					})(),
 					...(reasoningTokens !== null && {
 						reasoning_tokens: reasoningTokens,
 					}),
@@ -153,10 +156,13 @@ export function transformResponseToOpenai(
 					usage: {
 						prompt_tokens: Math.max(1, promptTokens || 1),
 						completion_tokens: completionTokens || 0,
-						total_tokens: Math.max(
-							1,
-							totalTokens || Math.max(1, promptTokens || 1),
-						),
+						total_tokens: (() => {
+							const fallbackTotal =
+								(promptTokens || 0) +
+								(completionTokens || 0) +
+								(reasoningTokens || 0);
+							return Math.max(1, totalTokens ?? fallbackTotal);
+						})(),
 						...(reasoningTokens !== null && {
 							reasoning_tokens: reasoningTokens,
 						}),
@@ -217,10 +223,13 @@ export function transformResponseToOpenai(
 					usage: {
 						prompt_tokens: Math.max(1, promptTokens || 1),
 						completion_tokens: completionTokens || 0,
-						total_tokens: Math.max(
-							1,
-							totalTokens || Math.max(1, promptTokens || 1),
-						),
+						total_tokens: (() => {
+							const fallbackTotal =
+								(promptTokens || 0) +
+								(completionTokens || 0) +
+								(reasoningTokens || 0);
+							return Math.max(1, totalTokens ?? fallbackTotal);
+						})(),
 						...(reasoningTokens !== null && {
 							reasoning_tokens: reasoningTokens,
 						}),

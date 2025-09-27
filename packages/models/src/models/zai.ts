@@ -1,4 +1,4 @@
-import type { ModelDefinition } from "@llmgateway/models";
+import type { ModelDefinition } from "@/models.js";
 
 export const zaiModels = [
 	{
@@ -38,7 +38,7 @@ export const zaiModels = [
 				outputPrice: 1.8 / 1e6,
 				requestPrice: 0,
 				contextSize: 128000,
-				maxOutput: undefined,
+				maxOutput: 16000,
 				streaming: true,
 				reasoning: true,
 				reasoningOutput: "omit",
