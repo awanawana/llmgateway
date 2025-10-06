@@ -1,3 +1,5 @@
+"use client";
+
 import { useQueryClient } from "@tanstack/react-query";
 import { Copy, Key, KeyIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -5,7 +7,7 @@ import * as React from "react";
 import { useState, useEffect, useCallback } from "react";
 
 import { useDefaultProject } from "@/hooks/useDefaultProject";
-import { useAuth } from "@/lib/auth-client";
+import { useUser } from "@/hooks/useUser";
 import { Button } from "@/lib/components/button";
 import { Step } from "@/lib/components/stepper";
 import { toast } from "@/lib/components/use-toast";
@@ -13,15 +15,16 @@ import { useAppConfig } from "@/lib/config";
 import { useApi } from "@/lib/fetch-client";
 
 export function WelcomeStep() {
-	const { useSession } = useAuth();
-	const session = useSession();
-	const user = session.data?.user;
+	const router = useRouter();
+	const config = useAppConfig();
+	const { user } = useUser();
 	const { data: defaultProject } = useDefaultProject();
+
 	const api = useApi();
 	const queryClient = useQueryClient();
-	const router = useRouter();
+
 	const [apiKey, setApiKey] = useState<string | null>(null);
-	const config = useAppConfig();
+
 	const isLocalhost = !config.hosted;
 
 	const createApiKeyMutation = api.useMutation("post", "/keys/api");
@@ -105,8 +108,7 @@ export function WelcomeStep() {
 				},
 			}).queryKey;
 			queryClient.invalidateQueries({ queryKey });
-		} catch (error) {
-			console.error("Failed to create API key:", error);
+		} catch {
 			toast({
 				title: "Error",
 				description:

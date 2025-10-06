@@ -26,6 +26,7 @@
 		"seed": "node dist/seed.js"
 	},
 	"dependencies": {
+		"@kubiks/otel-drizzle": "2.1.0",
 		"@llmgateway/cache": "workspace:*",
 		"@llmgateway/logger": "workspace:*",
 		"drizzle-orm": "1.0.0-beta.1-57a367f",

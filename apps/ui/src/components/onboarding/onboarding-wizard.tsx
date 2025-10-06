@@ -1,4 +1,5 @@
 "use client";
+
 import { Elements } from "@stripe/react-stripe-js";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -93,7 +94,6 @@ export function OnboardingWizard() {
 				}
 				return;
 			}
-			// If plan is selected, continue to next step
 		}
 
 		if (step >= STEPS.length) {
@@ -161,42 +161,36 @@ export function OnboardingWizard() {
 
 	// Special handling for PlanChoiceStep to pass callbacks
 	const renderCurrentStep = () => {
-		if (activeStep === 2) {
-			return (
-				<PlanChoiceStep
-					onSelectCredits={handleSelectCredits}
-					onSelectBYOK={handleSelectBYOK}
-					onSelectFreePlan={handleSelectFreePlan}
-				/>
-			);
+		switch (activeStep) {
+			case 0:
+				return <WelcomeStep />;
+			case 1:
+				return <ReferralStep onComplete={handleReferralComplete} />;
+			case 2:
+				return (
+					<PlanChoiceStep
+						onSelectCredits={handleSelectCredits}
+						onSelectBYOK={handleSelectBYOK}
+						onSelectFreePlan={handleSelectFreePlan}
+					/>
+				);
+			case 3: {
+				if (flowType === "credits") {
+					return stripeLoading ? (
+						<div className="p-6 text-center">Loading payment form...</div>
+					) : (
+						<Elements stripe={stripe}>
+							<CreditsStep
+								onPaymentSuccess={() => setIsPaymentSuccessful(true)}
+							/>
+						</Elements>
+					);
+				}
+				return <ProviderKeyStep />;
+			}
+			default:
+				return null;
 		}
-
-		// For credits step, wrap with Stripe Elements
-		if (activeStep === 3 && flowType === "credits") {
-			return stripeLoading ? (
-				<div className="p-6 text-center">Loading payment form...</div>
-			) : (
-				<Elements stripe={stripe}>
-					<CreditsStep onPaymentSuccess={() => setIsPaymentSuccessful(true)} />
-				</Elements>
-			);
-		}
-
-		// For BYOK step
-		if (activeStep === 3 && flowType === "byok") {
-			return <ProviderKeyStep />;
-		}
-
-		// For other steps
-		if (activeStep === 0) {
-			return <WelcomeStep />;
-		}
-
-		if (activeStep === 1) {
-			return <ReferralStep onComplete={handleReferralComplete} />;
-		}
-
-		return null;
 	};
 
 	// Customize stepper steps to show appropriate button text
@@ -228,7 +222,7 @@ export function OnboardingWizard() {
 
 	return (
 		<div className="container mx-auto px-4 py-10">
-			<NavigationMenu className="mx-auto">
+			<NavigationMenu className="mx-auto mb-4">
 				<NavigationMenuList>
 					<NavigationMenuItem asChild>
 						<div className="flex items-center space-x-2">
