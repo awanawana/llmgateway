@@ -840,7 +840,52 @@ chat.openapi(completions, async (c) => {
 
 		// If free_models_only is true, expand to include free models
 		if (free_models_only) {
-			allowedAutoModels = [...allowedAutoModels, "gpt-4.1-free"];
+			const freeStableModels = models
+				.filter((model) => {
+					if (model.id === "auto" || model.id === "custom") {
+						return false;
+					}
+
+					// Check model-level stability (defaults to 'stable' if not specified)
+					const modelStability =
+						"stability" in model
+							? (model.stability as string | undefined)
+							: undefined;
+					const effectiveModelStability = modelStability ?? "stable";
+					if (
+						effectiveModelStability === "unstable" ||
+						effectiveModelStability === "experimental"
+					) {
+						return false;
+					}
+
+					// Check if model has at least one free provider (both inputPrice and outputPrice are 0)
+					return model.providers.some((provider) => {
+						// Check provider-level stability (overrides model-level if specified)
+						const providerStability =
+							"stability" in provider
+								? (provider.stability as string | undefined)
+								: undefined;
+						const effectiveStability =
+							providerStability ?? effectiveModelStability;
+						if (
+							effectiveStability === "unstable" ||
+							effectiveStability === "experimental"
+						) {
+							return false;
+						}
+
+						// Check if provider is free
+						return (
+							provider.inputPrice === 0 &&
+							provider.outputPrice === 0 &&
+							availableProviders.includes(provider.providerId)
+						);
+					});
+				})
+				.map((model) => model.id);
+
+			allowedAutoModels = [...allowedAutoModels, ...freeStableModels];
 		}
 
 		let selectedModel: ModelDefinition | undefined;
