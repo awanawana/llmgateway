@@ -1,6 +1,7 @@
 import { models, type ProviderModelMapping } from "./models.js";
 
 import type { ProviderId } from "./providers.js";
+import type { ProviderKeyOptions } from "@llmgateway/db";
 
 /**
  * Get the endpoint URL for a provider API call
@@ -13,6 +14,7 @@ export function getProviderEndpoint(
 	stream?: boolean,
 	supportsReasoning?: boolean,
 	hasExistingToolCalls?: boolean,
+	providerKeyOptions?: ProviderKeyOptions,
 ): string {
 	let modelName = model;
 	if (model && model !== "custom") {
@@ -98,6 +100,14 @@ export function getProviderEndpoint(
 			case "nanogpt":
 				url = "https://nano-gpt.com/api";
 				break;
+			case "aws-bedrock":
+				url =
+					process.env.LLM_AWS_BEDROCK_BASE_URL ||
+					"https://bedrock-runtime.us-east-1.amazonaws.com";
+				break;
+			case "canopywave":
+				url = "https://inference.canopywave.io";
+				break;
 			case "custom":
 				if (!baseUrl) {
 					throw new Error(`Custom provider requires a baseUrl`);
@@ -134,6 +144,14 @@ export function getProviderEndpoint(
 			return `${url}/chat/completions`;
 		case "zai":
 			return `${url}/api/paas/v4/chat/completions`;
+		case "aws-bedrock": {
+			const prefix =
+				providerKeyOptions?.aws_bedrock_region_prefix ||
+				process.env.LLM_AWS_BEDROCK_REGION ||
+				"us.";
+			const endpoint = stream ? "converse-stream" : "converse";
+			return `${url}/model/${prefix}${modelName}/${endpoint}`;
+		}
 		case "openai":
 			// Use responses endpoint for reasoning models that support responses API
 			// but not when there are existing tool calls in the conversation
@@ -168,6 +186,7 @@ export function getProviderEndpoint(
 		case "routeway":
 		case "routeway-discount":
 		case "nanogpt":
+		case "canopywave":
 		case "custom":
 		default:
 			return `${url}/v1/chat/completions`;

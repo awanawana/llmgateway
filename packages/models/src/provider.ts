@@ -21,6 +21,8 @@ export const providerEnvVarMap: Record<Provider, string> = {
 	zai: "LLM_Z_AI_API_KEY",
 	routeway: "LLM_ROUTEWAY_API_KEY",
 	"routeway-discount": "LLM_ROUTEWAY_DISCOUNT_API_KEY",
+	"aws-bedrock": "LLM_AWS_BEDROCK_API_KEY",
+	canopywave: "LLM_CANOPY_WAVE_API_KEY",
 	custom: "LLM_UNUSED",
 };
 

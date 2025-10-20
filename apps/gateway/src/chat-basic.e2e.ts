@@ -25,8 +25,12 @@ describe("e2e", getConcurrentTestOptions(), () => {
 
 	beforeEach(beforeEachHook);
 
+	test("empty", () => {
+		expect(true).toBe(true);
+	});
+
 	test.each(testModels)(
-		"completions $model",
+		"basic completions $model",
 		getTestOptions(),
 		async ({ model }) => {
 			const requestId = generateTestRequestId();

@@ -14,6 +14,10 @@ export interface ProviderDefinition {
 	website?: string | null;
 	// Announcement text
 	announcement?: string | null;
+	// Instructions for creating an API key
+	apiKeyInstructions?: string;
+	// Learn more URL for API key creation
+	learnMore?: string;
 }
 
 export const providers = [
@@ -242,6 +246,32 @@ export const providers = [
 		jsonOutput: true,
 		color: "#10b981",
 		website: "https://nano-gpt.com",
+		announcement: null,
+	},
+	{
+		id: "aws-bedrock",
+		name: "AWS Bedrock",
+		description: "Amazon Bedrock - fully managed service for foundation models",
+		streaming: true,
+		cancellation: true,
+		jsonOutput: true,
+		color: "#FF9900",
+		website: "https://aws.amazon.com/bedrock",
+		announcement: null,
+		apiKeyInstructions:
+			"Use AWS Bedrock Long-Term API Keys (not IAM service account or private keys)",
+		learnMore: "https://docs.llmgateway.io/integrations/aws-bedrock",
+	},
+	{
+		id: "canopywave",
+		name: "CanopyWave",
+		description:
+			"CanopyWave is a platform for running large language models with OpenAI-compatible API",
+		streaming: true,
+		cancellation: true,
+		jsonOutput: true,
+		color: "#10b981",
+		website: "https://canopywave.io",
 		announcement: null,
 	},
 	{

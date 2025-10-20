@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo, type ReactNode } from "react";
+import React, { useMemo, type ReactNode, useRef, useState } from "react";
 
 import { ModelSelector as PlaygroundModelSelector } from "@/components/models/playground-model-selector";
 import { Badge } from "@/lib/components/badge";
@@ -22,6 +22,8 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/lib/components/table";
+import { useAppConfig } from "@/lib/config";
+import Logo from "@/lib/icons/Logo";
 import { formatContextSize } from "@/lib/utils";
 
 import {
@@ -136,26 +138,52 @@ type ComparisonRowKey =
 	| "jsonOutput"
 	| "supportedParameters";
 
-const comparisonRows: Array<{ key: ComparisonRowKey; label: string }> = [
-	{ key: "modelId", label: "Model ID" },
-	{ key: "family", label: "Family" },
-	{ key: "aliases", label: "Aliases" },
-	{ key: "stability", label: "Stability" },
-	{ key: "providers", label: "Providers" },
-	{ key: "maxContext", label: "Max Context" },
-	{ key: "maxOutput", label: "Max Output" },
-	{ key: "inputPrice", label: "Input Price" },
-	{ key: "outputPrice", label: "Output Price" },
-	{ key: "cachedInputPrice", label: "Cached Input Price" },
-	{ key: "imageInputPrice", label: "Image Input Price" },
-	{ key: "requestPrice", label: "Request Price" },
-	{ key: "streaming", label: "Streaming" },
-	{ key: "vision", label: "Vision" },
-	{ key: "tools", label: "Tool Calling" },
-	{ key: "parallelToolCalls", label: "Parallel Tool Calls" },
-	{ key: "reasoning", label: "Reasoning" },
-	{ key: "jsonOutput", label: "JSON Output" },
-	{ key: "supportedParameters", label: "Supported Parameters" },
+const groupedRows: Array<{
+	title: string;
+	rows: Array<{ key: ComparisonRowKey; label: string }>;
+}> = [
+	{
+		title: "Overview",
+		rows: [
+			{ key: "modelId", label: "Model ID" },
+			{ key: "family", label: "Family" },
+			{ key: "aliases", label: "Aliases" },
+			{ key: "stability", label: "Stability" },
+			{ key: "providers", label: "Providers" },
+		],
+	},
+	{
+		title: "Pricing",
+		rows: [
+			{ key: "inputPrice", label: "Input Price" },
+			{ key: "outputPrice", label: "Output Price" },
+			{ key: "cachedInputPrice", label: "Cached Input Price" },
+			{ key: "imageInputPrice", label: "Image Input Price" },
+			{ key: "requestPrice", label: "Request Price" },
+		],
+	},
+	{
+		title: "Context",
+		rows: [
+			{ key: "maxContext", label: "Max Context" },
+			{ key: "maxOutput", label: "Max Output" },
+		],
+	},
+	{
+		title: "Capabilities",
+		rows: [
+			{ key: "streaming", label: "Streaming" },
+			{ key: "vision", label: "Vision" },
+			{ key: "tools", label: "Tool Calling" },
+			{ key: "parallelToolCalls", label: "Parallel Tool Calls" },
+			{ key: "reasoning", label: "Reasoning" },
+			{ key: "jsonOutput", label: "JSON Output" },
+		],
+	},
+	{
+		title: "Parameters",
+		rows: [{ key: "supportedParameters", label: "Supported Parameters" }],
+	},
 ];
 
 const PLACEHOLDER: ReactNode = <span className="text-muted-foreground">—</span>;
@@ -185,17 +213,18 @@ function pickMostUnstableStability(
 }
 
 function formatPriceValue(value: number, field: PriceField) {
-	const decimals = value < 1 ? (value < 0.01 ? 4 : 3) : 2;
+	// Value is already in units based on field multiplier.
+	// For tokens pricing, show 2 decimals, for very small numbers bump precision.
+	const decimals = value < 1 ? (value < 0.1 ? 4 : 2) : 2;
 	const formatted = `$${value.toFixed(decimals)}`;
 
-	switch (field) {
-		case "requestPrice":
-			return `${formatted}/1K requests`;
-		case "imageInputPrice":
-			return `${formatted}/image`;
-		default:
-			return `${formatted}/1M tokens`;
+	if (field === "requestPrice") {
+		return `${formatted}/1K requests`;
 	}
+	if (field === "imageInputPrice") {
+		return `${formatted}/image`;
+	}
+	return `${formatted}/1M tokens`;
 }
 
 function getPricingSummary(
@@ -429,13 +458,26 @@ function getProviderPricingSummary(
 	if (!provider) {
 		return undefined;
 	}
-	const value = provider[field] as number | undefined;
-	if (value === undefined || value === null) {
+	const raw = provider[field] as number | undefined;
+	if (raw === undefined || raw === null) {
 		return undefined;
 	}
+	const multiplier =
+		field === "requestPrice"
+			? 1000
+			: field === "imageInputPrice"
+				? 1
+				: 1_000_000;
+	const discounted =
+		raw * multiplier * (provider.discount ? 1 - provider.discount : 1);
+	const original = raw * multiplier;
 	return {
-		value: formatPriceValue(value, field),
+		value: formatPriceValue(discounted, field),
 		providerLabel: provider.providerInfo?.name ?? provider.providerId,
+		originalValue:
+			provider.discount && original !== discounted
+				? formatPriceValue(original, field)
+				: undefined,
 	};
 }
 
@@ -525,10 +567,14 @@ function renderRowValue(
 }
 
 export function ModelComparison() {
+	const config = useAppConfig();
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
 	const searchParamsString = searchParams.toString();
+
+	const containerRef = useRef<HTMLDivElement | null>(null);
+	const [isCapturing, setIsCapturing] = useState(false);
 
 	const fallbackLeftModel = modelMap.has(DEFAULT_LEFT_MODEL)
 		? DEFAULT_LEFT_MODEL
@@ -587,8 +633,17 @@ export function ModelComparison() {
 		[rightModelId],
 	);
 
+	const buildPlaygroundUrl = (providerId?: string, modelId?: string) => {
+		if (!modelId) {
+			return config.playgroundUrl;
+		}
+		const modelParam = providerId ? `${providerId}/${modelId}` : modelId;
+
+		return `${config.playgroundUrl}/?model=${encodeURIComponent(modelParam)}`;
+	};
+
 	return (
-		<div className="space-y-8">
+		<div ref={containerRef} className="relative space-y-8 bg-background">
 			<Card>
 				<CardHeader className="space-y-4">
 					<div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -601,14 +656,45 @@ export function ModelComparison() {
 								context window, and key platform features side by side.
 							</CardDescription>
 						</div>
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={() => updateParams(rightModelId, leftModelId)}
-							className="w-full md:w-auto"
-						>
-							Swap Models
-						</Button>
+						<div className="flex items-center gap-2">
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => updateParams(rightModelId, leftModelId)}
+								className="w-full md:w-auto"
+							>
+								Swap Models
+							</Button>
+							<Button
+								size="sm"
+								onClick={async () => {
+									if (isCapturing) {
+										return;
+									}
+									setIsCapturing(true);
+									try {
+										const { toPng } = await import("html-to-image");
+										const node = containerRef.current;
+										if (!node) {
+											return;
+										}
+										const dataUrl = await toPng(node, {
+											cacheBust: true,
+											pixelRatio: 2,
+										});
+										const a = document.createElement("a");
+										a.href = dataUrl;
+										a.download = "model-comparison.png";
+										a.click();
+									} finally {
+										setIsCapturing(false);
+									}
+								}}
+								className="w-full md:w-auto"
+							>
+								Download PNG
+							</Button>
+						</div>
 					</div>
 					<div className="grid gap-4 md:grid-cols-2">
 						<div className="space-y-2 md:pl-48">
@@ -667,6 +753,56 @@ export function ModelComparison() {
 							/>
 						</div>
 					</div>
+					<div className="grid gap-4 md:grid-cols-2">
+						<div className="flex items-center gap-3 md:pl-48">
+							{leftModel && (
+								<>
+									<Button asChild size="sm" variant="outline">
+										<Link href={`/models/${encodeURIComponent(leftModel.id)}`}>
+											Learn more
+										</Link>
+									</Button>
+									<Button asChild size="sm">
+										<a
+											href={buildPlaygroundUrl(
+												queryLeftProviderId ||
+													leftModel.providers[0]?.providerId,
+												leftModel.id,
+											)}
+											target="_blank"
+											rel="noopener noreferrer"
+										>
+											Try in Chat
+										</a>
+									</Button>
+								</>
+							)}
+						</div>
+						<div className="flex items-center gap-3 md:pl-24">
+							{rightModel && (
+								<>
+									<Button asChild size="sm" variant="outline">
+										<Link href={`/models/${encodeURIComponent(rightModel.id)}`}>
+											Learn more
+										</Link>
+									</Button>
+									<Button asChild size="sm">
+										<a
+											href={buildPlaygroundUrl(
+												queryRightProviderId ||
+													rightModel.providers[0]?.providerId,
+												rightModel.id,
+											)}
+											target="_blank"
+											rel="noopener noreferrer"
+										>
+											Try in Chat
+										</a>
+									</Button>
+								</>
+							)}
+						</div>
+					</div>
 				</CardHeader>
 				<CardContent>
 					<div className="overflow-x-auto">
@@ -713,28 +849,53 @@ export function ModelComparison() {
 								</TableRow>
 							</TableHeader>
 							<TableBody>
-								{comparisonRows.map((row) => (
-									<TableRow key={row.key}>
-										<TableCell className="font-medium text-xs md:text-base">
-											{row.label}
-										</TableCell>
-										<TableCell className="align-top whitespace-normal break-words pr-4">
-											{renderRowValue(row.key, leftModel, queryLeftProviderId)}
-										</TableCell>
-										<TableCell className="align-top whitespace-normal break-words">
-											{renderRowValue(
-												row.key,
-												rightModel,
-												queryRightProviderId,
-											)}
-										</TableCell>
-									</TableRow>
+								{groupedRows.map((group) => (
+									<React.Fragment key={`grp-${group.title}`}>
+										<TableRow>
+											<TableCell
+												colSpan={3}
+												className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground"
+											>
+												{group.title}
+											</TableCell>
+										</TableRow>
+										{group.rows.map((row) => (
+											<TableRow key={row.key}>
+												<TableCell className="font-medium text-xs md:text-base">
+													{row.label}
+												</TableCell>
+												<TableCell className="align-top whitespace-normal break-words pr-4">
+													{renderRowValue(
+														row.key,
+														leftModel,
+														queryLeftProviderId,
+													)}
+												</TableCell>
+												<TableCell className="align-top whitespace-normal break-words">
+													{renderRowValue(
+														row.key,
+														rightModel,
+														queryRightProviderId,
+													)}
+												</TableCell>
+											</TableRow>
+										))}
+									</React.Fragment>
 								))}
 							</TableBody>
 						</Table>
 					</div>
 				</CardContent>
 			</Card>
+			{isCapturing ? (
+				<div className="pointer-events-none flex justify-center z-50">
+					<div className="bg-background/90 backdrop-blur border rounded-full px-6 py-3 text-base md:text-lg flex items-center gap-3 md:gap-4 shadow-md">
+						<span className="text-muted-foreground">Powered by</span>
+						<Logo className="h-6 w-6 md:h-7 md:w-7" />
+						<span className="font-semibold tracking-tight">LLMGateway</span>
+					</div>
+				</div>
+			) : null}
 		</div>
 	);
 }

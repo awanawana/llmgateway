@@ -5,6 +5,7 @@ import { z } from "zod";
 import { maskToken } from "@/lib/maskToken.js";
 
 import { db, eq, tables } from "@llmgateway/db";
+import { logger } from "@llmgateway/logger";
 import { providers, validateProviderKey } from "@llmgateway/models";
 
 import type { ServerTypes } from "@/vars.js";
@@ -40,6 +41,11 @@ const createProviderKeySchema = z.object({
 		.regex(/^[a-z]+$/, "Name must contain only lowercase letters a-z")
 		.optional(),
 	baseUrl: z.string().url().optional(),
+	options: z
+		.object({
+			aws_bedrock_region_prefix: z.enum(["us.", "global.", "eu."]).optional(),
+		})
+		.optional(),
 	organizationId: z.string().min(1, "Organization ID is required"),
 });
 
@@ -93,6 +99,7 @@ keysProvider.openapi(create, async (c) => {
 		token: userToken,
 		name,
 		baseUrl,
+		options,
 		organizationId,
 	} = c.req.valid("json");
 
@@ -204,8 +211,14 @@ keysProvider.openapi(create, async (c) => {
 
 	if (validationResult.error) {
 		const errorMessage = validationResult.error || "Upstream server error";
+		logger.error("Provider key validation failed", {
+			provider,
+			model: validationResult.model,
+			statusCode: validationResult.statusCode,
+			error: errorMessage,
+		});
 		throw new HTTPException(500, {
-			message: `Error from provider: ${errorMessage} and status code ${validationResult.statusCode}. Please try again later or contact support.`,
+			message: `Error from provider: ${errorMessage} and status code ${validationResult.statusCode} (using model ${validationResult.model}). Please try again later or contact support.`,
 		});
 	}
 
@@ -225,6 +238,7 @@ keysProvider.openapi(create, async (c) => {
 			provider,
 			name,
 			baseUrl,
+			options,
 		})
 		.returning();
 

@@ -51,6 +51,7 @@ import { extractTokenUsage } from "./tools/extract-token-usage.js";
 import { extractToolCalls } from "./tools/extract-tool-calls.js";
 import { getFinishReasonFromError } from "./tools/get-finish-reason-from-error.js";
 import { getProviderEnv } from "./tools/get-provider-env.js";
+import { convertAwsEventStreamToSSE } from "./tools/parse-aws-eventstream.js";
 import { parseProviderResponse } from "./tools/parse-provider-response.js";
 import { transformResponseToOpenai } from "./tools/transform-response-to-openai.js";
 import { transformStreamingToOpenai } from "./tools/transform-streaming-to-openai.js";
@@ -168,11 +169,22 @@ const completionsRequestSchema = z.object({
 			example: 0.0,
 		}),
 	response_format: z
-		.object({
-			type: z.enum(["text", "json_object"]).openapi({
-				example: "json_object",
+		.union([
+			z.object({
+				type: z.enum(["text", "json_object"]).openapi({
+					example: "json_object",
+				}),
 			}),
-		})
+			z.object({
+				type: z.literal("json_schema"),
+				json_schema: z.object({
+					name: z.string(),
+					description: z.string().optional(),
+					schema: z.record(z.any()),
+					strict: z.boolean().optional(),
+				}),
+			}),
+		])
 		.optional(),
 	stream: z.boolean().optional().default(false),
 	tools: z
@@ -543,11 +555,32 @@ chat.openapi(completions, async (c) => {
 		});
 	}
 
-	if (response_format?.type === "json_object") {
+	if (
+		response_format?.type === "json_object" ||
+		response_format?.type === "json_schema"
+	) {
 		if (!(modelInfo as ModelDefinition).jsonOutput) {
 			throw new HTTPException(400, {
 				message: `Model ${requestedModel} does not support JSON output mode`,
 			});
+		}
+
+		// Additional validation for json_schema type
+		if (response_format?.type === "json_schema") {
+			// For non-auto/custom models, check if the provider supports json_schema
+			if (requestedModel !== "auto" && requestedModel !== "custom") {
+				const supportsJsonSchema = modelInfo.providers.some(
+					(provider) =>
+						(provider as ProviderModelMapping).jsonOutputSchema === true &&
+						!(provider as ProviderModelMapping).disableJsonOutputSchema,
+				);
+
+				if (!supportsJsonSchema) {
+					throw new HTTPException(400, {
+						message: `Model ${requestedModel} does not support JSON schema output mode. Use response_format type 'json_object' instead.`,
+					});
+				}
+			}
 		}
 	}
 
@@ -807,7 +840,7 @@ chat.openapi(completions, async (c) => {
 
 		// If free_models_only is true, expand to include free models
 		if (free_models_only) {
-			allowedAutoModels = [...allowedAutoModels, "gpt-4.1-free"];
+			allowedAutoModels = [...allowedAutoModels, "llama-3.3-70b-instruct-free"];
 		}
 
 		let selectedModel: ModelDefinition | undefined;
@@ -1301,6 +1334,7 @@ chat.openapi(completions, async (c) => {
 			stream,
 			supportsReasoning,
 			hasExistingToolCalls,
+			providerKey?.options || undefined,
 		);
 	} catch (error) {
 		if (usedProvider === "llmgateway" && usedModel !== "custom") {
@@ -1425,6 +1459,7 @@ chat.openapi(completions, async (c) => {
 					frequency_penalty,
 					presence_penalty,
 					reasoning_effort,
+					response_format,
 					tools,
 					tool_choice,
 					source,
@@ -1516,6 +1551,7 @@ chat.openapi(completions, async (c) => {
 					frequency_penalty,
 					presence_penalty,
 					reasoning_effort,
+					response_format,
 					tools,
 					tool_choice,
 					source,
@@ -1735,6 +1771,7 @@ chat.openapi(completions, async (c) => {
 						frequency_penalty,
 						presence_penalty,
 						reasoning_effort,
+						response_format,
 						tools,
 						tool_choice,
 						source,
@@ -1795,6 +1832,10 @@ chat.openapi(completions, async (c) => {
 				logger.error("Provider error", {
 					status: res.status,
 					errorText: errorResponseText,
+					usedProvider,
+					requestedProvider,
+					usedModel,
+					initialRequestedModel,
 				});
 
 				// Determine the finish reason for error handling
@@ -1861,6 +1902,7 @@ chat.openapi(completions, async (c) => {
 					frequency_penalty,
 					presence_penalty,
 					reasoning_effort,
+					response_format,
 					tools,
 					tool_choice,
 					source,
@@ -1935,9 +1977,11 @@ chat.openapi(completions, async (c) => {
 			let reasoningTokens = null;
 			let cachedTokens = null;
 			let streamingToolCalls = null;
-			let buffer = ""; // Buffer for accumulating partial data across chunks
+			let buffer = ""; // Buffer for accumulating partial data across chunks (string for SSE)
+			let binaryBuffer = new Uint8Array(0); // Buffer for binary event streams (AWS Bedrock)
 			let rawUpstreamData = ""; // Raw data received from upstream provider
 			const MAX_BUFFER_SIZE = 10 * 1024 * 1024; // 10MB limit
+			const isAwsBedrock = usedProvider === "aws-bedrock";
 
 			try {
 				while (true) {
@@ -1946,8 +1990,31 @@ chat.openapi(completions, async (c) => {
 						break;
 					}
 
-					// Convert the Uint8Array to a string
-					const chunk = new TextDecoder().decode(value);
+					// For AWS Bedrock, convert binary event stream to SSE format
+					let chunk: string;
+					if (isAwsBedrock) {
+						// Append binary data to buffer
+						const newBuffer = new Uint8Array(
+							binaryBuffer.length + value.length,
+						);
+						newBuffer.set(binaryBuffer);
+						newBuffer.set(value, binaryBuffer.length);
+						binaryBuffer = newBuffer;
+
+						// Parse and convert available events
+						const { sse, bytesConsumed } =
+							convertAwsEventStreamToSSE(binaryBuffer);
+						chunk = sse;
+
+						// Remove consumed bytes from binary buffer
+						if (bytesConsumed > 0) {
+							binaryBuffer = binaryBuffer.slice(bytesConsumed);
+						}
+					} else {
+						// Convert the Uint8Array to a string for SSE
+						chunk = new TextDecoder().decode(value);
+					}
+
 					buffer += chunk;
 					// Collect raw upstream data for logging only in debug mode and within size limit
 					if (debugMode && rawUpstreamData.length < MAX_RAW_DATA_SIZE) {
@@ -2229,6 +2296,13 @@ chat.openapi(completions, async (c) => {
 								messages,
 							);
 
+							// Skip null events (some providers have non-data events)
+							if (!transformedData) {
+								processedLength = eventEnd;
+								searchStart = eventEnd;
+								continue;
+							}
+
 							// For Anthropic, if we have partial usage data, complete it
 							if (usedProvider === "anthropic" && transformedData.usage) {
 								const usage = transformedData.usage;
@@ -2334,7 +2408,15 @@ chat.openapi(completions, async (c) => {
 							}
 
 							// Extract content for logging using helper function
-							const contentChunk = extractContent(data, usedProvider);
+							// For providers with custom extraction logic (google-ai-studio, anthropic),
+							// use raw data. For others (like aws-bedrock), use transformed OpenAI format.
+							const contentChunk = extractContent(
+								usedProvider === "google-ai-studio" ||
+									usedProvider === "anthropic"
+									? data
+									: transformedData,
+								usedProvider,
+							);
 							if (contentChunk) {
 								fullContent += contentChunk;
 
@@ -2346,8 +2428,13 @@ chat.openapi(completions, async (c) => {
 							}
 
 							// Extract reasoning content for logging using helper function
+							// For providers with custom extraction logic (google-ai-studio, anthropic),
+							// use raw data. For others, use transformed OpenAI format.
 							const reasoningContentChunk = extractReasoning(
-								data,
+								usedProvider === "google-ai-studio" ||
+									usedProvider === "anthropic"
+									? data
+									: transformedData,
 								usedProvider,
 							);
 							if (reasoningContentChunk) {
@@ -2708,6 +2795,7 @@ chat.openapi(completions, async (c) => {
 					frequency_penalty,
 					presence_penalty,
 					reasoning_effort,
+					response_format,
 					tools,
 					tool_choice,
 					source,
@@ -2725,6 +2813,20 @@ chat.openapi(completions, async (c) => {
 
 				if (!finishReason && !streamingError && usedProvider === "routeway") {
 					finishReason = "stop";
+				}
+
+				// Check if the response finished successfully but has no content, tokens, or tool calls
+				// This indicates an empty response which should be marked as an error
+				if (
+					!streamingError &&
+					finishReason &&
+					(!calculatedCompletionTokens || calculatedCompletionTokens === 0) &&
+					(!fullContent || fullContent.trim() === "") &&
+					(!streamingToolCalls || streamingToolCalls.length === 0)
+				) {
+					streamingError =
+						"Response finished successfully but returned no content or tool calls";
+					finishReason = "upstream_error";
 				}
 
 				await insertLog({
@@ -2769,8 +2871,14 @@ chat.openapi(completions, async (c) => {
 					toolResults: streamingToolCalls,
 					toolChoice: tool_choice,
 				});
-				// Save streaming cache if enabled and not canceled
-				if (cachingEnabled && streamingCacheKey && !canceled && finishReason) {
+				// Save streaming cache if enabled and not canceled and no errors
+				if (
+					cachingEnabled &&
+					streamingCacheKey &&
+					!canceled &&
+					finishReason &&
+					!streamingError
+				) {
 					try {
 						const streamingCacheData = {
 							chunks: streamingChunks,
@@ -2856,6 +2964,7 @@ chat.openapi(completions, async (c) => {
 			frequency_penalty,
 			presence_penalty,
 			reasoning_effort,
+			response_format,
 			tools,
 			tool_choice,
 			source,
@@ -2913,6 +3022,10 @@ chat.openapi(completions, async (c) => {
 		logger.error("Provider error", {
 			status: res.status,
 			errorText: errorResponseText,
+			usedProvider,
+			requestedProvider,
+			usedModel,
+			initialRequestedModel,
 		});
 
 		// Determine the finish reason first
@@ -2939,6 +3052,7 @@ chat.openapi(completions, async (c) => {
 			frequency_penalty,
 			presence_penalty,
 			reasoning_effort,
+			response_format,
 			tools,
 			tool_choice,
 			source,
@@ -3117,6 +3231,7 @@ chat.openapi(completions, async (c) => {
 		frequency_penalty,
 		presence_penalty,
 		reasoning_effort,
+		response_format,
 		tools,
 		tool_choice,
 		source,
@@ -3128,6 +3243,13 @@ chat.openapi(completions, async (c) => {
 		json, // Raw upstream response from provider
 	);
 
+	// Check if the non-streaming response is empty (no content, tokens, or tool calls)
+	const hasEmptyNonStreamingResponse =
+		!!finishReason &&
+		(!calculatedCompletionTokens || calculatedCompletionTokens === 0) &&
+		(!content || content.trim() === "") &&
+		(!toolResults || toolResults.length === 0);
+
 	await insertLog({
 		...baseLogEntry,
 		duration,
@@ -3136,7 +3258,9 @@ chat.openapi(completions, async (c) => {
 		responseSize: responseText.length,
 		content: content,
 		reasoningContent: reasoningContent,
-		finishReason: finishReason,
+		finishReason: hasEmptyNonStreamingResponse
+			? "upstream_error"
+			: finishReason,
 		promptTokens: calculatedPromptTokens?.toString() || null,
 		completionTokens: calculatedCompletionTokens?.toString() || null,
 		totalTokens:
@@ -3146,10 +3270,17 @@ chat.openapi(completions, async (c) => {
 			).toString(),
 		reasoningTokens: reasoningTokens,
 		cachedTokens: cachedTokens?.toString() || null,
-		hasError: false,
+		hasError: hasEmptyNonStreamingResponse,
 		streamed: false,
 		canceled: false,
-		errorDetails: null,
+		errorDetails: hasEmptyNonStreamingResponse
+			? {
+					statusCode: 500,
+					statusText: "Empty Response",
+					responseText:
+						"Response finished successfully but returned no content or tool calls",
+				}
+			: null,
 		inputCost: costs.inputCost,
 		outputCost: costs.outputCost,
 		cachedInputCost: costs.cachedInputCost,
@@ -3163,7 +3294,7 @@ chat.openapi(completions, async (c) => {
 		toolChoice: tool_choice,
 	});
 
-	if (cachingEnabled && cacheKey && !stream) {
+	if (cachingEnabled && cacheKey && !stream && !hasEmptyNonStreamingResponse) {
 		await setCache(cacheKey, transformedResponse, cacheDuration);
 	}
 

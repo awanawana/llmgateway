@@ -21,6 +21,7 @@ import {
 	AlertTriangle,
 	ExternalLink,
 	Percent,
+	Scale,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -61,6 +62,7 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/lib/components/tooltip";
+import { useAppConfig } from "@/lib/config";
 import { cn, formatContextSize } from "@/lib/utils";
 
 import { models, providers } from "@llmgateway/models";
@@ -87,6 +89,7 @@ type SortField =
 type SortDirection = "asc" | "desc";
 
 export function AllModels({ children }: { children: React.ReactNode }) {
+	const config = useAppConfig();
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const isMobile = useIsMobile();
@@ -1070,20 +1073,23 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 								</TableCell>
 
 								<TableCell className="text-center">
-									<Link
-										href={`/playground?model=${encodeURIComponent(model.id)}`}
+									<Button
+										variant="outline"
+										size="sm"
+										className="h-8 gap-2"
+										title={`Try ${model.name || model.id} in playground`}
 										onClick={(e) => e.stopPropagation()}
+										asChild
 									>
-										<Button
-											variant="outline"
-											size="sm"
-											className="h-8 gap-2"
-											title={`Try ${model.name || model.id} in playground`}
+										<a
+											href={`${config.playgroundUrl}?model=${encodeURIComponent(`${model.providers[0]?.providerId}/${model.id}`)}`}
+											target="_blank"
+											rel="noopener noreferrer"
 										>
 											<Play className="h-3 w-3" />
 											Try it
-										</Button>
-									</Link>
+										</a>
+									</Button>
 								</TableCell>
 							</TableRow>
 						))}
@@ -1318,20 +1324,23 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 							</div>
 
 							<div className="pt-4 border-t">
-								<Link
-									href={`/playground?model=${encodeURIComponent(model.id)}`}
+								<Button
+									variant="outline"
+									size="sm"
+									className="w-full gap-2"
+									title={`Try ${model.name || model.id} in playground`}
 									onClick={(e) => e.stopPropagation()}
+									asChild
 								>
-									<Button
-										variant="outline"
-										size="sm"
-										className="w-full gap-2"
-										title={`Try ${model.name || model.id} in playground`}
+									<a
+										href={`${config.playgroundUrl}?model=${encodeURIComponent(`${model.providers[0]?.providerId}/${model.id}`)}`}
+										target="_blank"
+										rel="noopener noreferrer"
 									>
 										<Play className="h-3 w-3" />
 										Try in Playground
-									</Button>
-								</Link>
+									</a>
+								</Button>
 							</div>
 						</div>
 					</CardContent>
@@ -1392,6 +1401,12 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 									>
 										<Grid className="h-4 w-4 mr-1" />
 										Grid
+									</Button>
+									<Button size="sm" asChild>
+										<Link href="/models/compare">
+											<Scale className="h-4 w-4 mr-1" />
+											Compare
+										</Link>
 									</Button>
 								</div>
 							</div>

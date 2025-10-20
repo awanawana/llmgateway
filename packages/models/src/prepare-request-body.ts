@@ -442,6 +442,125 @@ export async function prepareRequestBody(
 			}
 			break;
 		}
+		case "aws-bedrock": {
+			// AWS Bedrock uses the Converse API format
+			delete requestBody.model; // Model is in the URL path
+			delete requestBody.stream; // Will be added to inferenceConfig
+			delete requestBody.messages; // Will be transformed to Bedrock format
+			delete requestBody.tools; // Will be transformed to Bedrock format
+			delete requestBody.tool_choice; // Not supported in Bedrock Converse API
+
+			// Transform messages to Bedrock format
+			requestBody.messages = processedMessages.map((msg: any) => {
+				// Map OpenAI roles to Bedrock roles
+				const role =
+					msg.role === "system" || msg.role === "user" || msg.role === "tool"
+						? "user"
+						: "assistant";
+
+				const bedrockMessage: any = {
+					role: role,
+					content: [],
+				};
+
+				// Handle tool results (from role: "tool")
+				if (msg.role === "tool") {
+					bedrockMessage.content.push({
+						toolResult: {
+							toolUseId: msg.tool_call_id,
+							content: [
+								{
+									text: msg.content || "",
+								},
+							],
+						},
+					});
+					return bedrockMessage;
+				}
+
+				// Handle assistant messages with tool calls
+				if (msg.role === "assistant" && msg.tool_calls) {
+					// Add text content if present
+					if (msg.content) {
+						bedrockMessage.content.push({
+							text: msg.content,
+						});
+					}
+
+					// Add tool use blocks
+					msg.tool_calls.forEach((toolCall: any) => {
+						bedrockMessage.content.push({
+							toolUse: {
+								toolUseId: toolCall.id,
+								name: toolCall.function.name,
+								input: JSON.parse(toolCall.function.arguments),
+							},
+						});
+					});
+
+					return bedrockMessage;
+				}
+
+				// Handle regular content (user/assistant messages)
+				if (typeof msg.content === "string") {
+					if (msg.content.trim()) {
+						bedrockMessage.content.push({
+							text: msg.content,
+						});
+					}
+				} else if (Array.isArray(msg.content)) {
+					// Handle multi-part content (text + images)
+					msg.content.forEach((part: any) => {
+						if (part.type === "text") {
+							if (part.text && part.text.trim()) {
+								bedrockMessage.content.push({
+									text: part.text,
+								});
+							}
+						} else if (part.type === "image_url") {
+							// Bedrock uses a different image format
+							// For now, skip images or handle them differently
+							// This would need additional implementation for vision support
+						}
+					});
+				}
+
+				return bedrockMessage;
+			});
+
+			// Transform tools from OpenAI format to Bedrock format
+			if (tools && tools.length > 0) {
+				requestBody.toolConfig = {
+					tools: tools.map((tool: any) => ({
+						toolSpec: {
+							name: tool.function.name,
+							description: tool.function.description,
+							inputSchema: {
+								json: tool.function.parameters,
+							},
+						},
+					})),
+				};
+			}
+
+			// Add inferenceConfig for optional parameters
+			const inferenceConfig: any = {};
+			if (temperature !== undefined) {
+				inferenceConfig.temperature = temperature;
+			}
+			if (max_tokens !== undefined) {
+				inferenceConfig.maxTokens = max_tokens;
+			}
+			if (top_p !== undefined) {
+				inferenceConfig.topP = top_p;
+			}
+
+			if (Object.keys(inferenceConfig).length > 0) {
+				requestBody.inferenceConfig = inferenceConfig;
+			}
+
+			break;
+		}
 		case "google-ai-studio": {
 			delete requestBody.model; // Not used in body
 			delete requestBody.stream; // Stream is handled via URL parameter
