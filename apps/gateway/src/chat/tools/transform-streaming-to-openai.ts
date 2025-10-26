@@ -296,6 +296,11 @@ export function transformStreamingToOpenai(
 								...(data.usageMetadata.thoughtsTokenCount && {
 									reasoning_tokens: data.usageMetadata.thoughtsTokenCount,
 								}),
+								...(data.usageMetadata.cachedContentTokenCount && {
+									prompt_tokens_details: {
+										cached_tokens: data.usageMetadata.cachedContentTokenCount,
+									},
+								}),
 							}
 						: null,
 				};
@@ -345,6 +350,11 @@ export function transformStreamingToOpenai(
 								...(data.usageMetadata.thoughtsTokenCount && {
 									reasoning_tokens: data.usageMetadata.thoughtsTokenCount,
 								}),
+								...(data.usageMetadata.cachedContentTokenCount && {
+									prompt_tokens_details: {
+										cached_tokens: data.usageMetadata.cachedContentTokenCount,
+									},
+								}),
 							}
 						: null,
 				};
@@ -379,6 +389,11 @@ export function transformStreamingToOpenai(
 									(data.usageMetadata.thoughtsTokenCount || 0),
 								...(data.usageMetadata.thoughtsTokenCount && {
 									reasoning_tokens: data.usageMetadata.thoughtsTokenCount,
+								}),
+								...(data.usageMetadata.cachedContentTokenCount && {
+									prompt_tokens_details: {
+										cached_tokens: data.usageMetadata.cachedContentTokenCount,
+									},
 								}),
 							}
 						: null,
