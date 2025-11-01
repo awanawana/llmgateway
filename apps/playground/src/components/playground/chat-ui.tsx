@@ -1,18 +1,26 @@
 "use client";
-import { AlertCircle, RefreshCcw, Copy, GlobeIcon, Plug } from "lucide-react";
+import {
+	AlertCircle,
+	RefreshCcw,
+	Copy,
+	GlobeIcon,
+	Plug,
+	CheckIcon,
+	XIcon,
+} from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Actions, Action } from "@/components/ai-elements/actions";
-// import {
-// 	Confirmation,
-// 	ConfirmationAccepted,
-// 	ConfirmationAction,
-// 	ConfirmationActions,
-// 	ConfirmationRejected,
-// 	ConfirmationRequest,
-// 	ConfirmationTitle,
-// } from "@/components/ai-elements/confirmation";
+import {
+	Confirmation,
+	ConfirmationAccepted,
+	ConfirmationAction,
+	ConfirmationActions,
+	ConfirmationRejected,
+	ConfirmationRequest,
+	ConfirmationTitle,
+} from "@/components/ai-elements/confirmation";
 import {
 	Conversation,
 	ConversationContent,
@@ -60,7 +68,12 @@ import {
 } from "@/components/ui/tooltip";
 import { parseImagePartToDataUrl } from "@/lib/image-utils";
 
-import type { UIMessage, ChatRequestOptions, ChatStatus } from "ai";
+import type {
+	UIMessage,
+	ChatRequestOptions,
+	ChatStatus,
+	ChatAddToolApproveResponseFunction,
+} from "ai";
 
 interface ChatUIProps {
 	messages: UIMessage[];
@@ -87,6 +100,7 @@ interface ChatUIProps {
 	) => Promise<void>;
 	isLoading?: boolean;
 	error?: string | null;
+	addToolApprovalResponse: ChatAddToolApproveResponseFunction;
 }
 
 const suggestions = [
@@ -134,6 +148,7 @@ export const ChatUI = ({
 	status,
 	stop,
 	regenerate,
+	addToolApprovalResponse,
 	onUserMessage,
 	isLoading = false,
 	error = null,
@@ -240,7 +255,7 @@ export const ChatUI = ({
 													/>
 													<ToolContent>
 														<ToolInput input={tool.input} />
-														{/* <Confirmation
+														<Confirmation
 															approval={tool.approval}
 															state={tool.state}
 														>
@@ -289,7 +304,7 @@ export const ChatUI = ({
 																	Accept
 																</ConfirmationAction>
 															</ConfirmationActions>
-														</Confirmation> */}
+														</Confirmation>
 														<ToolOutput
 															errorText={tool.errorText}
 															output={tool.output}

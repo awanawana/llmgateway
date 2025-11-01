@@ -1,6 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
+import { lastAssistantMessageIsCompleteWithApprovalResponses } from "ai";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 
@@ -79,64 +80,72 @@ export default function ChatPageClient({
 		return () => window.removeEventListener("storage", onStorage);
 	}, []);
 
-	const { messages, setMessages, sendMessage, status, stop, regenerate } =
-		useChat({
-			onError: (e) => {
-				setError(e.message);
-			},
-			onFinish: async ({ message }) => {
-				const chatId = chatIdRef.current;
-				if (!chatId) {
-					return;
-				}
-				// Extract assistant text, images, and reasoning from UIMessage parts
-				const textContent = message.parts
-					.filter((p) => p.type === "text")
-					.map((p) => p.text)
-					.join("");
+	const {
+		messages,
+		setMessages,
+		sendMessage,
+		status,
+		stop,
+		regenerate,
+		addToolApprovalResponse,
+	} = useChat({
+		onError: (e) => {
+			setError(e.message);
+		},
+		sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
+		onFinish: async ({ message }) => {
+			const chatId = chatIdRef.current;
+			if (!chatId) {
+				return;
+			}
+			// Extract assistant text, images, and reasoning from UIMessage parts
+			const textContent = message.parts
+				.filter((p) => p.type === "text")
+				.map((p) => p.text)
+				.join("");
 
-				const reasoningContent = message.parts
-					.filter((p) => p.type === "reasoning")
-					.map((p) => p.text)
-					.join("");
+			const reasoningContent = message.parts
+				.filter((p) => p.type === "reasoning")
+				.map((p) => p.text)
+				.join("");
 
-				const imageUrlParts = (message.parts as any[])
-					.filter((p: any) => p.type === "image_url" && p.image_url?.url)
-					.map((p: any) => ({
+			const imageUrlParts = (message.parts as any[])
+				.filter((p: any) => p.type === "image_url" && p.image_url?.url)
+				.map((p: any) => ({
+					type: "image_url",
+					image_url: { url: p.image_url.url },
+				}));
+
+			// Handle file parts (AI SDK format for images)
+			const fileParts = (message.parts as any[])
+				.filter((p) => p.type === "file" && p.mediaType?.startsWith("image/"))
+				.map((p) => {
+					const { dataUrl } = parseImageFile(p);
+					return {
 						type: "image_url",
-						image_url: { url: p.image_url.url },
-					}));
-
-				// Handle file parts (AI SDK format for images)
-				const fileParts = (message.parts as any[])
-					.filter((p) => p.type === "file" && p.mediaType?.startsWith("image/"))
-					.map((p) => {
-						const { dataUrl } = parseImageFile(p);
-						return {
-							type: "image_url",
-							image_url: { url: dataUrl },
-						};
-					});
-
-				const images = [...imageUrlParts, ...fileParts];
-
-				// Extract tool parts (AI SDK dynamic tool UI parts)
-				const toolParts = (message.parts as any[]).filter(
-					(p: any) => p.type === "dynamic-tool",
-				);
-
-				await addMessage.mutateAsync({
-					params: { path: { id: chatId } },
-					body: {
-						role: "assistant",
-						content: textContent || undefined,
-						images: images.length > 0 ? JSON.stringify(images) : undefined,
-						reasoning: reasoningContent || undefined,
-						tools: toolParts.length > 0 ? JSON.stringify(toolParts) : undefined,
-					} as any,
+						image_url: { url: dataUrl },
+					};
 				});
-			},
-		});
+
+			const images = [...imageUrlParts, ...fileParts];
+
+			// Extract tool parts (AI SDK dynamic tool UI parts)
+			const toolParts = (message.parts as any[]).filter(
+				(p: any) => p.type === "dynamic-tool",
+			);
+
+			await addMessage.mutateAsync({
+				params: { path: { id: chatId } },
+				body: {
+					role: "assistant",
+					content: textContent || undefined,
+					images: images.length > 0 ? JSON.stringify(images) : undefined,
+					reasoning: reasoningContent || undefined,
+					tools: toolParts.length > 0 ? JSON.stringify(toolParts) : undefined,
+				} as any,
+			});
+		},
+	});
 
 	useEffect(() => {
 		chatIdRef.current = currentChatId;
@@ -459,7 +468,7 @@ export default function ChatPageClient({
 					onProjectCreated={handleProjectCreated}
 				/>
 				<div className="flex flex-1 flex-col w-full min-h-0 overflow-hidden">
-					<div className="flex-shrink-0">
+					<div className="shrink-0">
 						<ChatHeader
 							models={models}
 							providers={providers}
@@ -479,6 +488,7 @@ export default function ChatPageClient({
 							status={status}
 							stop={stop}
 							regenerate={regenerate}
+							addToolApprovalResponse={addToolApprovalResponse}
 							onUserMessage={handleUserMessage}
 							isLoading={isLoading || isChatLoading}
 							error={error}

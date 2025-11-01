@@ -1,7 +1,7 @@
 import { experimental_createMCPClient } from "@ai-sdk/mcp";
 
 import type { experimental_MCPClient } from "@ai-sdk/mcp";
-// import type { Tool } from "ai";
+import type { Tool } from "ai";
 
 let cachedClient: experimental_MCPClient | null = null;
 let cachedTools: Record<string, any> | null = null;
@@ -42,18 +42,18 @@ export async function getGithubMcpTools(
 		cachedClient = mcpClient;
 
 		// Wrap write-like tools to require human approval
-		// const needsApprovalPattern =
-		// 	/create|update|delete|close|merge|write|push|label|assign|comment|open|reopen/i;
-		// const wrapped: Record<string, Tool> = {};
-		// for (const [name, def] of Object.entries(tools)) {
-		// 	if (needsApprovalPattern.test(name)) {
-		// 		wrapped[name] = { ...def, needsApproval: true };
-		// 	} else {
-		// 		wrapped[name] = def;
-		// 	}
-		// }
+		const needsApprovalPattern =
+			/create|update|delete|close|merge|write|push|label|assign|comment|open|reopen/i;
+		const wrapped: Record<string, Tool> = {};
+		for (const [name, def] of Object.entries(tools)) {
+			if (needsApprovalPattern.test(name)) {
+				wrapped[name] = { ...def, needsApproval: true };
+			} else {
+				wrapped[name] = def;
+			}
+		}
 
-		cachedTools = tools;
+		cachedTools = wrapped;
 	}
 
 	return { tools: cachedTools ?? {}, client: cachedClient ?? null };
