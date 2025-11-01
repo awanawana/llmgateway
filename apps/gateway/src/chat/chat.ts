@@ -1120,7 +1120,7 @@ chat.openapi(completions, async (c) => {
 	const baseModelName = finalModelInfo?.id || usedModel;
 
 	// Create the model mapping values according to new schema
-	const usedModelMapping = usedModel; // Store the original provider model name
+	const usedModelMapping = baseModelName; // Store the model ID from the models array
 	const usedModelFormatted = `${usedProvider}/${baseModelName}`; // Store in LLMGateway format
 
 	// Auto-set reasoning_effort for auto-routing when model supports reasoning

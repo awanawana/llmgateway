@@ -657,6 +657,18 @@ describe("e2e individual tests", () => {
 		"Auto-routing filters models by JSON output support",
 		getTestOptions({ completions: false }),
 		async () => {
+			// require all provider keys to be set
+			for (const provider of providers) {
+				const envVarName = getProviderEnvVar(provider.id);
+				const envVarValue = envVarName ? process.env[envVarName] : undefined;
+				if (!envVarValue) {
+					console.log(
+						`Skipping auto-routing JSON filter test - no API key provided for ${provider.id}`,
+					);
+					return;
+				}
+			}
+
 			const { orgId, projectId, token } = await createTestData("auto-json");
 
 			await db
