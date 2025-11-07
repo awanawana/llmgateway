@@ -156,7 +156,14 @@ export function parseProviderResponse(
 				reasoningParts.map((part: any) => part.text).join("") || null;
 
 			// Debug logging to identify parsing issues
-			if (!content && !reasoningContent && parts.length > 0) {
+			// Only log if there are parts but no text, reasoning, AND no function calls
+			const hasFunctionCalls = parts.some((part: any) => part.functionCall);
+			if (
+				!content &&
+				!reasoningContent &&
+				!hasFunctionCalls &&
+				parts.length > 0
+			) {
 				logger.error(
 					"[parse-provider-response] Google response has parts but no text extracted",
 					{
