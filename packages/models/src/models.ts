@@ -9,6 +9,7 @@ import { minimaxModels } from "./models/minimax.js";
 import { mistralModels } from "./models/mistral.js";
 import { moonshotModels } from "./models/moonshot.js";
 import { nousresearchModels } from "./models/nousresearch.js";
+import { ollamaModels } from "./models/ollama.js";
 import { openaiModels } from "./models/openai.js";
 import { perplexityModels } from "./models/perplexity.js";
 import { routewayModels } from "./models/routeway.js";
@@ -180,6 +181,7 @@ export const models = [
 	...moonshotModels,
 	...alibabaModels,
 	...nousresearchModels,
+	...ollamaModels,
 	...routewayModels,
 	...zaiModels,
 ] as const satisfies ModelDefinition[];

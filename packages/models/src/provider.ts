@@ -25,6 +25,7 @@ export const providerEnvVarMap: Record<Provider, string> = {
 	"aws-bedrock": "LLM_AWS_BEDROCK_API_KEY",
 	azure: "LLM_AZURE_API_KEY",
 	canopywave: "LLM_CANOPY_WAVE_API_KEY",
+	ollama: "LLM_OLLAMA_API_KEY",
 	custom: "LLM_UNUSED",
 };
 

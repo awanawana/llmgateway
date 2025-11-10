@@ -249,6 +249,20 @@ export const providers = [
 		announcement: null,
 	},
 	{
+		id: "ollama",
+		name: "Ollama",
+		description:
+			"Ollama - run large language models locally with OpenAI-compatible API",
+		streaming: true,
+		cancellation: true,
+		color: "#000000",
+		website: "https://ollama.com",
+		announcement: null,
+		apiKeyInstructions:
+			"Ollama runs locally and typically doesn't require an API key. Use any value or leave empty.",
+		learnMore: "https://github.com/ollama/ollama",
+	},
+	{
 		id: "custom",
 		name: "Custom",
 		description: "Custom OpenAI-compatible provider with configurable base URL",

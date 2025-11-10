@@ -122,6 +122,9 @@ export function getProviderEndpoint(
 			case "canopywave":
 				url = "https://inference.canopywave.io";
 				break;
+			case "ollama":
+				url = baseUrl || "http://localhost:11434";
+				break;
 			case "custom":
 				if (!baseUrl) {
 					throw new Error(`Custom provider requires a baseUrl`);
@@ -254,6 +257,7 @@ export function getProviderEndpoint(
 		case "routeway-discount":
 		case "nanogpt":
 		case "canopywave":
+		case "ollama":
 		case "custom":
 		default:
 			return `${url}/v1/chat/completions`;
