@@ -34,6 +34,8 @@ import {
 	type StabilityLevel,
 } from "@llmgateway/models";
 
+import type { Route } from "next";
+
 type ModelId = (typeof models)[number]["id"];
 
 const DEFAULT_LEFT_MODEL = "gpt-4o" as ModelId;
@@ -148,7 +150,6 @@ const groupedRows: Array<{
 			{ key: "modelId", label: "Model ID" },
 			{ key: "family", label: "Family" },
 			{ key: "aliases", label: "Aliases" },
-			{ key: "stability", label: "Stability" },
 			{ key: "providers", label: "Providers" },
 		],
 	},
@@ -339,7 +340,7 @@ function collectModelDetail(modelId?: ModelId): ModelDetail | undefined {
 		model,
 		providers: providersWithInfo,
 		stability: pickMostUnstableStability(model),
-		jsonOutput: Boolean(model.jsonOutput),
+		jsonOutput: model.providers.some((p) => p.jsonOutput),
 		aggregated,
 	};
 }
@@ -409,6 +410,7 @@ function ProvidersList({ providers }: { providers: ProviderWithInfo[] }) {
 					<div className="text-xs text-muted-foreground">
 						API: {provider.providerId}/{provider.modelName}
 					</div>
+					<StabilityBadge stability={provider.stability} />
 				</div>
 			))}
 		</div>
@@ -503,8 +505,6 @@ function renderRowValue(
 			return detail.aliases && detail.aliases.length
 				? detail.aliases.join(", ")
 				: PLACEHOLDER;
-		case "stability":
-			return <StabilityBadge stability={detail.stability} />;
 		case "providers":
 			return <ProvidersList providers={detail.providers} />;
 		case "maxContext": {
@@ -618,9 +618,12 @@ export function ModelComparison() {
 		}
 		const next = params.toString();
 		if (next !== searchParamsString) {
-			router.replace(next ? `${pathname}?${next}` : pathname, {
-				scroll: false,
-			});
+			router.replace(
+				next ? (`${pathname}?${next}` as Route) : (pathname as Route),
+				{
+					scroll: false,
+				},
+			);
 		}
 	};
 
@@ -825,7 +828,6 @@ export function ModelComparison() {
 													</Link>
 												) : null}
 											</div>
-											<StabilityBadge stability={leftModel?.stability} />
 										</div>
 									</TableHead>
 									<TableHead className="w-1/2">
@@ -843,7 +845,6 @@ export function ModelComparison() {
 													</Link>
 												) : null}
 											</div>
-											<StabilityBadge stability={rightModel?.stability} />
 										</div>
 									</TableHead>
 								</TableRow>

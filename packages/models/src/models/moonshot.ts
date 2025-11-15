@@ -5,8 +5,6 @@ export const moonshotModels = [
 		id: "kimi-k2",
 		name: "Kimi K2",
 		family: "moonshot",
-		deprecatedAt: undefined,
-		deactivatedAt: undefined,
 		providers: [
 			{
 				providerId: "groq",
@@ -20,6 +18,7 @@ export const moonshotModels = [
 				streaming: true,
 				vision: false,
 				tools: true,
+				jsonOutput: true,
 			},
 			{
 				providerId: "novita",
@@ -32,6 +31,7 @@ export const moonshotModels = [
 				streaming: true,
 				vision: false,
 				tools: true,
+				jsonOutput: true,
 			},
 			{
 				providerId: "moonshot",
@@ -45,6 +45,7 @@ export const moonshotModels = [
 				streaming: true,
 				vision: false,
 				tools: true,
+				jsonOutput: true,
 			},
 			{
 				providerId: "cloudrift",
@@ -58,6 +59,7 @@ export const moonshotModels = [
 				vision: false,
 				tools: true,
 				test: "skip",
+				jsonOutput: true,
 			},
 			{
 				providerId: "nebius",
@@ -70,8 +72,42 @@ export const moonshotModels = [
 				streaming: true,
 				vision: false,
 				tools: true,
+				jsonOutput: true,
 			},
 		],
-		jsonOutput: true,
+	},
+	{
+		id: "kimi-k2-thinking",
+		name: "Kimi K2 Thinking",
+		family: "moonshot",
+		providers: [
+			{
+				providerId: "moonshot",
+				modelName: "kimi-k2-thinking",
+				inputPrice: 0.6 / 1e6,
+				outputPrice: 2.5 / 1e6,
+				cachedInputPrice: 0.15 / 1e6,
+				requestPrice: 0,
+				contextSize: 262144,
+				maxOutput: 262144,
+				streaming: true,
+				vision: false,
+				tools: true,
+				jsonOutput: true,
+			},
+			{
+				providerId: "canopywave",
+				modelName: "moonshotai/kimi-k2-thinking",
+				inputPrice: 0.48 / 1e6,
+				outputPrice: 2.0 / 1e6,
+				discount: 0.75,
+				requestPrice: 0,
+				contextSize: 262144,
+				streaming: true,
+				vision: false,
+				tools: true,
+				jsonOutput: true,
+			},
+		],
 	},
 ] as const satisfies ModelDefinition[];

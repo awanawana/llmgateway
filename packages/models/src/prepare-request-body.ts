@@ -51,6 +51,8 @@ export async function prepareRequestBody(
 	reasoning_effort?: "minimal" | "low" | "medium" | "high",
 	supportsReasoning?: boolean,
 	isProd = false,
+	maxImageSizeMB = 20,
+	userPlan: "free" | "pro" | null = null,
 ): Promise<ProviderRequestBody> {
 	// Check if the model supports system role
 	const modelDef = models.find((m) => m.id === usedModel);
@@ -304,46 +306,6 @@ export async function prepareRequestBody(
 			}
 			break;
 		}
-		case "xai":
-		case "groq":
-		case "deepseek":
-		case "perplexity":
-		case "novita":
-		case "moonshot":
-		case "alibaba":
-		case "nebius":
-		case "routeway":
-		case "custom": {
-			if (stream) {
-				requestBody.stream_options = {
-					include_usage: true,
-				};
-			}
-			if (response_format) {
-				requestBody.response_format = response_format;
-			}
-
-			// Add optional parameters if they are provided
-			if (temperature !== undefined) {
-				requestBody.temperature = temperature;
-			}
-			if (max_tokens !== undefined) {
-				requestBody.max_tokens = max_tokens;
-			}
-			if (top_p !== undefined) {
-				requestBody.top_p = top_p;
-			}
-			if (frequency_penalty !== undefined) {
-				requestBody.frequency_penalty = frequency_penalty;
-			}
-			if (presence_penalty !== undefined) {
-				requestBody.presence_penalty = presence_penalty;
-			}
-			if (reasoning_effort !== undefined) {
-				requestBody.reasoning_effort = reasoning_effort;
-			}
-			break;
-		}
 		case "anthropic": {
 			// Remove generic tool_choice that was added earlier
 			delete requestBody.tool_choice;
@@ -385,6 +347,8 @@ export async function prepareRequestBody(
 				isProd,
 				usedProvider,
 				usedModel,
+				maxImageSizeMB,
+				userPlan,
 			);
 
 			// Transform tools from OpenAI format to Anthropic format
@@ -561,7 +525,8 @@ export async function prepareRequestBody(
 
 			break;
 		}
-		case "google-ai-studio": {
+		case "google-ai-studio":
+		case "google-vertex": {
 			delete requestBody.model; // Not used in body
 			delete requestBody.stream; // Stream is handled via URL parameter
 			delete requestBody.messages; // Not used in body for Google providers
@@ -570,6 +535,8 @@ export async function prepareRequestBody(
 			requestBody.contents = await transformGoogleMessages(
 				processedMessages,
 				isProd,
+				maxImageSizeMB,
+				userPlan,
 			);
 
 			// Transform tools from OpenAI format to Google format
@@ -606,6 +573,15 @@ export async function prepareRequestBody(
 				requestBody.generationConfig.topP = top_p;
 			}
 
+			// Handle JSON output mode for Google
+			if (response_format?.type === "json_object") {
+				requestBody.generationConfig.responseMimeType = "application/json";
+			} else if (response_format?.type === "json_schema") {
+				requestBody.generationConfig.responseMimeType = "application/json";
+				// Note: Google supports responseSchema but we'd need to convert from JSON Schema to Google's format
+				// For now, we just set the MIME type for basic JSON mode
+			}
+
 			// Enable thinking/reasoning content exposure for Google models that support reasoning
 			if (supportsReasoning) {
 				requestBody.generationConfig.thinkingConfig = {
@@ -632,6 +608,20 @@ export async function prepareRequestBody(
 				}
 			}
 
+			// Set all safety settings to BLOCK_NONE to disable content filtering
+			requestBody.safetySettings = [
+				{ category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+				{ category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+				{
+					category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+					threshold: "BLOCK_NONE",
+				},
+				{
+					category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+					threshold: "BLOCK_NONE",
+				},
+			];
+
 			break;
 		}
 		case "inference.net":
@@ -655,6 +645,42 @@ export async function prepareRequestBody(
 			}
 			if (presence_penalty !== undefined) {
 				requestBody.presence_penalty = presence_penalty;
+			}
+			break;
+		}
+		default: {
+			if (stream) {
+				requestBody.stream_options = {
+					include_usage: true,
+				};
+			}
+			if (response_format) {
+				requestBody.response_format = response_format;
+			}
+
+			// Add optional parameters if they are provided
+			if (temperature !== undefined) {
+				requestBody.temperature = temperature;
+			}
+			if (max_tokens !== undefined) {
+				// GPT-5 models use max_completion_tokens instead of max_tokens
+				if (usedModel.startsWith("gpt-5")) {
+					requestBody.max_completion_tokens = max_tokens;
+				} else {
+					requestBody.max_tokens = max_tokens;
+				}
+			}
+			if (top_p !== undefined) {
+				requestBody.top_p = top_p;
+			}
+			if (frequency_penalty !== undefined) {
+				requestBody.frequency_penalty = frequency_penalty;
+			}
+			if (presence_penalty !== undefined) {
+				requestBody.presence_penalty = presence_penalty;
+			}
+			if (reasoning_effort !== undefined) {
+				requestBody.reasoning_effort = reasoning_effort;
 			}
 			break;
 		}

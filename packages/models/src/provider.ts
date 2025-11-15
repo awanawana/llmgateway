@@ -5,6 +5,7 @@ export const providerEnvVarMap: Record<Provider, string> = {
 	openai: "LLM_OPENAI_API_KEY",
 	anthropic: "LLM_ANTHROPIC_API_KEY",
 	"google-ai-studio": "LLM_GOOGLE_AI_STUDIO_API_KEY",
+	"google-vertex": "LLM_GOOGLE_VERTEX_API_KEY",
 	"inference.net": "LLM_INFERENCE_NET_API_KEY",
 	"together.ai": "LLM_TOGETHER_AI_API_KEY",
 	cloudrift: "LLM_CLOUD_RIFT_API_KEY",
@@ -22,6 +23,7 @@ export const providerEnvVarMap: Record<Provider, string> = {
 	routeway: "LLM_ROUTEWAY_API_KEY",
 	"routeway-discount": "LLM_ROUTEWAY_DISCOUNT_API_KEY",
 	"aws-bedrock": "LLM_AWS_BEDROCK_API_KEY",
+	azure: "LLM_AZURE_API_KEY",
 	canopywave: "LLM_CANOPY_WAVE_API_KEY",
 	custom: "LLM_UNUSED",
 };

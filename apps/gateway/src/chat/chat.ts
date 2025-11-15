@@ -225,6 +225,11 @@ const completionsRequestSchema = z.object({
 			"When used with auto routing, only route to free models (models with zero input and output pricing)",
 		example: false,
 	}),
+	no_reasoning: z.boolean().optional().default(false).openapi({
+		description:
+			"When used with auto routing, exclude reasoning models from selection",
+		example: false,
+	}),
 });
 
 const completions = createRoute({
@@ -387,6 +392,7 @@ chat.openapi(completions, async (c) => {
 		tools,
 		tool_choice,
 		free_models_only,
+		no_reasoning,
 	} = validationResult.data;
 
 	// Extract reasoning_effort as mutable variable for auto-routing modification
@@ -530,9 +536,9 @@ chat.openapi(completions, async (c) => {
 					maxOutput: 4096,
 					streaming: true,
 					vision: false,
+					jsonOutput: true,
 				},
 			],
-			jsonOutput: true,
 		};
 	} else {
 		modelInfo =
@@ -548,18 +554,46 @@ chat.openapi(completions, async (c) => {
 		}
 	}
 
-	// Check if model is deactivated
-	if (modelInfo.deactivatedAt && new Date() > modelInfo.deactivatedAt) {
+	// Filter out deactivated provider mappings
+	const now = new Date();
+	const activeProviders = modelInfo.providers.filter(
+		(provider) =>
+			!(
+				(provider as ProviderModelMapping).deactivatedAt &&
+				now > (provider as ProviderModelMapping).deactivatedAt!
+			),
+	);
+
+	// Check if all providers are deactivated
+	if (activeProviders.length === 0) {
 		throw new HTTPException(410, {
 			message: `Model ${requestedModel} has been deactivated and is no longer available`,
 		});
 	}
 
+	// Update modelInfo to only include active providers
+	modelInfo = {
+		...modelInfo,
+		providers: activeProviders,
+	};
+
 	if (
 		response_format?.type === "json_object" ||
 		response_format?.type === "json_schema"
 	) {
-		if (!(modelInfo as ModelDefinition).jsonOutput) {
+		// Filter providers by requestedProvider if specified
+		const providersToCheck = requestedProvider
+			? modelInfo.providers.filter(
+					(p) => (p as ProviderModelMapping).providerId === requestedProvider,
+				)
+			: modelInfo.providers;
+
+		// Check if the provider(s) support JSON output
+		const supportsJsonOutput = providersToCheck.some(
+			(provider) => (provider as ProviderModelMapping).jsonOutput === true,
+		);
+
+		if (!supportsJsonOutput) {
 			throw new HTTPException(400, {
 				message: `Model ${requestedModel} does not support JSON output mode`,
 			});
@@ -569,10 +603,9 @@ chat.openapi(completions, async (c) => {
 		if (response_format?.type === "json_schema") {
 			// For non-auto/custom models, check if the provider supports json_schema
 			if (requestedModel !== "auto" && requestedModel !== "custom") {
-				const supportsJsonSchema = modelInfo.providers.some(
+				const supportsJsonSchema = providersToCheck.some(
 					(provider) =>
-						(provider as ProviderModelMapping).jsonOutputSchema === true &&
-						!(provider as ProviderModelMapping).disableJsonOutputSchema,
+						(provider as ProviderModelMapping).jsonOutputSchema === true,
 				);
 
 				if (!supportsJsonSchema) {
@@ -612,6 +645,32 @@ chat.openapi(completions, async (c) => {
 
 			throw new HTTPException(400, {
 				message: `Model ${requestedModel} does not support reasoning. Remove the reasoning_effort parameter or use a reasoning-capable model.`,
+			});
+		}
+	}
+
+	// Check if tools are specified but model doesn't support them
+	// Skip this check for "auto" and "custom" models as they will be resolved dynamically
+	if (
+		(tools !== undefined || tool_choice !== undefined) &&
+		requestedModel !== "auto" &&
+		requestedModel !== "custom"
+	) {
+		// Filter providers by requestedProvider if specified
+		const providersToCheck = requestedProvider
+			? modelInfo.providers.filter(
+					(p) => (p as ProviderModelMapping).providerId === requestedProvider,
+				)
+			: modelInfo.providers;
+
+		// Check if any provider for this model supports tools
+		const supportsTools = providersToCheck.some(
+			(provider) => (provider as ProviderModelMapping).tools === true,
+		);
+
+		if (!supportsTools) {
+			throw new HTTPException(400, {
+				message: `Model ${requestedModel} does not support tool calls. Remove the tools/tool_choice parameter or use a tool-capable model.`,
 			});
 		}
 	}
@@ -683,6 +742,23 @@ chat.openapi(completions, async (c) => {
 			message: "Project has been archived and is no longer accessible",
 		});
 	}
+
+	// Determine image size limit based on organization plan
+	const organization = await db.query.organization.findFirst({
+		where: {
+			id: {
+				eq: project.organizationId,
+			},
+		},
+	});
+
+	// Get image size limits from environment variables or use defaults
+	const freeLimitMB = Number(process.env.IMAGE_SIZE_LIMIT_FREE_MB) || 10;
+	const proLimitMB = Number(process.env.IMAGE_SIZE_LIMIT_PRO_MB) || 100;
+
+	// Determine max image size based on plan
+	const userPlan = organization?.plan || "free";
+	const maxImageSizeMB = userPlan === "pro" ? proLimitMB : freeLimitMB;
 
 	// Validate IAM rules for model access
 	const iamValidation = await validateModelAccess(
@@ -836,7 +912,7 @@ chat.openapi(completions, async (c) => {
 
 		// Find the cheapest model that meets our context size requirements
 		// Only consider hardcoded models for auto selection
-		let allowedAutoModels = ["gpt-5-nano", "gpt-4.1-nano"];
+		let allowedAutoModels = ["gpt-oss-120b", "gpt-5-nano", "gpt-4.1-nano"];
 
 		// If free_models_only is true, expand to include free models
 		if (free_models_only) {
@@ -857,28 +933,47 @@ chat.openapi(completions, async (c) => {
 				continue;
 			}
 
-			// Skip deprecated models
-			if (modelDef.deprecatedAt && new Date() > modelDef.deprecatedAt) {
-				continue;
-			}
-
 			// Check if any of the model's providers are available
 			const availableModelProviders = modelDef.providers.filter((provider) =>
 				availableProviders.includes(provider.providerId),
 			);
 
-			// Filter by context size requirement and reasoning capability if needed
+			// Filter by context size requirement, reasoning capability, and deprecation status
 			const suitableProviders = availableModelProviders.filter((provider) => {
+				// Skip deprecated provider mappings
+				if (
+					(provider as ProviderModelMapping).deprecatedAt &&
+					new Date() > (provider as ProviderModelMapping).deprecatedAt!
+				) {
+					return false;
+				}
+
 				// Use the provider's context size, defaulting to a reasonable value if not specified
 				const modelContextSize = provider.contextSize ?? 8192;
 				const contextSizeMet = modelContextSize >= requiredContextSize;
 
-				// If reasoning_effort is specified, only include providers that support reasoning
-				if (reasoning_effort !== undefined) {
-					return (
-						contextSizeMet &&
-						(provider as ProviderModelMapping).reasoning === true
-					);
+				// If no_reasoning is true, exclude reasoning models
+				if (
+					no_reasoning &&
+					(provider as ProviderModelMapping).reasoning === true
+				) {
+					return false;
+				}
+
+				// Check reasoning capability if reasoning_effort is specified
+				if (
+					reasoning_effort !== undefined &&
+					(provider as ProviderModelMapping).reasoning !== true
+				) {
+					return false;
+				}
+
+				// Check tool capability if tools or tool_choice is specified
+				if (
+					(tools !== undefined || tool_choice !== undefined) &&
+					(provider as ProviderModelMapping).tools !== true
+				) {
+					return false;
 				}
 
 				return contextSizeMet;
@@ -935,6 +1030,12 @@ chat.openapi(completions, async (c) => {
 					message:
 						"No free models are available for auto routing. Remove free_models_only parameter or use a specific model.",
 				});
+			} else if (no_reasoning) {
+				// If no non-reasoning models are available, return error
+				throw new HTTPException(400, {
+					message:
+						"No non-reasoning models are available for auto routing. Remove no_reasoning parameter or use a specific model.",
+				});
 			}
 		} else {
 			if (free_models_only) {
@@ -942,6 +1043,12 @@ chat.openapi(completions, async (c) => {
 				throw new HTTPException(400, {
 					message:
 						"No free models are available for auto routing. Remove free_models_only parameter or use a specific model.",
+				});
+			} else if (no_reasoning) {
+				// If no_reasoning is true but no suitable model found, return error
+				throw new HTTPException(400, {
+					message:
+						"No non-reasoning models are available for auto routing. Remove no_reasoning parameter or use a specific model.",
 				});
 			}
 			// Default fallback if no suitable model is found - use cheapest allowed model
@@ -1084,6 +1191,7 @@ chat.openapi(completions, async (c) => {
 
 	let providerKey: InferSelectModel<typeof tables.providerKey> | undefined;
 	let usedToken: string | undefined;
+	let configIndex = 0; // Index for round-robin environment variables
 
 	if (project.mode === "credits" && usedProvider === "custom") {
 		throw new HTTPException(400, {
@@ -1190,7 +1298,9 @@ chat.openapi(completions, async (c) => {
 			});
 		}
 
-		usedToken = getProviderEnv(usedProvider);
+		const envResult = getProviderEnv(usedProvider);
+		usedToken = envResult.token;
+		configIndex = envResult.configIndex;
 	} else if (project.mode === "hybrid") {
 		// First try to get the provider key from the database
 		if (usedProvider === "custom" && customProviderName) {
@@ -1281,7 +1391,9 @@ chat.openapi(completions, async (c) => {
 				});
 			}
 
-			usedToken = getProviderEnv(usedProvider);
+			const envResult = getProviderEnv(usedProvider);
+			usedToken = envResult.token;
+			configIndex = envResult.configIndex;
 		}
 	} else {
 		throw new HTTPException(400, {
@@ -1330,11 +1442,14 @@ chat.openapi(completions, async (c) => {
 			usedProvider,
 			providerKey?.baseUrl || undefined,
 			usedModel,
-			usedProvider === "google-ai-studio" ? usedToken : undefined,
+			usedProvider === "google-ai-studio" || usedProvider === "google-vertex"
+				? usedToken
+				: undefined,
 			stream,
 			supportsReasoning,
 			hasExistingToolCalls,
 			providerKey?.options || undefined,
+			configIndex,
 		);
 	} catch (error) {
 		if (usedProvider === "llmgateway" && usedModel !== "custom") {
@@ -1471,6 +1586,17 @@ chat.openapi(completions, async (c) => {
 					rawCachedResponseData, // Raw SSE data from cached response (same for both)
 				);
 
+				// Calculate costs for cached response
+				const costs = calculateCosts(
+					usedModel,
+					usedProvider,
+					promptTokens || null,
+					completionTokens || null,
+					cachedTokens || null,
+					undefined,
+					reasoningTokens || null,
+				);
+
 				await insertLog({
 					...baseLogEntry,
 					duration: 0, // No processing time for cached response
@@ -1489,13 +1615,13 @@ chat.openapi(completions, async (c) => {
 					streamed: true,
 					canceled: false,
 					errorDetails: null,
-					inputCost: 0,
-					outputCost: 0,
-					cachedInputCost: 0,
-					requestCost: 0,
-					cost: 0,
-					estimatedCost: false,
-					discount: null,
+					inputCost: costs.inputCost ?? 0,
+					outputCost: costs.outputCost ?? 0,
+					cachedInputCost: costs.cachedInputCost ?? 0,
+					requestCost: costs.requestCost ?? 0,
+					cost: costs.totalCost ?? 0,
+					estimatedCost: costs.estimatedCost,
+					discount: costs.discount ?? null,
 					cached: true,
 					toolResults:
 						(cachedStreamingResponse.metadata as { toolResults?: any })
@@ -1563,6 +1689,17 @@ chat.openapi(completions, async (c) => {
 					cachedResponse, // upstream response is same as cached response
 				);
 
+				// Calculate costs for cached response
+				const cachedCosts = calculateCosts(
+					usedModel,
+					usedProvider,
+					cachedResponse.usage?.prompt_tokens || null,
+					cachedResponse.usage?.completion_tokens || null,
+					cachedResponse.usage?.prompt_tokens_details?.cached_tokens || null,
+					undefined,
+					cachedResponse.usage?.reasoning_tokens || null,
+				);
+
 				await insertLog({
 					...baseLogEntry,
 					duration,
@@ -1577,18 +1714,19 @@ chat.openapi(completions, async (c) => {
 					completionTokens: cachedResponse.usage?.completion_tokens || null,
 					totalTokens: cachedResponse.usage?.total_tokens || null,
 					reasoningTokens: cachedResponse.usage?.reasoning_tokens || null,
-					cachedTokens: null,
+					cachedTokens:
+						cachedResponse.usage?.prompt_tokens_details?.cached_tokens || null,
 					hasError: false,
 					streamed: false,
 					canceled: false,
 					errorDetails: null,
-					inputCost: 0,
-					outputCost: 0,
-					cachedInputCost: 0,
-					requestCost: 0,
-					cost: 0,
-					estimatedCost: false,
-					discount: null,
+					inputCost: cachedCosts.inputCost ?? 0,
+					outputCost: cachedCosts.outputCost ?? 0,
+					cachedInputCost: cachedCosts.cachedInputCost ?? 0,
+					requestCost: cachedCosts.requestCost ?? 0,
+					cost: cachedCosts.totalCost ?? 0,
+					estimatedCost: cachedCosts.estimatedCost,
+					discount: cachedCosts.discount ?? null,
 					cached: true,
 					toolResults: cachedResponse.choices?.[0]?.message?.tool_calls || null,
 				});
@@ -1647,6 +1785,8 @@ chat.openapi(completions, async (c) => {
 		reasoning_effort,
 		supportsReasoning,
 		process.env.NODE_ENV === "production",
+		maxImageSizeMB,
+		userPlan,
 	);
 
 	// Validate effective max_tokens value after prepareRequestBody
@@ -1822,6 +1962,94 @@ chat.openapi(completions, async (c) => {
 						id: String(eventId++),
 					});
 					return;
+				} else if (error instanceof Error) {
+					// Handle fetch errors (timeout, connection failures, etc.)
+					const errorMessage = error.message;
+					logger.error("Fetch error", {
+						error: errorMessage,
+						usedProvider,
+						requestedProvider,
+						usedModel,
+						initialRequestedModel,
+					});
+
+					// Log the error in the database
+					const baseLogEntry = createLogEntry(
+						requestId,
+						project,
+						apiKey,
+						providerKey?.id,
+						usedModelFormatted,
+						usedModelMapping,
+						usedProvider,
+						initialRequestedModel,
+						requestedProvider,
+						messages,
+						temperature,
+						max_tokens,
+						top_p,
+						frequency_penalty,
+						presence_penalty,
+						reasoning_effort,
+						response_format,
+						tools,
+						tool_choice,
+						source,
+						customHeaders,
+						debugMode,
+						rawBody,
+						null, // No response for fetch error
+						requestBody, // The request that resulted in error
+						null, // No upstream response for fetch error
+					);
+
+					await insertLog({
+						...baseLogEntry,
+						duration: Date.now() - startTime,
+						timeToFirstToken: null, // Not applicable for error case
+						timeToFirstReasoningToken: null, // Not applicable for error case
+						responseSize: 0,
+						content: null,
+						reasoningContent: null,
+						finishReason: "upstream_error",
+						promptTokens: null,
+						completionTokens: null,
+						totalTokens: null,
+						reasoningTokens: null,
+						cachedTokens: null,
+						hasError: true,
+						streamed: true,
+						canceled: false,
+						errorDetails: {
+							statusCode: 0,
+							statusText: error.name,
+							responseText: errorMessage,
+						},
+						cachedInputCost: null,
+						requestCost: null,
+						discount: null,
+						cached: false,
+						toolResults: null,
+					});
+
+					// Send error event to the client
+					await writeSSEAndCache({
+						event: "error",
+						data: JSON.stringify({
+							error: {
+								message: `Failed to connect to provider: ${errorMessage}`,
+								type: "upstream_error",
+								code: "fetch_failed",
+							},
+						}),
+						id: String(eventId++),
+					});
+					await writeSSEAndCache({
+						event: "done",
+						data: "[DONE]",
+						id: String(eventId++),
+					});
+					return;
 				} else {
 					throw error;
 				}
@@ -1853,7 +2081,7 @@ chat.openapi(completions, async (c) => {
 						// If we can't parse the original error, fall back to our format
 						errorData = {
 							error: {
-								message: `Error from provider: ${res.status} ${res.statusText}`,
+								message: `Error from provider: ${res.status} ${res.statusText} ${errorResponseText}`,
 								type: finishReason,
 								param: null,
 								code: finishReason,
@@ -1864,7 +2092,7 @@ chat.openapi(completions, async (c) => {
 				} else {
 					errorData = {
 						error: {
-							message: `Error from provider: ${res.status} ${res.statusText}`,
+							message: `Error from provider: ${res.status} ${res.statusText} ${errorResponseText}`,
 							type: finishReason,
 							param: null,
 							code: finishReason,
@@ -1977,6 +2205,7 @@ chat.openapi(completions, async (c) => {
 			let reasoningTokens = null;
 			let cachedTokens = null;
 			let streamingToolCalls = null;
+			let doneSent = false; // Track if [DONE] has been sent
 			let buffer = ""; // Buffer for accumulating partial data across chunks (string for SSE)
 			let binaryBuffer = new Uint8Array(0); // Buffer for binary event streams (AWS Bedrock)
 			let rawUpstreamData = ""; // Raw data received from upstream provider
@@ -2246,6 +2475,7 @@ chat.openapi(completions, async (c) => {
 								data: "[DONE]",
 								id: String(eventId++),
 							});
+							doneSent = true;
 
 							processedLength = eventEnd;
 						} else {
@@ -2329,7 +2559,10 @@ chat.openapi(completions, async (c) => {
 							}
 
 							// For Google providers, add usage information when available
-							if (usedProvider === "google-ai-studio") {
+							if (
+								usedProvider === "google-ai-studio" ||
+								usedProvider === "google-vertex"
+							) {
 								const usage = extractTokenUsage(
 									data,
 									usedProvider,
@@ -2412,6 +2645,7 @@ chat.openapi(completions, async (c) => {
 							// use raw data. For others (like aws-bedrock), use transformed OpenAI format.
 							const contentChunk = extractContent(
 								usedProvider === "google-ai-studio" ||
+									usedProvider === "google-vertex" ||
 									usedProvider === "anthropic"
 									? data
 									: transformedData,
@@ -2432,6 +2666,7 @@ chat.openapi(completions, async (c) => {
 							// use raw data. For others, use transformed OpenAI format.
 							const reasoningContentChunk = extractReasoning(
 								usedProvider === "google-ai-studio" ||
+									usedProvider === "google-vertex" ||
 									usedProvider === "anthropic"
 									? data
 									: transformedData,
@@ -2490,24 +2725,12 @@ chat.openapi(completions, async (c) => {
 							// Handle provider-specific finish reason extraction
 							switch (usedProvider) {
 								case "google-ai-studio":
-									if (data.candidates?.[0]?.finishReason) {
-										const googleFinishReason = data.candidates[0].finishReason;
-										// Check if there are function calls in this response
-										const hasFunctionCalls =
-											data.candidates?.[0]?.content?.parts?.some(
-												(part: any) => part.functionCall,
-											);
-										// Map Google finish reasons to OpenAI format
-										finishReason =
-											googleFinishReason === "STOP"
-												? hasFunctionCalls
-													? "tool_calls"
-													: "stop"
-												: googleFinishReason === "MAX_TOKENS"
-													? "length"
-													: googleFinishReason === "SAFETY"
-														? "content_filter"
-														: "stop"; // Safe fallback for unknown reasons
+								case "google-vertex":
+									// Preserve original Google finish reason for logging
+									if (data.promptFeedback?.blockReason) {
+										finishReason = data.promptFeedback.blockReason;
+									} else if (data.candidates?.[0]?.finishReason) {
+										finishReason = data.candidates[0].finishReason;
 									}
 									break;
 								case "anthropic":
@@ -2608,6 +2831,7 @@ chat.openapi(completions, async (c) => {
 							data: "[DONE]",
 							id: String(eventId++),
 						});
+						doneSent = true;
 					} catch (sseError) {
 						logger.error(
 							"Failed to send error SSE",
@@ -2690,78 +2914,134 @@ chat.openapi(completions, async (c) => {
 						(calculatedPromptTokens || 0) + (calculatedCompletionTokens || 0);
 				}
 
-				// Send final usage chunk if we need to send usage data
-				// This includes cases where:
-				// 1. No usage tokens were provided at all (all null)
-				// 2. Some tokens are missing (e.g., Google AI Studio doesn't provide completion tokens during streaming)
-				const needsUsageChunk =
-					(promptTokens === null &&
-						completionTokens === null &&
-						totalTokens === null &&
-						(calculatedPromptTokens !== null ||
-							calculatedCompletionTokens !== null)) ||
-					(completionTokens === null && calculatedCompletionTokens !== null);
+				// Check if the response finished successfully but has no content, tokens, or tool calls
+				// This indicates an empty response which should be marked as an error
+				// Do this check BEFORE sending usage chunks to ensure proper event ordering
+				const hasEmptyResponse =
+					!streamingError &&
+					finishReason &&
+					(!calculatedCompletionTokens || calculatedCompletionTokens === 0) &&
+					(!fullContent || fullContent.trim() === "") &&
+					(!streamingToolCalls || streamingToolCalls.length === 0);
 
-				if (needsUsageChunk) {
+				if (hasEmptyResponse) {
+					const errorMessage =
+						"Response finished successfully but returned no content or tool calls";
+					streamingError = errorMessage;
+					finishReason = "upstream_error";
+
+					// Send error event to client using writeSSEAndCache to cache the error
 					try {
-						const finalUsageChunk = {
-							id: `chatcmpl-${Date.now()}`,
-							object: "chat.completion.chunk",
-							created: Math.floor(Date.now() / 1000),
-							model: usedModel,
-							choices: [
-								{
-									index: 0,
-									delta: {},
-									finish_reason: null,
-								},
-							],
-							usage: {
-								prompt_tokens: Math.max(
-									1,
-									Math.round(
-										promptTokens && promptTokens > 0
-											? promptTokens
-											: calculatedPromptTokens || 1,
-									),
-								),
-								completion_tokens: Math.round(
-									completionTokens || calculatedCompletionTokens || 0,
-								),
-								total_tokens: Math.round(
-									totalTokens ||
-										calculatedTotalTokens ||
-										Math.max(
-											1,
-											promptTokens && promptTokens > 0
-												? promptTokens
-												: calculatedPromptTokens || 1,
-										),
-								),
-								...(cachedTokens !== null && {
-									prompt_tokens_details: {
-										cached_tokens: cachedTokens,
-									},
-								}),
-							},
-						};
-
 						await writeSSEAndCache({
-							data: JSON.stringify(finalUsageChunk),
+							event: "error",
+							data: JSON.stringify({
+								error: {
+									message: errorMessage,
+									type: "upstream_error",
+									code: "upstream_error",
+									param: null,
+									responseText: errorMessage,
+								},
+							}),
 							id: String(eventId++),
 						});
-
-						// Send final [DONE] if we haven't already
 						await writeSSEAndCache({
 							event: "done",
 							data: "[DONE]",
 							id: String(eventId++),
 						});
-					} catch (error) {
+						doneSent = true;
+					} catch (sseError) {
 						logger.error(
-							"Error sending final usage chunk",
-							error instanceof Error ? error : new Error(String(error)),
+							"Failed to send upstream error SSE",
+							sseError instanceof Error
+								? sseError
+								: new Error(String(sseError)),
 						);
+					}
+				} else {
+					// Send final usage chunk if we need to send usage data
+					// This includes cases where:
+					// 1. No usage tokens were provided at all (all null)
+					// 2. Some tokens are missing (e.g., Google AI Studio doesn't provide completion tokens during streaming)
+					const needsUsageChunk =
+						(promptTokens === null &&
+							completionTokens === null &&
+							totalTokens === null &&
+							(calculatedPromptTokens !== null ||
+								calculatedCompletionTokens !== null)) ||
+						(completionTokens === null && calculatedCompletionTokens !== null);
+
+					if (needsUsageChunk) {
+						try {
+							const finalUsageChunk = {
+								id: `chatcmpl-${Date.now()}`,
+								object: "chat.completion.chunk",
+								created: Math.floor(Date.now() / 1000),
+								model: usedModel,
+								choices: [
+									{
+										index: 0,
+										delta: {},
+										finish_reason: null,
+									},
+								],
+								usage: {
+									prompt_tokens: Math.max(
+										1,
+										Math.round(
+											promptTokens && promptTokens > 0
+												? promptTokens
+												: calculatedPromptTokens || 1,
+										),
+									),
+									completion_tokens: Math.round(
+										completionTokens || calculatedCompletionTokens || 0,
+									),
+									total_tokens: Math.round(
+										totalTokens ||
+											calculatedTotalTokens ||
+											Math.max(
+												1,
+												promptTokens && promptTokens > 0
+													? promptTokens
+													: calculatedPromptTokens || 1,
+											),
+									),
+									...(cachedTokens !== null && {
+										prompt_tokens_details: {
+											cached_tokens: cachedTokens,
+										},
+									}),
+								},
+							};
+
+							await writeSSEAndCache({
+								data: JSON.stringify(finalUsageChunk),
+								id: String(eventId++),
+							});
+						} catch (error) {
+							logger.error(
+								"Error sending final usage chunk",
+								error instanceof Error ? error : new Error(String(error)),
+							);
+						}
+					}
+
+					// Always send [DONE] at the end of streaming if not already sent
+					if (!doneSent) {
+						try {
+							await writeSSEAndCache({
+								event: "done",
+								data: "[DONE]",
+								id: String(eventId++),
+							});
+						} catch (error) {
+							logger.error(
+								"Error sending [DONE] event",
+								error instanceof Error ? error : new Error(String(error)),
+							);
+						}
 					}
 				}
 
@@ -2776,6 +3056,7 @@ chat.openapi(completions, async (c) => {
 						completion: fullContent,
 						toolResults: streamingToolCalls || undefined,
 					},
+					reasoningTokens,
 				);
 
 				const baseLogEntry = createLogEntry(
@@ -2815,18 +3096,25 @@ chat.openapi(completions, async (c) => {
 					finishReason = "stop";
 				}
 
-				// Check if the response finished successfully but has no content, tokens, or tool calls
-				// This indicates an empty response which should be marked as an error
+				// Enhanced logging for Google models streaming to debug missing responses
 				if (
-					!streamingError &&
-					finishReason &&
-					(!calculatedCompletionTokens || calculatedCompletionTokens === 0) &&
-					(!fullContent || fullContent.trim() === "") &&
-					(!streamingToolCalls || streamingToolCalls.length === 0)
+					usedProvider === "google-ai-studio" ||
+					usedProvider === "google-vertex"
 				) {
-					streamingError =
-						"Response finished successfully but returned no content or tool calls";
-					finishReason = "upstream_error";
+					logger.debug("Google model streaming response completed", {
+						usedProvider,
+						usedModel,
+						hasContent: !!fullContent,
+						contentLength: fullContent.length,
+						finishReason,
+						promptTokens: calculatedPromptTokens,
+						completionTokens: calculatedCompletionTokens,
+						totalTokens: calculatedTotalTokens,
+						reasoningTokens,
+						streamingError: streamingError ? String(streamingError) : null,
+						canceled,
+						hasToolCalls: !!streamingToolCalls && streamingToolCalls.length > 0,
+					});
 				}
 
 				await insertLog({
@@ -2921,6 +3209,7 @@ chat.openapi(completions, async (c) => {
 	c.req.raw.signal.addEventListener("abort", onAbort);
 
 	let canceled = false;
+	let fetchError: Error | null = null;
 	let res;
 	try {
 		const headers = getProviderHeaders(usedProvider, usedToken);
@@ -2934,6 +3223,9 @@ chat.openapi(completions, async (c) => {
 	} catch (error) {
 		if (error instanceof Error && error.name === "AbortError") {
 			canceled = true;
+		} else if (error instanceof Error) {
+			// Capture fetch errors (timeout, connection failures, etc.)
+			fetchError = error;
 		} else {
 			throw error;
 		}
@@ -2943,6 +3235,95 @@ chat.openapi(completions, async (c) => {
 	}
 
 	const duration = Date.now() - startTime;
+
+	// Handle fetch errors (timeout, connection failures, etc.)
+	if (fetchError) {
+		const errorMessage = fetchError.message;
+		logger.error("Fetch error", {
+			error: errorMessage,
+			usedProvider,
+			requestedProvider,
+			usedModel,
+			initialRequestedModel,
+		});
+
+		// Log the error in the database
+		const baseLogEntry = createLogEntry(
+			requestId,
+			project,
+			apiKey,
+			providerKey?.id,
+			usedModelFormatted,
+			usedModelMapping,
+			usedProvider,
+			initialRequestedModel,
+			requestedProvider,
+			messages,
+			temperature,
+			max_tokens,
+			top_p,
+			frequency_penalty,
+			presence_penalty,
+			reasoning_effort,
+			response_format,
+			tools,
+			tool_choice,
+			source,
+			customHeaders,
+			debugMode,
+			rawBody,
+			null, // No response for fetch error
+			requestBody, // The request that resulted in error
+			null, // No upstream response for fetch error
+		);
+
+		await insertLog({
+			...baseLogEntry,
+			duration,
+			timeToFirstToken: null, // Not applicable for error case
+			timeToFirstReasoningToken: null, // Not applicable for error case
+			responseSize: 0,
+			content: null,
+			reasoningContent: null,
+			finishReason: "upstream_error",
+			promptTokens: null,
+			completionTokens: null,
+			totalTokens: null,
+			reasoningTokens: null,
+			cachedTokens: null,
+			hasError: true,
+			streamed: false,
+			canceled: false,
+			errorDetails: {
+				statusCode: 0,
+				statusText: fetchError.name,
+				responseText: errorMessage,
+			},
+			cachedInputCost: null,
+			requestCost: null,
+			estimatedCost: false,
+			discount: null,
+			cached: false,
+			toolResults: null,
+		});
+
+		// Return error response
+		return c.json(
+			{
+				error: {
+					message: `Failed to connect to provider: ${errorMessage}`,
+					type: "upstream_error",
+					param: null,
+					code: "fetch_failed",
+					requestedProvider,
+					usedProvider,
+					requestedModel: initialRequestedModel,
+					usedModel,
+				},
+			},
+			502,
+		);
+	}
 
 	// If the request was canceled, log it and return a response
 	if (canceled) {
@@ -3126,7 +3507,7 @@ chat.openapi(completions, async (c) => {
 		return c.json(
 			{
 				error: {
-					message: `Error from provider: ${res.status} ${res.statusText}`,
+					message: `Error from provider: ${res.status} ${res.statusText} ${errorResponseText}`,
 					type: finishReason,
 					param: null,
 					code: finishReason,
@@ -3165,6 +3546,24 @@ chat.openapi(completions, async (c) => {
 		images,
 	} = parseProviderResponse(usedProvider, json, messages);
 
+	// Enhanced logging for Google models to debug missing responses
+	if (usedProvider === "google-ai-studio" || usedProvider === "google-vertex") {
+		logger.debug("Google model response parsed", {
+			usedProvider,
+			usedModel,
+			hasContent: !!content,
+			contentLength: content?.length || 0,
+			finishReason,
+			promptTokens,
+			completionTokens,
+			reasoningTokens,
+			hasToolResults: !!toolResults,
+			toolResultsCount: toolResults?.length || 0,
+			rawCandidates: json.candidates,
+			rawUsageMetadata: json.usageMetadata,
+		});
+	}
+
 	// Debug: Log images found in response
 	logger.debug("Gateway - parseProviderResponse extracted images", { images });
 	logger.debug("Gateway - Used provider", { usedProvider });
@@ -3190,6 +3589,7 @@ chat.openapi(completions, async (c) => {
 			completion: content,
 			toolResults: toolResults,
 		},
+		reasoningTokens,
 	);
 
 	// Transform response to OpenAI format for non-OpenAI providers
@@ -3244,8 +3644,19 @@ chat.openapi(completions, async (c) => {
 	);
 
 	// Check if the non-streaming response is empty (no content, tokens, or tool calls)
+	// Exclude content_filter responses as they are intentionally empty (blocked by provider)
+	// For Google, check for original finish reasons that indicate content filtering
+	const isGoogleContentFilter =
+		(usedProvider === "google-ai-studio" || usedProvider === "google-vertex") &&
+		(finishReason === "SAFETY" ||
+			finishReason === "PROHIBITED_CONTENT" ||
+			finishReason === "RECITATION" ||
+			finishReason === "BLOCKLIST" ||
+			finishReason === "SPII");
 	const hasEmptyNonStreamingResponse =
 		!!finishReason &&
+		finishReason !== "content_filter" &&
+		!isGoogleContentFilter &&
 		(!calculatedCompletionTokens || calculatedCompletionTokens === 0) &&
 		(!content || content.trim() === "") &&
 		(!toolResults || toolResults.length === 0);

@@ -15,11 +15,16 @@ export function getProviderHeaders(
 				"anthropic-beta": "tools-2024-04-04,prompt-caching-2024-07-31",
 			};
 		case "google-ai-studio":
+		case "google-vertex":
 			return {};
 		case "aws-bedrock":
 			return {
 				Authorization: `Bearer ${token}`,
 				"Content-Type": "application/json",
+			};
+		case "azure":
+			return {
+				"api-key": token,
 			};
 		case "openai":
 		case "inference.net":

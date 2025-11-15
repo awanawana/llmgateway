@@ -22,6 +22,7 @@ import {
 	ExternalLink,
 	Percent,
 	Scale,
+	Braces,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -31,13 +32,7 @@ import Footer from "@/components/landing/footer";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Badge } from "@/lib/components/badge";
 import { Button } from "@/lib/components/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/lib/components/card";
+import { Card, CardContent } from "@/lib/components/card";
 import { Checkbox } from "@/lib/components/checkbox";
 import { Input } from "@/lib/components/input";
 import { getProviderIcon } from "@/lib/components/providers-icons";
@@ -67,6 +62,8 @@ import { cn, formatContextSize } from "@/lib/utils";
 
 import { models, providers } from "@llmgateway/models";
 
+import { ModelCard } from "./model-card";
+
 import type {
 	ModelDefinition,
 	ProviderModelMapping,
@@ -85,7 +82,8 @@ type SortField =
 	| "providers"
 	| "contextSize"
 	| "inputPrice"
-	| "outputPrice";
+	| "outputPrice"
+	| "cachedInputPrice";
 type SortDirection = "asc" | "desc";
 
 export function AllModels({ children }: { children: React.ReactNode }) {
@@ -128,6 +126,7 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 			vision: searchParams.get("vision") === "true",
 			tools: searchParams.get("tools") === "true",
 			reasoning: searchParams.get("reasoning") === "true",
+			jsonOutput: searchParams.get("jsonOutput") === "true",
 			imageGeneration: searchParams.get("imageGeneration") === "true",
 			free: searchParams.get("free") === "true",
 			discounted: searchParams.get("discounted") === "true",
@@ -162,6 +161,10 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 		[router, searchParams],
 	);
 
+	// Calculate total counts
+	const totalModelCount = models.length;
+	const totalProviderCount = providers.length;
+
 	const modelsWithProviders: ModelWithProviders[] = useMemo(() => {
 		const baseModels = (models as readonly ModelDefinition[]).map((model) => ({
 			...model,
@@ -172,24 +175,44 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 		}));
 
 		const filteredModels = baseModels.filter((model) => {
-			// Enhanced search filter - ignore hyphens and spaces for better matching
+			// Improved fuzzy search: token-based, accent-insensitive, ignores punctuation
 			if (searchQuery) {
-				const normalizeString = (str: string) =>
-					str.toLowerCase().replace(/[-\s]/g, "");
-				const normalizedQuery = normalizeString(searchQuery);
+				const normalize = (str: string) =>
+					str
+						.toLowerCase()
+						.normalize("NFD")
+						.replace(/[\u0300-\u036f]/g, "") // strip accents
+						.replace(/[^a-z0-9]/g, "");
 
-				const matchesName = normalizeString(model.name || model.id).includes(
-					normalizedQuery,
-				);
-				const matchesId = normalizeString(model.id).includes(normalizedQuery);
-				const matchesFamily = normalizeString(model.family).includes(
-					normalizedQuery,
-				);
-				const matchesAlias = model.aliases?.some((alias) =>
-					normalizeString(alias).includes(normalizedQuery),
-				);
+				const queryTokens = searchQuery
+					.trim()
+					.toLowerCase()
+					.split(/\s+/)
+					.map((t) => t.replace(/[^a-z0-9]/g, ""))
+					.filter(Boolean);
 
-				if (!matchesName && !matchesId && !matchesFamily && !matchesAlias) {
+				const providerStrings = (model.providerDetails || []).flatMap((p) => [
+					p.provider.providerId,
+					p.providerInfo?.name || "",
+				]);
+				const haystackParts = [
+					model.name || "",
+					model.id,
+					model.family,
+					...(model.aliases || []),
+					...providerStrings,
+				];
+				const haystack = normalize(haystackParts.join(" "));
+				const normalizedQuery = normalize(searchQuery);
+
+				const containsAllTokens = queryTokens.every((t) =>
+					haystack.includes(t),
+				);
+				const containsPhrase = normalizedQuery
+					? haystack.includes(normalizedQuery)
+					: true;
+
+				if (!(containsAllTokens || containsPhrase)) {
 					return false;
 				}
 			}
@@ -216,6 +239,12 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 			if (
 				filters.capabilities.reasoning &&
 				!model.providerDetails.some((p) => p.provider.reasoning)
+			) {
+				return false;
+			}
+			if (
+				filters.capabilities.jsonOutput &&
+				!model.providerDetails.some((p) => p.provider.jsonOutput)
 			) {
 				return false;
 			}
@@ -359,6 +388,24 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 						bOutputPrices.length > 0 ? Math.min(...bOutputPrices) : Infinity;
 					break;
 				}
+				case "cachedInputPrice": {
+					// Get the min cached input price among all providers for this model
+					const aCachedInputPrices = a.providerDetails
+						.map((p) => p.provider.cachedInputPrice)
+						.filter((p) => p !== undefined);
+					const bCachedInputPrices = b.providerDetails
+						.map((p) => p.provider.cachedInputPrice)
+						.filter((p) => p !== undefined);
+					aValue =
+						aCachedInputPrices.length > 0
+							? Math.min(...aCachedInputPrices)
+							: Infinity;
+					bValue =
+						bCachedInputPrices.length > 0
+							? Math.min(...bCachedInputPrices)
+							: Infinity;
+					break;
+				}
 				default:
 					return 0;
 			}
@@ -372,6 +419,16 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 			return 0;
 		});
 	}, [searchQuery, filters, sortField, sortDirection]);
+
+	// Calculate unique filtered providers
+	const filteredProviderCount = useMemo(() => {
+		const uniqueProviders = new Set(
+			modelsWithProviders.flatMap((model) =>
+				model.providerDetails.map((p) => p.provider.providerId),
+			),
+		);
+		return uniqueProviders.size;
+	}, [modelsWithProviders]);
 
 	const handleSort = (field: SortField) => {
 		if (sortField === field) {
@@ -496,6 +553,13 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 				color: "text-orange-500",
 			});
 		}
+		if (provider.jsonOutput) {
+			capabilities.push({
+				icon: Braces,
+				label: "JSON Output",
+				color: "text-cyan-500",
+			});
+		}
 		if (model?.output?.includes("image")) {
 			capabilities.push({
 				icon: ImagePlus,
@@ -514,6 +578,7 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 				vision: false,
 				tools: false,
 				reasoning: false,
+				jsonOutput: false,
 				imageGeneration: false,
 				free: false,
 				discounted: false,
@@ -532,6 +597,7 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 			vision: undefined,
 			tools: undefined,
 			reasoning: undefined,
+			jsonOutput: undefined,
 			free: undefined,
 			discounted: undefined,
 			provider: undefined,
@@ -591,6 +657,12 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 									label: "Reasoning",
 									icon: MessageSquare,
 									color: "text-orange-500",
+								},
+								{
+									key: "jsonOutput",
+									label: "JSON Output",
+									icon: Braces,
+									color: "text-cyan-500",
 								},
 								{
 									key: "imageGeneration",
@@ -787,7 +859,7 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 
 	const renderTableView = () => (
 		<div className="rounded-md border">
-			<div className="relative w-full overflow-x-auto sm:overflow-x-hidden">
+			<div className="relative w-full overflow-x-auto sm:overflow-x-scroll">
 				<Table className="min-w-[700px] sm:min-w-0">
 					<TableHeader className="top-0 z-10 bg-background/95 backdrop-blur">
 						<TableRow>
@@ -834,6 +906,16 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 							<TableHead className="text-center bg-background/95 backdrop-blur-sm border-b">
 								<Button
 									variant="ghost"
+									onClick={() => handleSort("cachedInputPrice")}
+									className="h-auto p-0 font-semibold hover:bg-transparent"
+								>
+									Cached Input Price
+									{getSortIcon("cachedInputPrice")}
+								</Button>
+							</TableHead>
+							<TableHead className="text-center bg-background/95 backdrop-blur-sm border-b">
+								<Button
+									variant="ghost"
 									onClick={() => handleSort("outputPrice")}
 									className="h-auto p-0 font-semibold hover:bg-transparent"
 								>
@@ -862,7 +944,9 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 								<TableCell className="font-medium">
 									<div className="space-y-1">
 										<div className="font-semibold text-sm flex items-center gap-2">
-											{model.name || model.id}
+											<div className="truncate max-w-[150px]">
+												{model.name || model.id}
+											</div>
 											{shouldShowStabilityWarning(model.stability) && (
 												<AlertTriangle className="h-4 w-4 text-orange-500" />
 											)}
@@ -883,7 +967,7 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 											</Badge>
 										</div>
 										<div className="flex items-center gap-1">
-											<code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">
+											<code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono truncate max-w-[150px]">
 												{model.id}
 											</code>
 											<Button
@@ -979,6 +1063,35 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 													<div className="flex gap-1 flex-row justify-center">
 														{formatPrice(
 															provider.inputPrice,
+															provider.discount,
+														)}
+														<span className="text-muted-foreground">/M</span>
+													</div>
+												)}
+											</div>
+										))}
+									</div>
+								</TableCell>
+
+								<TableCell className="text-center">
+									<div className="space-y-1">
+										{model.providerDetails.map(({ provider }) => (
+											<div
+												key={provider.providerId}
+												className="text-sm font-mono"
+											>
+												{typeof formatPrice(
+													provider.cachedInputPrice,
+													provider.discount,
+												) === "string" ? (
+													formatPrice(
+														provider.cachedInputPrice,
+														provider.discount,
+													) + "/M"
+												) : (
+													<div className="flex gap-1 flex-row justify-center">
+														{formatPrice(
+															provider.cachedInputPrice,
 															provider.discount,
 														)}
 														<span className="text-muted-foreground">/M</span>
@@ -1102,249 +1215,16 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 	const renderGridView = () => (
 		<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
 			{modelsWithProviders.map((model) => (
-				<Card
+				<ModelCard
 					key={model.id}
-					className="flex flex-col cursor-pointer hover:shadow-lg transition-shadow"
-					onClick={() => router.push(`/models/${encodeURIComponent(model.id)}`)}
-				>
-					<CardHeader>
-						<div className="flex items-start justify-between gap-2">
-							<div className="flex-1 min-w-0">
-								<CardTitle className="text-base leading-tight flex items-center gap-2 flex-wrap">
-									{model.name || model.id}
-									{shouldShowStabilityWarning(model.stability) && (
-										<AlertTriangle className="h-4 w-4 text-orange-500" />
-									)}
-									{model.free && (
-										<Badge
-											variant="secondary"
-											className="text-xs bg-emerald-100 text-emerald-700 border-emerald-200"
-										>
-											<Gift className="h-3 w-3 mr-1" />
-											Free
-										</Badge>
-									)}
-								</CardTitle>
-								<CardDescription className="text-sm mt-1">
-									<Badge variant="outline" className="text-xs">
-										{model.family}
-									</Badge>
-								</CardDescription>
-							</div>
-						</div>
-					</CardHeader>
-
-					<CardContent className="flex-1 space-y-4">
-						<div className="flex items-center justify-between gap-2">
-							<code className="text-xs bg-muted px-2 py-1 rounded font-mono break-all flex-1">
-								{model.id}
-							</code>
-							<Button
-								variant="ghost"
-								size="sm"
-								className="h-6 w-6 p-0 shrink-0"
-								onClick={(e) => {
-									e.stopPropagation();
-									copyToClipboard(model.id);
-								}}
-								title="Copy model ID"
-							>
-								{copiedModel === model.id ? (
-									<Check className="h-3 w-3 text-green-600" />
-								) : (
-									<Copy className="h-3 w-3" />
-								)}
-							</Button>
-						</div>
-
-						<div className="space-y-3">
-							<div>
-								<div className="text-sm font-medium mb-2">Providers:</div>
-								<div className="flex flex-wrap gap-2">
-									{model.providerDetails.map(({ provider, providerInfo }) => (
-										<div
-											key={provider.providerId}
-											className="flex items-center gap-1"
-										>
-											<div className="w-5 h-5 flex items-center justify-center">
-												{(() => {
-													const ProviderIcon = getProviderIcon(
-														provider.providerId,
-													);
-													console.log(provider.providerId, ProviderIcon);
-													return ProviderIcon ? (
-														<ProviderIcon className="w-4 h-4" />
-													) : (
-														<div
-															className="w-4 h-4 rounded-sm flex items-center justify-center text-xs font-medium text-white"
-															style={{
-																backgroundColor:
-																	providerInfo?.color || "#6b7280",
-															}}
-														>
-															{(providerInfo?.name || provider.providerId)
-																.charAt(0)
-																.toUpperCase()}
-														</div>
-													);
-												})()}
-											</div>
-											<Badge
-												variant="secondary"
-												className="text-xs"
-												style={{ borderColor: providerInfo?.color }}
-											>
-												{providerInfo?.name || provider.providerId}
-											</Badge>
-											{hasProviderStabilityWarning(provider) && (
-												<AlertTriangle className="h-3 w-3 text-orange-500" />
-											)}
-										</div>
-									))}
-								</div>
-							</div>
-
-							<div className="grid grid-cols-2 gap-4 text-sm">
-								<div>
-									<div className="font-medium mb-1">Context Size:</div>
-									{model.providerDetails.map(({ provider }) => (
-										<div
-											key={provider.providerId}
-											className="text-muted-foreground"
-										>
-											{provider.contextSize
-												? formatContextSize(provider.contextSize)
-												: "—"}
-										</div>
-									))}
-								</div>
-
-								<div>
-									<div className="font-medium mb-1">Pricing:</div>
-									{model.providerDetails.map(({ provider }) => (
-										<div
-											key={provider.providerId}
-											className="text-muted-foreground text-xs space-y-1"
-										>
-											<div>
-												In:{" "}
-												{typeof formatPrice(
-													provider.inputPrice,
-													provider.discount,
-												) === "string" ? (
-													formatPrice(provider.inputPrice, provider.discount) +
-													"/M"
-												) : (
-													<span className="inline-block">
-														{formatPrice(
-															provider.inputPrice,
-															provider.discount,
-														)}
-														<span>/M</span>
-													</span>
-												)}
-											</div>
-											<div>
-												Out:{" "}
-												{typeof formatPrice(
-													provider.outputPrice,
-													provider.discount,
-												) === "string" ? (
-													formatPrice(provider.outputPrice, provider.discount) +
-													"/M"
-												) : (
-													<span className="inline-block">
-														{formatPrice(
-															provider.outputPrice,
-															provider.discount,
-														)}
-														<span>/M</span>
-													</span>
-												)}
-											</div>
-										</div>
-									))}
-								</div>
-							</div>
-
-							<div>
-								<div className="font-medium mb-2 text-sm">Capabilities:</div>
-								{model.providerDetails.map(({ provider }) => (
-									<div key={provider.providerId} className="flex gap-2 mb-1">
-										{getCapabilityIcons(provider, model).map(
-											({ icon: Icon, label, color }) => (
-												<Tooltip key={label}>
-													<TooltipTrigger asChild>
-														<div
-															className="flex items-center gap-1 cursor-help focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm p-1 -m-1"
-															tabIndex={0}
-															role="button"
-															aria-label={`Model capability: ${label}`}
-														>
-															<Icon className={`h-4 w-4 ${color}`} />
-															<span className="text-xs text-muted-foreground">
-																{label}
-															</span>
-														</div>
-													</TooltipTrigger>
-													<TooltipContent
-														className="bg-popover text-popover-foreground border border-border shadow-md"
-														side="top"
-														align="center"
-														avoidCollisions={true}
-													>
-														<p>Model supports {label.toLowerCase()}</p>
-													</TooltipContent>
-												</Tooltip>
-											),
-										)}
-									</div>
-								))}
-							</div>
-
-							<div>
-								<div className="font-medium mb-2 text-sm">Stability:</div>
-								{(() => {
-									const stabilityProps = getStabilityBadgeProps(
-										model.stability,
-									);
-									return stabilityProps ? (
-										<Badge
-											variant={stabilityProps.variant}
-											className="text-xs px-2 py-1"
-										>
-											{stabilityProps.label}
-										</Badge>
-									) : (
-										<Badge variant="outline" className="text-xs px-2 py-1">
-											STABLE
-										</Badge>
-									);
-								})()}
-							</div>
-
-							<div className="pt-4 border-t">
-								<Button
-									variant="outline"
-									size="sm"
-									className="w-full gap-2"
-									title={`Try ${model.name || model.id} in playground`}
-									onClick={(e) => e.stopPropagation()}
-									asChild
-								>
-									<a
-										href={`${config.playgroundUrl}?model=${encodeURIComponent(`${model.providers[0]?.providerId}/${model.id}`)}`}
-										target="_blank"
-										rel="noopener noreferrer"
-									>
-										<Play className="h-3 w-3" />
-										Try in Playground
-									</a>
-								</Button>
-							</div>
-						</div>
-					</CardContent>
-				</Card>
+					shouldShowStabilityWarning={shouldShowStabilityWarning}
+					getCapabilityIcons={getCapabilityIcons}
+					model={model}
+					goToModel={() =>
+						router.push(`/models/${encodeURIComponent(model.id)}`)
+					}
+					formatPrice={formatPrice}
+				/>
 			))}
 		</div>
 	);
@@ -1354,7 +1234,7 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 			<main>
 				{children}
 				<div
-					className={cn("container mx-auto px-4 md:px-0 pb-8 space-y-6", {
+					className={cn("container mx-auto px-4 pb-8 space-y-6", {
 						"pt-40": children,
 					})}
 				>
@@ -1480,16 +1360,20 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 								<Card>
 									<CardContent className="p-4">
 										<div className="text-2xl font-bold">
-											{modelsWithProviders.length}
+											{hasActiveFilters
+												? `${modelsWithProviders.length}/${totalModelCount}`
+												: modelsWithProviders.length}
 										</div>
-										<div className="text-sm text-muted-foreground">
-											Total Models
-										</div>
+										<div className="text-sm text-muted-foreground">Models</div>
 									</CardContent>
 								</Card>
 								<Card>
 									<CardContent className="p-4">
-										<div className="text-2xl font-bold">{providers.length}</div>
+										<div className="text-2xl font-bold">
+											{hasActiveFilters
+												? `${filteredProviderCount}/${totalProviderCount}`
+												: totalProviderCount}
+										</div>
 										<div className="text-sm text-muted-foreground">
 											Providers
 										</div>

@@ -1,3 +1,4 @@
+import type { Route } from "next";
 import type { ReadonlyURLSearchParams } from "next/navigation";
 
 export function buildUrlWithParams(
@@ -53,13 +54,26 @@ export function buildDashboardUrl(
 	orgId?: string | null,
 	projectId?: string | null,
 	subPath?: string,
-): string {
+): Route {
 	if (!orgId || !projectId) {
 		// Fallback to base dashboard (will redirect to proper structure)
 		return "/dashboard";
 	}
 
 	const basePath = `/dashboard/${orgId}/${projectId}`;
+	return subPath ? (`${basePath}/${subPath}` as Route) : (basePath as Route);
+}
+
+/**
+ * Build an organization-scoped URL (without project ID)
+ */
+export function buildOrgUrl(orgId?: string | null, subPath?: string): string {
+	if (!orgId) {
+		// Fallback to base dashboard (will redirect to proper structure)
+		return "/dashboard";
+	}
+
+	const basePath = `/dashboard/${orgId}`;
 	return subPath ? `${basePath}/${subPath}` : basePath;
 }
 
@@ -70,13 +84,33 @@ export function extractOrgAndProjectFromPath(pathname: string): {
 	orgId: string | null;
 	projectId: string | null;
 } {
-	const match = pathname.match(/^\/dashboard\/([^\/]+)\/([^\/]+)/);
-	if (match) {
+	// Org-only pages (all under /org/ path)
+	const orgOnlyMatch = pathname.match(/^\/dashboard\/([^\/]+)\/org\//);
+	if (orgOnlyMatch) {
 		return {
-			orgId: match[1],
-			projectId: match[2],
+			orgId: orgOnlyMatch[1],
+			projectId: null,
 		};
 	}
+
+	// Project pages
+	const projectMatch = pathname.match(/^\/dashboard\/([^\/]+)\/([^\/]+)/);
+	if (projectMatch) {
+		return {
+			orgId: projectMatch[1],
+			projectId: projectMatch[2],
+		};
+	}
+
+	// Just org ID (e.g., /dashboard/org-123)
+	const orgMatch = pathname.match(/^\/dashboard\/([^\/]+)$/);
+	if (orgMatch) {
+		return {
+			orgId: orgMatch[1],
+			projectId: null,
+		};
+	}
+
 	return {
 		orgId: null,
 		projectId: null,

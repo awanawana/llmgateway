@@ -8,6 +8,7 @@ export const providerLogoUrls: Partial<
 	openai: ProviderIcons.openai,
 	anthropic: ProviderIcons.anthropic,
 	"google-ai-studio": ProviderIcons["google-ai-studio"],
+	"google-vertex": ProviderIcons["google-vertex"],
 	"inference.net": ProviderIcons["inference.net"],
 	"together.ai": ProviderIcons["together.ai"],
 	cloudrift: ProviderIcons.cloudrift,
@@ -24,6 +25,9 @@ export const providerLogoUrls: Partial<
 	routeway: ProviderIcons.routeway,
 	"routeway-discount": ProviderIcons.routeway,
 	nanogpt: ProviderIcons.nanogpt,
+	"aws-bedrock": ProviderIcons["aws-bedrock"],
+	azure: ProviderIcons.azure,
+	canopywave: ProviderIcons.canopywave,
 };
 
 export const getProviderLogoDarkModeClasses = () => {

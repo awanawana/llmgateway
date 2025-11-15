@@ -9,13 +9,9 @@ import type { ProviderId } from "./providers.js";
 export function getCheapestModelForProvider(
 	provider: ProviderId,
 ): string | null {
+	const currentDate = new Date();
 	const availableModels = models
 		.filter((model) => model.providers.some((p) => p.providerId === provider))
-		.filter(
-			(model) =>
-				(!model.deprecatedAt || new Date() < model.deprecatedAt) &&
-				(!model.deactivatedAt || new Date() < model.deactivatedAt),
-		)
 		.map((model) => ({
 			model: model.id,
 			modelStability:
@@ -24,6 +20,16 @@ export function getCheapestModelForProvider(
 					: undefined,
 			provider: model.providers.find((p) => p.providerId === provider)!,
 		}))
+		.filter(({ provider: providerInfo }) => {
+			// Filter out deprecated or deactivated provider mappings
+			const deprecated =
+				(providerInfo as ProviderModelMapping).deprecatedAt &&
+				currentDate >= (providerInfo as ProviderModelMapping).deprecatedAt!;
+			const deactivated =
+				(providerInfo as ProviderModelMapping).deactivatedAt &&
+				currentDate >= (providerInfo as ProviderModelMapping).deactivatedAt!;
+			return !deprecated && !deactivated;
+		})
 		.filter(
 			({ provider: providerInfo }) =>
 				providerInfo.inputPrice !== undefined &&
@@ -59,9 +65,11 @@ export function getCheapestModelForProvider(
 	let lowestPrice = Number.MAX_VALUE;
 
 	for (const { provider: providerInfo } of modelsToConsider) {
-		const discount = (providerInfo as ProviderModelMapping).discount ?? 1;
+		const discount = (providerInfo as ProviderModelMapping).discount ?? 0;
+		const discountMultiplier = 1 - discount;
 		const totalPrice =
-			((providerInfo.inputPrice! + providerInfo.outputPrice!) / 2) * discount;
+			((providerInfo.inputPrice! + providerInfo.outputPrice!) / 2) *
+			discountMultiplier;
 		if (totalPrice < lowestPrice) {
 			lowestPrice = totalPrice;
 			cheapestModel = providerInfo.modelName;

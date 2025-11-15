@@ -75,6 +75,7 @@ describe(
 			await db.insert(tables.organization).values({
 				id: orgId,
 				name: "Test Organization",
+				billingEmail: `admin-${testId}@example.com`,
 				plan: "pro",
 			});
 
@@ -108,6 +109,7 @@ describe(
 				if (
 					providerId === "routeway" ||
 					providerId === "routeway-discount" ||
+					providerId === "inference.net" ||
 					providerId === "nanogpt"
 				) {
 					return;
@@ -131,15 +133,24 @@ describe(
 						provider: providerId,
 						token: envVarValue,
 						organizationId: orgId,
+						...(providerId === "azure"
+							? {
+									options: {
+										azure_validation_model: "gpt-4o-mini",
+									},
+								}
+							: {}),
 					}),
 				});
 
 				const json = await res.json();
-				console.log("json", json);
+				console.log("json", { json });
 				expect(res.status).toBe(200);
 				expect(json).toHaveProperty("providerKey");
 				expect(json.providerKey.provider).toBe(providerId);
-				expect(json.providerKey.token).toBe(envVarValue);
+				expect(json.providerKey.maskedToken).toBeDefined();
+				expect(json.providerKey.maskedToken).toContain("•");
+				expect(json.providerKey.token).toBeUndefined();
 
 				const providerKey = await db.query.providerKey.findFirst({
 					where: {

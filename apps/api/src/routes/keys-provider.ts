@@ -23,6 +23,15 @@ const providerKeySchema = z.object({
 	provider: z.string(),
 	name: z.string().nullable(),
 	baseUrl: z.string().nullable(),
+	options: z
+		.object({
+			aws_bedrock_region_prefix: z.enum(["us.", "global.", "eu."]).optional(),
+			azure_resource: z.string().optional(),
+			azure_api_version: z.string().optional(),
+			azure_deployment_type: z.enum(["openai", "ai-foundry"]).optional(),
+			azure_validation_model: z.string().optional(),
+		})
+		.nullable(),
 	status: z.enum(["active", "inactive", "deleted"]).nullable(),
 	organizationId: z.string(),
 });
@@ -44,6 +53,10 @@ const createProviderKeySchema = z.object({
 	options: z
 		.object({
 			aws_bedrock_region_prefix: z.enum(["us.", "global.", "eu."]).optional(),
+			azure_resource: z.string().optional(),
+			azure_api_version: z.string().optional(),
+			azure_deployment_type: z.enum(["openai", "ai-foundry"]).optional(),
+			azure_validation_model: z.string().optional(),
 		})
 		.optional(),
 	organizationId: z.string().min(1, "Organization ID is required"),
@@ -75,7 +88,7 @@ const create = createRoute({
 						providerKey: providerKeySchema
 							.omit({ token: true })
 							.extend({
-								token: z.string(),
+								maskedToken: z.string(),
 							})
 							.openapi({}),
 					}),
@@ -199,6 +212,7 @@ keysProvider.openapi(create, async (c) => {
 				userToken,
 				baseUrl,
 				isTestEnv,
+				options,
 			);
 		}
 	} catch (error) {
@@ -245,7 +259,8 @@ keysProvider.openapi(create, async (c) => {
 	return c.json({
 		providerKey: {
 			...providerKey,
-			token: userToken, // Include the token in the response
+			maskedToken: maskToken(userToken),
+			token: undefined,
 		},
 	});
 });

@@ -77,6 +77,7 @@ import { OrganizationSwitcher } from "./organization-switcher";
 
 import type { Organization, User } from "@/lib/types";
 import type { LucideIcon } from "lucide-react";
+import type { Route } from "next";
 
 // Configuration
 const PROJECT_NAVIGATION = [
@@ -116,20 +117,24 @@ const PROJECT_SETTINGS = [
 
 const ORGANIZATION_SETTINGS = [
 	{
-		href: "settings/billing",
+		href: "org/billing",
 		label: "Billing",
 		search: { success: undefined, canceled: undefined },
 	},
 	{
-		href: "settings/transactions",
+		href: "org/transactions",
 		label: "Transactions",
 	},
 	{
-		href: "settings/policies",
+		href: "org/policies",
 		label: "Policies",
 	},
 	{
-		href: "settings/team",
+		href: "org/preferences",
+		label: "Preferences",
+	},
+	{
+		href: "org/team",
 		label: "Team",
 	},
 ] as const;
@@ -143,7 +148,7 @@ const USER_MENU_ITEMS = [
 		icon: UserIcon,
 	},
 	{
-		href: "settings/billing",
+		href: "org/billing",
 		label: "Billing",
 		icon: CreditCard,
 		search: { success: undefined, canceled: undefined },
@@ -288,7 +293,7 @@ function OrganizationSection({
 	toggleSidebar: () => void;
 	searchParams: ReadonlyURLSearchParams;
 }) {
-	const { buildUrl } = useDashboardNavigation();
+	const { buildOrgUrl } = useDashboardNavigation();
 
 	return (
 		<SidebarGroup>
@@ -299,10 +304,10 @@ function OrganizationSection({
 				<SidebarMenu>
 					<SidebarMenuItem>
 						<Link
-							href={buildUrl("provider-keys")}
+							href={buildOrgUrl("org/provider-keys")}
 							className={cn(
 								"flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-								isActive("provider-keys")
+								isActive("org/provider-keys")
 									? "bg-primary/10 text-primary"
 									: "text-foreground/70 hover:bg-accent hover:text-accent-foreground",
 							)}
@@ -339,12 +344,12 @@ function OrganizationSection({
 										<Link
 											href={
 												"search" in item
-													? buildUrlWithParams(
-															buildUrl(item.href),
+													? (buildUrlWithParams(
+															buildOrgUrl(item.href),
 															searchParams,
 															item.search,
-														)
-													: buildUrl(item.href)
+														) as Route)
+													: buildOrgUrl(item.href)
 											}
 											onClick={() => {
 												if (isMobile) {
@@ -393,7 +398,7 @@ function ToolsResourcesSection({
 						<SidebarMenuItem key={item.href}>
 							{item.internal ? (
 								<Link
-									href={item.href}
+									href={item.href as Route}
 									className={cn(
 										"flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
 										isActive(item.href)
@@ -510,7 +515,7 @@ function UserDropdownMenu({
 	toggleSidebar: () => void;
 	onLogout: () => void;
 }) {
-	const { buildUrl } = useDashboardNavigation();
+	const { buildUrl, buildOrgUrl } = useDashboardNavigation();
 	const searchParams = useSearchParams();
 
 	const getUserInitials = () => {
@@ -554,30 +559,35 @@ function UserDropdownMenu({
 					<ThemeSelect />
 				</div>
 				<DropdownMenuSeparator />
-				{USER_MENU_ITEMS.map((item) => (
-					<DropdownMenuItem key={item.href} asChild>
-						<Link
-							href={
-								"search" in item
-									? buildUrlWithParams(
-											buildUrl(item.href),
-											searchParams,
-											item.search,
-										)
-									: buildUrl(item.href)
-							}
-							onClick={() => {
-								if (isMobile) {
-									toggleSidebar();
+				{USER_MENU_ITEMS.map((item) => {
+					// Use buildOrgUrl for billing, buildUrl for other items
+					const urlBuilder =
+						item.href === "org/billing" ? buildOrgUrl : buildUrl;
+					return (
+						<DropdownMenuItem key={item.href} asChild>
+							<Link
+								href={
+									"search" in item
+										? (buildUrlWithParams(
+												urlBuilder(item.href),
+												searchParams,
+												item.search,
+											) as Route)
+										: urlBuilder(item.href)
 								}
-							}}
-							prefetch={true}
-						>
-							<item.icon className="mr-2 h-4 w-4" />
-							{item.label}
-						</Link>
-					</DropdownMenuItem>
-				))}
+								onClick={() => {
+									if (isMobile) {
+										toggleSidebar();
+									}
+								}}
+								prefetch={true}
+							>
+								<item.icon className="mr-2 h-4 w-4" />
+								{item.label}
+							</Link>
+						</DropdownMenuItem>
+					);
+				})}
 				<DropdownMenuSeparator />
 				<DropdownMenuItem onClick={onLogout}>
 					<span>Log out</span>
@@ -602,7 +612,7 @@ function UpgradeCTA({
 
 	return (
 		<div className="px-4 py-2">
-			<div className="rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 p-4 text-white">
+			<div className="rounded-lg bg-linear-to-r from-blue-500 to-purple-600 p-4 text-white">
 				<div className="flex items-start justify-between">
 					<div className="flex-1">
 						<h3 className="text-sm font-semibold">Upgrade to Pro</h3>

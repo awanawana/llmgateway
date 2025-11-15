@@ -6,13 +6,14 @@ import {
 	Wrench,
 	MessageSquare,
 	ImagePlus,
+	Braces,
 } from "lucide-react";
 import { notFound } from "next/navigation";
 
 import Footer from "@/components/landing/footer";
 import { Navbar } from "@/components/landing/navbar";
 import { CopyModelName } from "@/components/models/copy-model-name";
-import { ProviderCard } from "@/components/models/provider-card";
+import { ModelProviderCard } from "@/components/models/model-provider-card";
 import { Badge } from "@/lib/components/badge";
 import { Button } from "@/lib/components/button";
 import { getConfig } from "@/lib/config-server";
@@ -205,6 +206,7 @@ export default async function ModelPage({ params }: PageProps) {
 								const hasVision = modelProviders.some((p) => p.vision);
 								const hasTools = modelProviders.some((p) => p.tools);
 								const hasReasoning = modelProviders.some((p) => p.reasoning);
+								const hasJsonOutput = modelProviders.some((p) => p.jsonOutput);
 								const hasImageGen = Array.isArray((modelDef as any)?.output)
 									? ((modelDef as any).output as string[]).includes("image")
 									: false;
@@ -239,6 +241,14 @@ export default async function ModelPage({ params }: PageProps) {
 										icon: MessageSquare,
 										label: "Reasoning",
 										color: "text-orange-500",
+									});
+								}
+								if (hasJsonOutput) {
+									items.push({
+										key: "jsonOutput",
+										icon: Braces,
+										label: "JSON Output",
+										color: "text-cyan-500",
 									});
 								}
 								if (hasImageGen) {
@@ -278,7 +288,7 @@ export default async function ModelPage({ params }: PageProps) {
 
 						<div className="space-y-4">
 							{modelProviders.map((provider) => (
-								<ProviderCard
+								<ModelProviderCard
 									key={provider.providerId}
 									provider={provider}
 									modelName={decodedName}

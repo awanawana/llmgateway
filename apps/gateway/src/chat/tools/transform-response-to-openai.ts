@@ -25,7 +25,8 @@ export function transformResponseToOpenai(
 	let transformedResponse = json;
 
 	switch (usedProvider) {
-		case "google-ai-studio": {
+		case "google-ai-studio":
+		case "google-vertex": {
 			transformedResponse = {
 				id: `chatcmpl-${Date.now()}`,
 				object: "chat.completion",
@@ -43,7 +44,28 @@ export function transformResponseToOpenai(
 							...(toolResults && { tool_calls: toolResults }),
 							...(images && images.length > 0 && { images }),
 						},
-						finish_reason: finishReason || "stop",
+						finish_reason: (() => {
+							// Map Google finish reasons to OpenAI format for the response
+							if (!finishReason) {
+								return "stop";
+							}
+							if (finishReason === "STOP") {
+								return toolResults ? "tool_calls" : "stop";
+							}
+							if (finishReason === "MAX_TOKENS") {
+								return "length";
+							}
+							if (
+								finishReason === "SAFETY" ||
+								finishReason === "PROHIBITED_CONTENT" ||
+								finishReason === "RECITATION" ||
+								finishReason === "BLOCKLIST" ||
+								finishReason === "SPII"
+							) {
+								return "content_filter";
+							}
+							return "stop";
+						})(),
 					},
 				],
 				usage: {

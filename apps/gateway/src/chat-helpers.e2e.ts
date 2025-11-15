@@ -59,16 +59,22 @@ if (hasOnlyModels) {
 export const filteredModels = models
 	// Filter out auto/custom models
 	.filter((model) => !["custom", "auto"].includes(model.id))
-	// Filter out deactivated models
-	.filter((model) => !model.deactivatedAt || new Date() <= model.deactivatedAt)
-	// Filter out unstable models if not in full mode, unless they have test: "only" or are in TEST_MODELS
+	// Filter out models where all provider mappings are deactivated
 	.filter((model) => {
-		// Check if model or any of its providers are marked as unstable
-		const modelStability = (model as ModelDefinition).stability;
-		const hasUnstableProviders = model.providers.some(
-			(provider: ProviderModelMapping) => provider.stability === "unstable",
+		const allDeactivated = model.providers.every(
+			(provider) =>
+				(provider as ProviderModelMapping).deactivatedAt &&
+				new Date() > (provider as ProviderModelMapping).deactivatedAt!,
 		);
-		const isUnstable = modelStability === "unstable" || hasUnstableProviders;
+		return !allDeactivated;
+	})
+	// Filter out unstable models if not in full mode, unless they have test: "only" or are in TEST_MODELS
+	// Note: This only filters models with model-level stability, not provider-level stability
+	.filter((model) => {
+		// Check only model-level stability, not provider-level
+		const modelStability = (model as ModelDefinition).stability;
+		const isUnstable =
+			modelStability === "unstable" || modelStability === "experimental";
 
 		if (!isUnstable) {
 			return true;
@@ -394,6 +400,7 @@ export async function beforeAllHook() {
 		.values({
 			id: "org-id",
 			name: "Test Organization",
+			billingEmail: "user@test.com",
 			plan: "pro",
 		})
 		.onConflictDoNothing();

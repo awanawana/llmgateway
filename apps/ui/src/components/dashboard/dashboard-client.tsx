@@ -4,10 +4,13 @@ import {
 	ArrowUpRight,
 	CreditCard,
 	Zap,
-	Plus,
 	Key,
 	KeyRound,
 	Activity,
+	Coins,
+	CircleDollarSign,
+	BarChart3,
+	ChartColumnBig,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -171,12 +174,6 @@ export function DashboardClient({ initialActivityData }: DashboardClientProps) {
 					</div>
 					<div className="flex items-center space-x-2">
 						{selectedOrganization && <TopUpCreditsButton />}
-						<Button asChild>
-							<Link href={buildUrl("provider-keys")} prefetch={true}>
-								<Plus className="mr-2 h-4 w-4" />
-								Add Provider
-							</Link>
-						</Button>
 					</div>
 				</div>
 
@@ -288,7 +285,7 @@ export function DashboardClient({ initialActivityData }: DashboardClientProps) {
 								<CardTitle className="text-sm font-medium">
 									Tokens Used
 								</CardTitle>
-								<CreditCard className="text-muted-foreground h-4 w-4" />
+								<Coins className="text-muted-foreground h-4 w-4" />
 							</CardHeader>
 							<CardContent>
 								{isLoading ? (
@@ -313,7 +310,7 @@ export function DashboardClient({ initialActivityData }: DashboardClientProps) {
 								<CardTitle className="text-sm font-medium">
 									Cost Estimate
 								</CardTitle>
-								<CreditCard className="text-muted-foreground h-4 w-4" />
+								<CircleDollarSign className="text-muted-foreground h-4 w-4" />
 							</CardHeader>
 							<CardContent>
 								{isLoading ? (
@@ -403,6 +400,26 @@ export function DashboardClient({ initialActivityData }: DashboardClientProps) {
 									<Link href={buildUrl("activity")} prefetch={true}>
 										<Activity className="mr-2 h-4 w-4" />
 										View Activity
+									</Link>
+								</Button>
+								<Button
+									asChild
+									variant="outline"
+									className="w-full justify-start"
+								>
+									<Link href={buildUrl("usage")} prefetch={true}>
+										<BarChart3 className="mr-2 h-4 w-4" />
+										Usage & Metrics
+									</Link>
+								</Button>
+								<Button
+									asChild
+									variant="outline"
+									className="w-full justify-start"
+								>
+									<Link href={buildUrl("model-usage")} prefetch={true}>
+										<ChartColumnBig className="mr-2 h-4 w-4" />
+										Model Usage
 									</Link>
 								</Button>
 							</CardContent>

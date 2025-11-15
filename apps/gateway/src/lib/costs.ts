@@ -34,6 +34,7 @@ export function calculateCosts(
 		completion?: string;
 		toolResults?: ToolCall[];
 	},
+	reasoningTokens: number | null = null,
 ) {
 	// Find the model info - try both base model name and provider model name
 	let modelInfo = models.find((m) => m.id === model) as ModelDefinition;
@@ -169,9 +170,10 @@ export function calculateCosts(
 
 	const inputPrice = providerInfo.inputPrice || 0;
 	const outputPrice = providerInfo.outputPrice || 0;
-	const cachedInputPrice = providerInfo.cachedInputPrice || 0;
+	const cachedInputPrice = providerInfo.cachedInputPrice ?? inputPrice;
 	const requestPrice = providerInfo.requestPrice || 0;
-	const discount = providerInfo.discount || 1;
+	const discount = providerInfo.discount || 0;
+	const discountMultiplier = 1 - discount;
 
 	// Calculate input cost accounting for cached tokens
 	// For Anthropic: calculatedPromptTokens includes all tokens, but we need to subtract cached tokens
@@ -180,12 +182,14 @@ export function calculateCosts(
 	const uncachedPromptTokens = cachedTokens
 		? calculatedPromptTokens - cachedTokens
 		: calculatedPromptTokens;
-	const inputCost = uncachedPromptTokens * inputPrice * discount;
-	const outputCost = calculatedCompletionTokens * outputPrice * discount;
+	const inputCost = uncachedPromptTokens * inputPrice * discountMultiplier;
+	// For Google models, reasoning tokens are billed at the output token rate
+	const totalOutputTokens = calculatedCompletionTokens + (reasoningTokens || 0);
+	const outputCost = totalOutputTokens * outputPrice * discountMultiplier;
 	const cachedInputCost = cachedTokens
-		? cachedTokens * cachedInputPrice * discount
+		? cachedTokens * cachedInputPrice * discountMultiplier
 		: 0;
-	const requestCost = requestPrice * discount;
+	const requestCost = requestPrice * discountMultiplier;
 	const totalCost = inputCost + outputCost + cachedInputCost + requestCost;
 
 	return {
@@ -198,6 +202,6 @@ export function calculateCosts(
 		completionTokens: calculatedCompletionTokens,
 		cachedTokens,
 		estimatedCost: isEstimated,
-		discount: discount !== 1 ? discount : undefined,
+		discount: discount !== 0 ? discount : undefined,
 	};
 }

@@ -24,7 +24,7 @@
 	},
 	"dependencies": {
 		"@hono/node-server": "^1.19.0",
-		"@hono/swagger-ui": "^0.5.1",
+		"@hono/swagger-ui": "^0.5.2",
 		"@hono/zod-openapi": "^0.19.6",
 		"@hono/zod-validator": "^0.7.2",
 		"@llmgateway/cache": "workspace:*",
@@ -37,12 +37,12 @@
 		"@opentelemetry/sdk-node": "0.205.0",
 		"dotenv": "16.5.0",
 		"gpt-tokenizer": "3.0.1",
-		"hono": "^4.9.7",
+		"hono": "^4.10.3",
 		"hono-openapi": "^0.4.6",
 		"ioredis": "5.7.0",
 		"redis": "5.8.2",
 		"worker": "workspace:*",
 		"zod": "3.25.75",
-		"zod-openapi": "^4.2.4"
+		"zod-openapi": "^5.4.3"
 	}
 }

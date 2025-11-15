@@ -9,20 +9,12 @@ const nextConfig: NextConfig = {
 	distDir: process.env.NODE_ENV === "development" ? ".next-dev" : ".next",
 	output: "standalone",
 	productionBrowserSourceMaps: true,
-	eslint: {
-		ignoreDuringBuilds: true,
-	},
-	// experimental: {
-	// 	typedRoutes: true,
-	// 	clientSegmentCache: true,
-	// 	devtoolSegmentExplorer: true,
-	// 	globalNotFound: true,
-	// },
-	webpack: (config, { isServer }) => {
-		if (isServer) {
-			config.devtool = "source-map";
-		}
-		return config;
+	typedRoutes: true,
+	reactStrictMode: true,
+	reactCompiler: true,
+	experimental: {
+		turbopackFileSystemCacheForDev: true,
+		// turbopackFileSystemCacheForBuild: true,
 	},
 	async redirects() {
 		return [
@@ -44,6 +36,26 @@ const nextConfig: NextConfig = {
 			{
 				source: "/twitter",
 				destination: "https://twitter.com/llmgateway",
+				permanent: true,
+			},
+			{
+				source: "/terms",
+				destination: "/legal/terms",
+				permanent: true,
+			},
+			{
+				source: "/terms-of-use",
+				destination: "/legal/terms",
+				permanent: true,
+			},
+			{
+				source: "/privacy",
+				destination: "/legal/privacy",
+				permanent: true,
+			},
+			{
+				source: "/privacy-policy",
+				destination: "/legal/privacy",
 				permanent: true,
 			},
 		];

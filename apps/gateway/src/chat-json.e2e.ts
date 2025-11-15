@@ -11,11 +11,7 @@ import {
 	logMode,
 } from "@/chat-helpers.e2e.js";
 
-import {
-	type ModelDefinition,
-	models,
-	type ProviderModelMapping,
-} from "@llmgateway/models";
+import type { ProviderModelMapping } from "@llmgateway/models";
 
 describe("e2e", getConcurrentTestOptions(), () => {
 	beforeAll(beforeAllHook);
@@ -28,8 +24,10 @@ describe("e2e", getConcurrentTestOptions(), () => {
 
 	test.each(
 		testModels.filter((m) => {
-			const modelDef = models.find((mo) => m.originalModel === mo.id);
-			return (modelDef as ModelDefinition)?.jsonOutput === true;
+			// Check if any provider for this model supports jsonOutput
+			return m.providers.some(
+				(provider) => (provider as ProviderModelMapping).jsonOutput === true,
+			);
 		}),
 	)("JSON output $model", getTestOptions(), async ({ model }) => {
 		const res = await app.request("/v1/chat/completions", {
@@ -73,15 +71,18 @@ describe("e2e", getConcurrentTestOptions(), () => {
 
 	test.each(
 		testModels.filter((m) => {
-			const modelDef = models.find((mo) => m.originalModel === mo.id);
-			if ((modelDef as ModelDefinition)?.jsonOutput !== true) {
+			// Check if any provider for this model supports jsonOutput
+			if (
+				!m.providers.some(
+					(provider) => (provider as ProviderModelMapping).jsonOutput === true,
+				)
+			) {
 				return false;
 			}
-			// Check if any provider for this model supports jsonOutputSchema and is not explicitly disabled
-			return modelDef?.providers.some(
+			// Check if the specific provider(s) for this test case support jsonOutputSchema
+			return m.providers.some(
 				(provider) =>
-					(provider as ProviderModelMapping).jsonOutputSchema === true &&
-					!(provider as ProviderModelMapping).disableJsonOutputSchema,
+					(provider as ProviderModelMapping).jsonOutputSchema === true,
 			);
 		}),
 	)("JSON schema output $model", getTestOptions(), async ({ model }) => {

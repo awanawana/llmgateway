@@ -1372,6 +1372,15 @@ export interface paths {
                                 provider: string;
                                 name: string | null;
                                 baseUrl: string | null;
+                                options: {
+                                    /** @enum {string} */
+                                    aws_bedrock_region_prefix?: "us." | "global." | "eu.";
+                                    azure_resource?: string;
+                                    azure_api_version?: string;
+                                    /** @enum {string} */
+                                    azure_deployment_type?: "openai" | "ai-foundry";
+                                    azure_validation_model?: string;
+                                } | null;
                                 /** @enum {string|null} */
                                 status: "active" | "inactive" | "deleted" | null;
                                 organizationId: string;
@@ -1401,6 +1410,11 @@ export interface paths {
                         options?: {
                             /** @enum {string} */
                             aws_bedrock_region_prefix?: "us." | "global." | "eu.";
+                            azure_resource?: string;
+                            azure_api_version?: string;
+                            /** @enum {string} */
+                            azure_deployment_type?: "openai" | "ai-foundry";
+                            azure_validation_model?: string;
                         };
                         organizationId: string;
                     };
@@ -1421,10 +1435,19 @@ export interface paths {
                                 provider: string;
                                 name: string | null;
                                 baseUrl: string | null;
+                                options: {
+                                    /** @enum {string} */
+                                    aws_bedrock_region_prefix?: "us." | "global." | "eu.";
+                                    azure_resource?: string;
+                                    azure_api_version?: string;
+                                    /** @enum {string} */
+                                    azure_deployment_type?: "openai" | "ai-foundry";
+                                    azure_validation_model?: string;
+                                } | null;
                                 /** @enum {string|null} */
                                 status: "active" | "inactive" | "deleted" | null;
                                 organizationId: string;
-                                token: string;
+                                maskedToken: string;
                             };
                         };
                     };
@@ -1528,6 +1551,15 @@ export interface paths {
                                 provider: string;
                                 name: string | null;
                                 baseUrl: string | null;
+                                options: {
+                                    /** @enum {string} */
+                                    aws_bedrock_region_prefix?: "us." | "global." | "eu.";
+                                    azure_resource?: string;
+                                    azure_api_version?: string;
+                                    /** @enum {string} */
+                                    azure_deployment_type?: "openai" | "ai-foundry";
+                                    azure_validation_model?: string;
+                                } | null;
                                 /** @enum {string|null} */
                                 status: "active" | "inactive" | "deleted" | null;
                                 organizationId: string;
@@ -1916,6 +1948,11 @@ export interface paths {
                                 createdAt: string;
                                 updatedAt: string;
                                 name: string;
+                                billingEmail: string;
+                                billingCompany: string | null;
+                                billingAddress: string | null;
+                                billingTaxId: string | null;
+                                billingNotes: string | null;
                                 credits: string;
                                 /** @enum {string} */
                                 plan: "free" | "pro";
@@ -1961,6 +1998,11 @@ export interface paths {
                                 createdAt: string;
                                 updatedAt: string;
                                 name: string;
+                                billingEmail: string;
+                                billingCompany: string | null;
+                                billingAddress: string | null;
+                                billingTaxId: string | null;
+                                billingNotes: string | null;
                                 credits: string;
                                 /** @enum {string} */
                                 plan: "free" | "pro";
@@ -2106,6 +2148,12 @@ export interface paths {
                 content: {
                     "application/json": {
                         name?: string;
+                        /** Format: email */
+                        billingEmail?: string;
+                        billingCompany?: string;
+                        billingAddress?: string;
+                        billingTaxId?: string;
+                        billingNotes?: string;
                         /** @enum {string} */
                         retentionLevel?: "retain" | "none";
                         autoTopUpEnabled?: boolean;
@@ -2128,6 +2176,11 @@ export interface paths {
                                 createdAt: string;
                                 updatedAt: string;
                                 name: string;
+                                billingEmail: string;
+                                billingCompany: string | null;
+                                billingAddress: string | null;
+                                billingTaxId: string | null;
+                                billingNotes: string | null;
                                 credits: string;
                                 /** @enum {string} */
                                 plan: "free" | "pro";
@@ -2890,6 +2943,7 @@ export interface paths {
                                 content: string | null;
                                 images: string | null;
                                 reasoning: string | null;
+                                tools: string | null;
                                 sequence: number;
                                 /** Format: date-time */
                                 createdAt: string;
@@ -3009,6 +3063,7 @@ export interface paths {
                         content?: string;
                         images?: string;
                         reasoning?: string;
+                        tools?: string;
                     };
                 };
             };
@@ -3027,6 +3082,7 @@ export interface paths {
                                 content: string | null;
                                 images: string | null;
                                 reasoning: string | null;
+                                tools: string | null;
                                 sequence: number;
                                 /** Format: date-time */
                                 createdAt: string;

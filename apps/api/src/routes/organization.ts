@@ -14,6 +14,11 @@ const organizationSchema = z.object({
 	createdAt: z.date(),
 	updatedAt: z.date(),
 	name: z.string(),
+	billingEmail: z.string(),
+	billingCompany: z.string().nullable(),
+	billingAddress: z.string().nullable(),
+	billingTaxId: z.string().nullable(),
+	billingNotes: z.string().nullable(),
 	credits: z.string(),
 	plan: z.enum(["free", "pro"]),
 	planExpiresAt: z.date().nullable(),
@@ -42,6 +47,11 @@ const createOrganizationSchema = z.object({
 
 const updateOrganizationSchema = z.object({
 	name: z.string().min(1).max(255).optional(),
+	billingEmail: z.string().email().optional(),
+	billingCompany: z.string().optional(),
+	billingAddress: z.string().optional(),
+	billingTaxId: z.string().optional(),
+	billingNotes: z.string().optional(),
 	retentionLevel: z.enum(["retain", "none"]).optional(),
 	autoTopUpEnabled: z.boolean().optional(),
 	autoTopUpThreshold: z.number().min(5).optional(),
@@ -241,6 +251,7 @@ organization.openapi(createOrganization, async (c) => {
 		.insert(tables.organization)
 		.values({
 			name,
+			billingEmail: user.email,
 		})
 		.returning();
 
@@ -322,6 +333,11 @@ organization.openapi(updateOrganization, async (c) => {
 	const { id } = c.req.param();
 	const {
 		name,
+		billingEmail,
+		billingCompany,
+		billingAddress,
+		billingTaxId,
+		billingNotes,
 		retentionLevel,
 		autoTopUpEnabled,
 		autoTopUpThreshold,
@@ -353,6 +369,11 @@ organization.openapi(updateOrganization, async (c) => {
 
 	// Check if user is trying to update policies or billing settings
 	const isBillingOrPolicyUpdate =
+		billingEmail !== undefined ||
+		billingCompany !== undefined ||
+		billingAddress !== undefined ||
+		billingTaxId !== undefined ||
+		billingNotes !== undefined ||
 		retentionLevel !== undefined ||
 		autoTopUpEnabled !== undefined ||
 		autoTopUpThreshold !== undefined ||
@@ -368,6 +389,21 @@ organization.openapi(updateOrganization, async (c) => {
 	const updateData: any = {};
 	if (name !== undefined) {
 		updateData.name = name;
+	}
+	if (billingEmail !== undefined) {
+		updateData.billingEmail = billingEmail;
+	}
+	if (billingCompany !== undefined) {
+		updateData.billingCompany = billingCompany;
+	}
+	if (billingAddress !== undefined) {
+		updateData.billingAddress = billingAddress;
+	}
+	if (billingTaxId !== undefined) {
+		updateData.billingTaxId = billingTaxId;
+	}
+	if (billingNotes !== undefined) {
+		updateData.billingNotes = billingNotes;
 	}
 	if (retentionLevel !== undefined) {
 		updateData.retentionLevel = retentionLevel;

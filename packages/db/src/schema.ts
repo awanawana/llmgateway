@@ -113,6 +113,11 @@ export const organization = pgTable("organization", {
 		.defaultNow()
 		.$onUpdate(() => new Date()),
 	name: text().notNull(),
+	billingEmail: text().notNull(),
+	billingCompany: text(),
+	billingAddress: text(),
+	billingTaxId: text(),
+	billingNotes: text(),
 	stripeCustomerId: text().unique(),
 	stripeSubscriptionId: text().unique(),
 	credits: decimal().notNull().default("0"),
@@ -307,7 +312,11 @@ export const apiKeyIamRule = pgTable(
 );
 
 export interface ProviderKeyOptions {
-	aws_bedrock_region_prefix?: string;
+	aws_bedrock_region_prefix?: "us." | "global." | "eu.";
+	azure_resource?: string;
+	azure_api_version?: string;
+	azure_deployment_type?: "openai" | "ai-foundry";
+	azure_validation_model?: string;
 }
 
 export const providerKey = pgTable(
@@ -405,6 +414,7 @@ export const log = pgTable(
 		upstreamRequest: jsonb(),
 		upstreamResponse: jsonb(),
 		traceId: text(),
+		dataRetentionCleanedUp: boolean().default(false),
 	},
 	(table) => [
 		index("log_project_id_created_at_idx").on(table.projectId, table.createdAt),
@@ -530,6 +540,7 @@ export const message = pgTable(
 		content: text(), // Made nullable to support image-only messages
 		images: text(), // JSON string to store images array
 		reasoning: text(), // Reasoning content from AI models
+		tools: text(), // JSON string to store tool call parts
 		sequence: integer().notNull(), // To maintain message order
 	},
 	(table) => [index("message_chat_id_idx").on(table.chatId)],
@@ -559,7 +570,6 @@ export const provider = pgTable(
 		description: text().notNull(),
 		streaming: boolean(),
 		cancellation: boolean(),
-		jsonOutput: boolean(),
 		color: text(),
 		website: text(),
 		announcement: text(),
@@ -592,10 +602,7 @@ export const model = pgTable(
 			.$onUpdate(() => new Date()),
 		name: text(),
 		family: text().notNull(),
-		jsonOutput: boolean(),
 		free: boolean(),
-		deprecatedAt: timestamp(),
-		deactivatedAt: timestamp(),
 		output: json().$type<string[]>(),
 		status: text({
 			enum: ["active", "inactive"],
@@ -647,6 +654,8 @@ export const modelProviderMapping = pgTable(
 		test: text({
 			enum: ["skip", "only"],
 		}),
+		deprecatedAt: timestamp(),
+		deactivatedAt: timestamp(),
 		status: text({
 			enum: ["active", "inactive"],
 		})

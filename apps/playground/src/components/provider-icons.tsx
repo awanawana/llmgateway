@@ -154,6 +154,188 @@ export const GoogleStudioAIIcon: React.FC<React.SVGProps<SVGSVGElement>> = (
 	</svg>
 );
 
+// Google Vertex Icon
+export const GoogleVertexIcon: React.FC<React.SVGProps<SVGSVGElement>> = (
+	props,
+) => (
+	<svg
+		xmlns="http://www.w3.org/2000/svg"
+		viewBox="0 0 24 24"
+		width="24px"
+		height="24px"
+		{...props}
+	>
+		<path
+			d="M20,13.89A.77.77,0,0,0,19,13.73l-7,5.14v.22a.72.72,0,1,1,0,1.43v0a.74.74,0,0,0,.45-.15l7.41-5.47A.76.76,0,0,0,20,13.89Z"
+			style={{
+				fill: "#669df6",
+			}}
+		/>
+		<path
+			d="M12,20.52a.72.72,0,0,1,0-1.43h0v-.22L5,13.73a.76.76,0,0,0-1,.16.74.74,0,0,0,.16,1l7.41,5.47a.73.73,0,0,0,.44.15v0Z"
+			style={{
+				fill: "#aecbfa",
+			}}
+		/>
+		<path
+			d="M12,18.34a1.47,1.47,0,1,0,1.47,1.47A1.47,1.47,0,0,0,12,18.34Zm0,2.18a.72.72,0,1,1,.72-.71A.71.71,0,0,1,12,20.52Z"
+			style={{
+				fill: "#4285f4",
+			}}
+		/>
+		<path
+			d="M6,6.11a.76.76,0,0,1-.75-.75V3.48a.76.76,0,1,1,1.51,0V5.36A.76.76,0,0,1,6,6.11Z"
+			style={{
+				fill: "#aecbfa",
+			}}
+		/>
+		<circle
+			cx={5.98}
+			cy={12}
+			r={0.76}
+			style={{
+				fill: "#aecbfa",
+			}}
+		/>
+		<circle
+			cx={5.98}
+			cy={9.79}
+			r={0.76}
+			style={{
+				fill: "#aecbfa",
+			}}
+		/>
+		<circle
+			cx={5.98}
+			cy={7.57}
+			r={0.76}
+			style={{
+				fill: "#aecbfa",
+			}}
+		/>
+		<path
+			d="M18,8.31a.76.76,0,0,1-.75-.76V5.67a.75.75,0,1,1,1.5,0V7.55A.75.75,0,0,1,18,8.31Z"
+			style={{
+				fill: "#4285f4",
+			}}
+		/>
+		<circle
+			cx={18.02}
+			cy={12.01}
+			r={0.76}
+			style={{
+				fill: "#4285f4",
+			}}
+		/>
+		<circle
+			cx={18.02}
+			cy={9.76}
+			r={0.76}
+			style={{
+				fill: "#4285f4",
+			}}
+		/>
+		<circle
+			cx={18.02}
+			cy={3.48}
+			r={0.76}
+			style={{
+				fill: "#4285f4",
+			}}
+		/>
+		<path
+			d="M12,15a.76.76,0,0,1-.75-.75V12.34a.76.76,0,0,1,1.51,0v1.89A.76.76,0,0,1,12,15Z"
+			style={{
+				fill: "#669df6",
+			}}
+		/>
+		<circle
+			cx={12}
+			cy={16.45}
+			r={0.76}
+			style={{
+				fill: "#669df6",
+			}}
+		/>
+		<circle
+			cx={12}
+			cy={10.14}
+			r={0.76}
+			style={{
+				fill: "#669df6",
+			}}
+		/>
+		<circle
+			cx={12}
+			cy={7.92}
+			r={0.76}
+			style={{
+				fill: "#669df6",
+			}}
+		/>
+		<path
+			d="M15,10.54a.76.76,0,0,1-.75-.75V7.91a.76.76,0,1,1,1.51,0V9.79A.76.76,0,0,1,15,10.54Z"
+			style={{
+				fill: "#4285f4",
+			}}
+		/>
+		<circle
+			cx={15.01}
+			cy={5.69}
+			r={0.76}
+			style={{
+				fill: "#4285f4",
+			}}
+		/>
+		<circle
+			cx={15.01}
+			cy={14.19}
+			r={0.76}
+			style={{
+				fill: "#4285f4",
+			}}
+		/>
+		<circle
+			cx={15.01}
+			cy={11.97}
+			r={0.76}
+			style={{
+				fill: "#4285f4",
+			}}
+		/>
+		<circle
+			cx={8.99}
+			cy={14.19}
+			r={0.76}
+			style={{
+				fill: "#aecbfa",
+			}}
+		/>
+		<circle
+			cx={8.99}
+			cy={7.92}
+			r={0.76}
+			style={{
+				fill: "#aecbfa",
+			}}
+		/>
+		<circle
+			cx={8.99}
+			cy={5.69}
+			r={0.76}
+			style={{
+				fill: "#aecbfa",
+			}}
+		/>
+		<path
+			d="M9,12.73A.76.76,0,0,1,8.24,12V10.1a.75.75,0,1,1,1.5,0V12A.75.75,0,0,1,9,12.73Z"
+			style={{
+				fill: "#aecbfa",
+			}}
+		/>
+	</svg>
+);
+
 // Groq Icon
 export const GroqIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 	<svg
@@ -645,6 +827,74 @@ export const AWSBedrockIcon: React.FC<React.SVGProps<SVGSVGElement>> = (
 	</svg>
 );
 
+export const AzureIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+	<svg
+		width={150}
+		height={150}
+		viewBox="0 0 96 96"
+		xmlns="http://www.w3.org/2000/svg"
+		{...props}
+	>
+		<defs>
+			<linearGradient
+				id="e399c19f-b68f-429d-b176-18c2117ff73c"
+				x1={-1032.172}
+				x2={-1059.213}
+				y1={145.312}
+				y2={65.426}
+				gradientTransform="matrix(1 0 0 -1 1075 158)"
+				gradientUnits="userSpaceOnUse"
+			>
+				<stop offset={0} stopColor="#114a8b" />
+				<stop offset={1} stopColor="#0669bc" />
+			</linearGradient>
+			<linearGradient
+				id="ac2a6fc2-ca48-4327-9a3c-d4dcc3256e15"
+				x1={-1023.725}
+				x2={-1029.98}
+				y1={108.083}
+				y2={105.968}
+				gradientTransform="matrix(1 0 0 -1 1075 158)"
+				gradientUnits="userSpaceOnUse"
+			>
+				<stop offset={0} stopOpacity={0.3} />
+				<stop offset={0.071} stopOpacity={0.2} />
+				<stop offset={0.321} stopOpacity={0.1} />
+				<stop offset={0.623} stopOpacity={0.05} />
+				<stop offset={1} stopOpacity={0} />
+			</linearGradient>
+			<linearGradient
+				id="a7fee970-a784-4bb1-af8d-63d18e5f7db9"
+				x1={-1027.165}
+				x2={-997.482}
+				y1={147.642}
+				y2={68.561}
+				gradientTransform="matrix(1 0 0 -1 1075 158)"
+				gradientUnits="userSpaceOnUse"
+			>
+				<stop offset={0} stopColor="#3ccbf4" />
+				<stop offset={1} stopColor="#2892df" />
+			</linearGradient>
+		</defs>
+		<path
+			fill="url(#e399c19f-b68f-429d-b176-18c2117ff73c)"
+			d="M33.338 6.544h26.038l-27.03 80.087a4.152 4.152 0 0 1-3.933 2.824H8.149a4.145 4.145 0 0 1-3.928-5.47L29.404 9.368a4.152 4.152 0 0 1 3.934-2.825z"
+		/>
+		<path
+			fill="#0078d4"
+			d="M71.175 60.261h-41.29a1.911 1.911 0 0 0-1.305 3.309l26.532 24.764a4.171 4.171 0 0 0 2.846 1.121h23.38z"
+		/>
+		<path
+			fill="url(#ac2a6fc2-ca48-4327-9a3c-d4dcc3256e15)"
+			d="M33.338 6.544a4.118 4.118 0 0 0-3.943 2.879L4.252 83.917a4.14 4.14 0 0 0 3.908 5.538h20.787a4.443 4.443 0 0 0 3.41-2.9l5.014-14.777 17.91 16.705a4.237 4.237 0 0 0 2.666.972H81.24L71.024 60.261l-29.781.007L59.47 6.544z"
+		/>
+		<path
+			fill="url(#a7fee970-a784-4bb1-af8d-63d18e5f7db9)"
+			d="M66.595 9.364a4.145 4.145 0 0 0-3.928-2.82H33.648a4.146 4.146 0 0 1 3.928 2.82l25.184 74.62a4.146 4.146 0 0 1-3.928 5.472h29.02a4.146 4.146 0 0 0 3.927-5.472z"
+		/>
+	</svg>
+);
+
 export const CanopyWaveIcon: React.FC<React.SVGProps<SVGSVGElement>> = (
 	props,
 ) => (
@@ -891,6 +1141,7 @@ export const ProviderIcons = {
 	cloudrift: CloudriftIcon,
 	deepseek: DeepseekIcon,
 	"google-ai-studio": GoogleStudioAIIcon,
+	"google-vertex": GoogleVertexIcon,
 	groq: GroqIcon,
 	"inference.net": InferenceNetIcon,
 	mistral: MistralIcon,
@@ -907,6 +1158,7 @@ export const ProviderIcons = {
 	"routeway-discount": RoutewayIcon,
 	nanogpt: NanoGPTIcon,
 	"aws-bedrock": AWSBedrockIcon,
+	azure: AzureIcon,
 	canopywave: CanopyWaveIcon,
 } as const;
 

@@ -5,6 +5,7 @@ import { googleModels } from "./models/google.js";
 import { llmgatewayModels } from "./models/llmgateway.js";
 import { metaModels } from "./models/meta.js";
 import { microsoftModels } from "./models/microsoft.js";
+import { minimaxModels } from "./models/minimax.js";
 import { mistralModels } from "./models/mistral.js";
 import { moonshotModels } from "./models/moonshot.js";
 import { nousresearchModels } from "./models/nousresearch.js";
@@ -86,14 +87,13 @@ export interface ProviderModelMapping {
 	 */
 	parallelToolCalls?: boolean;
 	/**
+	 * Whether this specific model supports JSON output mode for this provider
+	 */
+	jsonOutput?: boolean;
+	/**
 	 * Whether this provider supports JSON schema output mode (json_schema response format)
 	 */
 	jsonOutputSchema?: boolean;
-	/**
-	 * Explicitly disable JSON schema output mode for this specific provider mapping
-	 * (overrides jsonOutputSchema at the provider level)
-	 */
-	disableJsonOutputSchema?: boolean;
 	/**
 	 * List of supported API parameters for this model/provider combination
 	 */
@@ -110,6 +110,14 @@ export interface ProviderModelMapping {
 	 * - experimental: Early stage, use with caution
 	 */
 	stability?: StabilityLevel;
+	/**
+	 * Date when the model mapping will be deprecated (still usable but filtered from selection algorithms)
+	 */
+	deprecatedAt?: Date;
+	/**
+	 * Date when the model mapping will be deactivated (returns error when requested)
+	 */
+	deactivatedAt?: Date;
 }
 
 export type StabilityLevel = "stable" | "beta" | "unstable" | "experimental";
@@ -136,21 +144,9 @@ export interface ModelDefinition {
 	 */
 	providers: ProviderModelMapping[];
 	/**
-	 * Whether the model supports JSON output mode
-	 */
-	jsonOutput?: boolean;
-	/**
 	 * Whether this model is free to use
 	 */
 	free?: boolean;
-	/**
-	 * Date when the model will be deprecated (still usable but filtered from selection algorithms)
-	 */
-	deprecatedAt?: Date;
-	/**
-	 * Date when the model will be deactivated (returns error when requested)
-	 */
-	deactivatedAt?: Date;
 	/**
 	 * Output formats supported by the model (defaults to ['text'] if not specified)
 	 */
@@ -180,6 +176,7 @@ export const models = [
 	...deepseekModels,
 	...mistralModels,
 	...microsoftModels,
+	...minimaxModels,
 	...moonshotModels,
 	...alibabaModels,
 	...nousresearchModels,

@@ -1,5 +1,5 @@
 import { defineCollection, defineConfig } from "@content-collections/core";
-import { z } from "zod";
+import * as z from "zod";
 
 const changelog = defineCollection({
 	name: "changelog",
@@ -44,6 +44,19 @@ const blog = defineCollection({
 	}),
 });
 
+const legal = defineCollection({
+	name: "legal",
+	directory: "src/content/legal",
+	include: "**/*.md",
+	schema: z.object({
+		id: z.string(),
+		slug: z.string(),
+		date: z.string(),
+		title: z.string(),
+		description: z.string(),
+	}),
+});
+
 export default defineConfig({
-	collections: [changelog, blog],
+	collections: [changelog, blog, legal],
 });
