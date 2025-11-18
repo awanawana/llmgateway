@@ -33,6 +33,39 @@ function transformMessagesForNoSystemRole(messages: any[]): any[] {
 }
 
 /**
+ * Recursively removes unsupported fields from JSON schema for Google API
+ */
+function cleanSchemaForGoogle(schema: any): any {
+	if (!schema || typeof schema !== "object") {
+		return schema;
+	}
+
+	// Handle arrays
+	if (Array.isArray(schema)) {
+		return schema.map((item) => cleanSchemaForGoogle(item));
+	}
+
+	// Create a new object without the unsupported fields
+	const {
+		additionalProperties: _additionalProperties,
+		$schema: _$schema,
+		...rest
+	} = schema;
+
+	// Recursively clean nested objects
+	const cleaned: any = {};
+	for (const [key, value] of Object.entries(rest)) {
+		if (value && typeof value === "object") {
+			cleaned[key] = cleanSchemaForGoogle(value);
+		} else {
+			cleaned[key] = value;
+		}
+	}
+
+	return cleaned;
+}
+
+/**
  * Prepares the request body for different providers
  */
 export async function prepareRequestBody(
@@ -563,12 +596,10 @@ export async function prepareRequestBody(
 				requestBody.tools = [
 					{
 						functionDeclarations: tools.map((tool: any) => {
-							// Remove additionalProperties and $schema from parameters as Google doesn't accept them
-							const {
-								additionalProperties: _additionalProperties,
-								$schema: _$schema,
-								...cleanParameters
-							} = tool.function.parameters || {};
+							// Recursively remove unsupported fields from the entire parameter schema
+							const cleanParameters = tool.function.parameters
+								? cleanSchemaForGoogle(tool.function.parameters)
+								: {};
 							return {
 								name: tool.function.name,
 								description: tool.function.description,

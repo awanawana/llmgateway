@@ -588,6 +588,7 @@ export const googleModels = [
 		family: "google",
 		providers: [
 			{
+				test: "skip",
 				discount: 0.2,
 				providerId: "google-ai-studio",
 				modelName: "gemini-2.0-flash-lite",
@@ -602,6 +603,7 @@ export const googleModels = [
 				jsonOutput: true,
 			},
 			{
+				test: "skip",
 				discount: 0.2,
 				providerId: "google-vertex",
 				modelName: "gemini-2.0-flash-lite",

@@ -45,6 +45,19 @@ export function getCheapestModelForProvider(
 				effectiveStability !== "unstable" &&
 				effectiveStability !== "experimental"
 			);
+		})
+		.filter(({ provider: providerInfo }) => {
+			// Exclude models with test: "skip" from validation
+			const testFlag =
+				"test" in providerInfo
+					? (providerInfo.test as string | undefined)
+					: undefined;
+			return testFlag !== "skip";
+		})
+		.filter(({ provider: providerInfo }) => {
+			// Only use models that support tools for validation
+			// This ensures validation requests work properly
+			return providerInfo.tools === true;
 		});
 
 	if (availableModels.length === 0) {
