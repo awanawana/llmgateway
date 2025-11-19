@@ -121,17 +121,18 @@ app.use("*", async (c, next) => {
 	return await next();
 });
 
-// Middleware to log problematic requests for debugging
+// Middleware to transform Cursor/non-standard requests by replacing the request body
 app.use("/v1/chat/completions", async (c, next) => {
 	if (c.req.method === "POST") {
-		// Clone the request to read the body without consuming it
-		const clonedRequest = c.req.raw.clone();
 		try {
-			const body = await clonedRequest.text();
-			const bodyObj = JSON.parse(body);
+			// Clone request to read body without consuming it
+			const clonedReq = c.req.raw.clone();
+			const bodyText = await clonedReq.text();
+			let bodyObj = JSON.parse(bodyText);
 
 			// Check for common issues
 			const hasMessages = "messages" in bodyObj;
+			const hasInput = "input" in bodyObj;
 			const hasTools = "tools" in bodyObj;
 			const toolsValid =
 				!hasTools ||
@@ -142,23 +143,74 @@ app.use("/v1/chat/completions", async (c, next) => {
 						);
 					}));
 
-			if (!hasMessages || !toolsValid) {
-				logger.warn("Received malformed request", {
-					path: c.req.path,
+			let needsTransformation = false;
+
+			// Transform input -> messages
+			if (hasInput && !hasMessages) {
+				logger.info("Transforming input to messages", {
 					userAgent: c.req.header("User-Agent"),
-					hasMessages,
-					hasTools,
-					toolsValid,
-					bodyKeys: Object.keys(bodyObj),
-					toolsStructure: hasTools
-						? bodyObj.tools.map((t: unknown) =>
-								typeof t === "object" && t !== null ? Object.keys(t) : t,
-							)
-						: undefined,
 				});
+
+				if (typeof bodyObj.input === "string") {
+					bodyObj.messages = [
+						{
+							role: "user",
+							content: bodyObj.input,
+						},
+					];
+					delete bodyObj.input;
+					needsTransformation = true;
+				} else if (Array.isArray(bodyObj.input)) {
+					// If input is already an array, assume it's messages
+					bodyObj.messages = bodyObj.input;
+					delete bodyObj.input;
+					needsTransformation = true;
+				}
+			}
+
+			// Transform tools format: wrap in function object
+			if (hasTools && !toolsValid) {
+				logger.info("Transforming tools format", {
+					userAgent: c.req.header("User-Agent"),
+				});
+
+				bodyObj.tools = bodyObj.tools.map((tool: unknown) => {
+					if (
+						typeof tool === "object" &&
+						tool !== null &&
+						!("function" in tool)
+					) {
+						return {
+							type: "function",
+							function: tool,
+						};
+					}
+					return tool;
+				});
+				needsTransformation = true;
+			}
+
+			// If transformation is needed, replace the request
+			if (needsTransformation) {
+				const transformedBody = JSON.stringify(bodyObj);
+
+				// Create a new request with the transformed body
+				const newReq = new Request(c.req.raw.url, {
+					method: c.req.raw.method,
+					headers: c.req.raw.headers,
+					body: transformedBody,
+				});
+
+				// Replace the raw request
+				c.req.raw = newReq;
+
+				logger.info("Request body transformed successfully");
 			}
 		} catch (error) {
-			logger.error("Failed to parse request body for logging", error as Error);
+			logger.error(
+				"Failed to parse request body for transformation",
+				error instanceof Error ? error : new Error(String(error)),
+			);
 		}
 	}
 	return await next();
