@@ -52,32 +52,7 @@ export const config = {
 	},
 };
 
-export const app = new OpenAPIHono<ServerTypes>({
-	defaultHook: (result, c) => {
-		if (!result.success) {
-			// Log validation errors for debugging
-			logger.warn("Request validation failed", {
-				path: c.req.path,
-				method: c.req.method,
-				errors: result.error.issues,
-			});
-
-			// Return OpenAI-compatible error format
-			return c.json(
-				{
-					error: {
-						message: "Invalid request parameters",
-						type: "invalid_request_error",
-						param: null,
-						code: "invalid_parameters",
-					},
-				},
-				400,
-			);
-		}
-		return undefined;
-	},
-});
+export const app = new OpenAPIHono<ServerTypes>();
 
 const honoRequestLogger = createHonoRequestLogger({ service: "gateway" });
 
