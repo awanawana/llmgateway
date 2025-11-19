@@ -52,7 +52,32 @@ export const config = {
 	},
 };
 
-export const app = new OpenAPIHono<ServerTypes>();
+export const app = new OpenAPIHono<ServerTypes>({
+	defaultHook: (result, c) => {
+		if (!result.success) {
+			// Log validation errors for debugging
+			logger.warn("Request validation failed", {
+				path: c.req.path,
+				method: c.req.method,
+				errors: result.error.issues,
+			});
+
+			// Return OpenAI-compatible error format
+			return c.json(
+				{
+					error: {
+						message: "Invalid request parameters",
+						type: "invalid_request_error",
+						param: null,
+						code: "invalid_parameters",
+					},
+				},
+				400,
+			);
+		}
+		return undefined;
+	},
+});
 
 const honoRequestLogger = createHonoRequestLogger({ service: "gateway" });
 
@@ -91,6 +116,49 @@ app.use("*", async (c, next) => {
 				message:
 					"Unsupported Media Type: Content-Type must be application/json",
 			});
+		}
+	}
+	return await next();
+});
+
+// Middleware to log problematic requests for debugging
+app.use("/v1/chat/completions", async (c, next) => {
+	if (c.req.method === "POST") {
+		// Clone the request to read the body without consuming it
+		const clonedRequest = c.req.raw.clone();
+		try {
+			const body = await clonedRequest.text();
+			const bodyObj = JSON.parse(body);
+
+			// Check for common issues
+			const hasMessages = "messages" in bodyObj;
+			const hasTools = "tools" in bodyObj;
+			const toolsValid =
+				!hasTools ||
+				(Array.isArray(bodyObj.tools) &&
+					bodyObj.tools.every((tool: unknown) => {
+						return (
+							typeof tool === "object" && tool !== null && "function" in tool
+						);
+					}));
+
+			if (!hasMessages || !toolsValid) {
+				logger.warn("Received malformed request", {
+					path: c.req.path,
+					userAgent: c.req.header("User-Agent"),
+					hasMessages,
+					hasTools,
+					toolsValid,
+					bodyKeys: Object.keys(bodyObj),
+					toolsStructure: hasTools
+						? bodyObj.tools.map((t: unknown) =>
+								typeof t === "object" && t !== null ? Object.keys(t) : t,
+							)
+						: undefined,
+				});
+			}
+		} catch (error) {
+			logger.error("Failed to parse request body for logging", error as Error);
 		}
 	}
 	return await next();
