@@ -175,6 +175,9 @@ export function calculateCosts(
 	const discount = providerInfo.discount || 0;
 	const discountMultiplier = 1 - discount;
 
+	// Helper to round to 10 decimal places to avoid floating point precision errors
+	const roundCost = (cost: number) => Math.round(cost * 1e10) / 1e10;
+
 	// Calculate input cost accounting for cached tokens
 	// For Anthropic: calculatedPromptTokens includes all tokens, but we need to subtract cached tokens
 	// that get charged at the discounted rate
@@ -182,15 +185,21 @@ export function calculateCosts(
 	const uncachedPromptTokens = cachedTokens
 		? calculatedPromptTokens - cachedTokens
 		: calculatedPromptTokens;
-	const inputCost = uncachedPromptTokens * inputPrice * discountMultiplier;
+	const inputCost = roundCost(
+		uncachedPromptTokens * inputPrice * discountMultiplier,
+	);
 	// For Google models, reasoning tokens are billed at the output token rate
 	const totalOutputTokens = calculatedCompletionTokens + (reasoningTokens || 0);
-	const outputCost = totalOutputTokens * outputPrice * discountMultiplier;
+	const outputCost = roundCost(
+		totalOutputTokens * outputPrice * discountMultiplier,
+	);
 	const cachedInputCost = cachedTokens
-		? cachedTokens * cachedInputPrice * discountMultiplier
+		? roundCost(cachedTokens * cachedInputPrice * discountMultiplier)
 		: 0;
-	const requestCost = requestPrice * discountMultiplier;
-	const totalCost = inputCost + outputCost + cachedInputCost + requestCost;
+	const requestCost = roundCost(requestPrice * discountMultiplier);
+	const totalCost = roundCost(
+		inputCost + outputCost + cachedInputCost + requestCost,
+	);
 
 	return {
 		inputCost,
