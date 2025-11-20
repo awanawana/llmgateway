@@ -7,6 +7,7 @@ import { maskToken } from "@/lib/maskToken.js";
 import { db, eq, tables } from "@llmgateway/db";
 import { logger } from "@llmgateway/logger";
 import { providers, validateProviderKey } from "@llmgateway/models";
+import { decrypt, encrypt, isEncrypted } from "@llmgateway/shared";
 
 import type { ServerTypes } from "@/vars.js";
 import type { ProviderId } from "@llmgateway/models";
@@ -242,12 +243,14 @@ keysProvider.openapi(create, async (c) => {
 		});
 	}
 
-	// Use the user-provided token
+	// Encrypt the token before storing
+	const encryptedToken = encrypt(userToken);
+
 	// Create the provider key
 	const [providerKey] = await db
 		.insert(tables.providerKey)
 		.values({
-			token: userToken,
+			token: encryptedToken,
 			organizationId,
 			provider,
 			name,
@@ -334,11 +337,16 @@ keysProvider.openapi(list, async (c) => {
 	});
 
 	return c.json({
-		providerKeys: providerKeys.map((key) => ({
-			...key,
-			maskedToken: maskToken(key.token),
-			token: undefined,
-		})),
+		providerKeys: providerKeys.map((key) => {
+			const decryptedToken = isEncrypted(key.token)
+				? decrypt(key.token)
+				: key.token;
+			return {
+				...key,
+				maskedToken: maskToken(decryptedToken),
+				token: undefined,
+			};
+		}),
 	});
 });
 
@@ -561,11 +569,15 @@ keysProvider.openapi(updateStatus, async (c) => {
 		.where(eq(tables.providerKey.id, id))
 		.returning();
 
+	const decryptedToken = isEncrypted(updatedProviderKey.token)
+		? decrypt(updatedProviderKey.token)
+		: updatedProviderKey.token;
+
 	return c.json({
 		message: `Provider key status updated to ${status}`,
 		providerKey: {
 			...updatedProviderKey,
-			maskedToken: maskToken(updatedProviderKey.token),
+			maskedToken: maskToken(decryptedToken),
 			token: undefined,
 		},
 	});

@@ -43,6 +43,7 @@ import {
 	providers,
 	type RoutingMetadata,
 } from "@llmgateway/models";
+import { decrypt, isEncrypted } from "@llmgateway/shared";
 
 import { createLogEntry } from "./tools/create-log-entry.js";
 import { estimateTokens } from "./tools/estimate-tokens.js";
@@ -1342,7 +1343,9 @@ chat.openapi(completions, async (c) => {
 			});
 		}
 
-		usedToken = providerKey.token;
+		usedToken = isEncrypted(providerKey.token)
+			? decrypt(providerKey.token)
+			: providerKey.token;
 	} else if (project.mode === "credits") {
 		// Check if the organization has enough credits using cached helper function
 		const organization = await db.query.organization.findFirst({
@@ -1434,7 +1437,9 @@ chat.openapi(completions, async (c) => {
 				}
 			}
 
-			usedToken = providerKey.token;
+			usedToken = isEncrypted(providerKey.token)
+				? decrypt(providerKey.token)
+				: providerKey.token;
 		} else {
 			// No API key available, fall back to credits - no pro plan required
 			const organization = await db.query.organization.findFirst({

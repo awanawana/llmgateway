@@ -11,3 +11,5 @@ export {
 	type HealthCheckDependencies,
 	type HealthResponse,
 } from "./health-check.js";
+
+export { encrypt, decrypt, isEncrypted } from "./encryption.js";
