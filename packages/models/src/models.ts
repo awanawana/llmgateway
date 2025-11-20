@@ -158,7 +158,7 @@ export interface ModelDefinition {
 	/**
 	 * Output formats supported by the model (defaults to ['text'] if not specified)
 	 */
-	output?: ("text" | "image")[];
+	output?: ("text" | "image" | "video")[];
 	/**
 	 * Stability level of the model (defaults to 'stable' if not specified)
 	 * - stable: Fully tested and production ready

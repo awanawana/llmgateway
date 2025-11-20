@@ -854,4 +854,26 @@ export const googleModels = [
 			},
 		],
 	},
+	{
+		id: "veo-3.1-generate-preview",
+		name: "Veo 3.1 Generate Preview",
+		family: "google",
+		output: ["video"],
+		providers: [
+			{
+				test: "skip",
+				providerId: "google-vertex",
+				modelName: "veo-3.1-generate-001",
+				inputPrice: 0,
+				outputPrice: 0.35,
+				requestPrice: 0,
+				contextSize: 480,
+				maxOutput: undefined,
+				streaming: false,
+				vision: false,
+				tools: false,
+				jsonOutput: false,
+			},
+		],
+	},
 ] as const satisfies ModelDefinition[];
