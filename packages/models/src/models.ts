@@ -64,9 +64,13 @@ export interface ProviderModelMapping {
 	 */
 	imageOutputPrice?: number;
 	/**
-	 * Price per cached input token in USD
+	 * Price per cached input token in USD (cache read cost)
 	 */
 	cachedInputPrice?: number;
+	/**
+	 * Price per cached token per hour in USD (cache storage cost)
+	 */
+	cachedStoragePrice?: number;
 	/**
 	 * Price per image input in USD
 	 */
