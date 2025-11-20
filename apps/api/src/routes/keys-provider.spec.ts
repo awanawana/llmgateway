@@ -1,4 +1,11 @@
-import { expect, test, beforeEach, describe, afterEach } from "vitest";
+import {
+	expect,
+	test,
+	beforeEach,
+	describe,
+	afterEach,
+	beforeAll,
+} from "vitest";
 
 import { app } from "@/index.js";
 import { createTestUser, deleteAll } from "@/testing.js";
@@ -6,6 +13,10 @@ import { createTestUser, deleteAll } from "@/testing.js";
 import { db, tables } from "@llmgateway/db";
 
 describe("provider keys route", () => {
+	beforeAll(() => {
+		process.env.ENCRYPTION_KEY = "H4mfm6N7vQoJRTJEuM/yRHG/YiLtp1qRRXf+fBenAj0=";
+	});
+
 	let token: string;
 
 	afterEach(async () => {
