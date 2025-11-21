@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { maskToken } from "@/lib/maskToken.js";
 
-import { eq, db, shortid, tables } from "@llmgateway/db";
+import { eq, db, random, tables } from "@llmgateway/db";
 
 import type { ServerTypes } from "@/vars.js";
 
@@ -250,7 +250,7 @@ keysApi.openapi(create, async (c) => {
 	// Generate a token with a prefix for better identification
 	const prefix =
 		process.env.NODE_ENV === "development" ? `llmgdev_` : "llmgtwy_";
-	const token = prefix + shortid(40);
+	const token = prefix + random(40);
 
 	// Create the API key
 	const [apiKey] = await db

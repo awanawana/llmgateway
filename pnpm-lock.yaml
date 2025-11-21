@@ -394,6 +394,9 @@ importers:
       '@radix-ui/react-use-controllable-state':
         specifier: 1.2.2
         version: 1.2.2(@types/react@19.2.4)(react@19.2.0)
+      '@steebchen/id':
+        specifier: 1.3.0
+        version: 1.3.0
       '@stripe/react-stripe-js':
         specifier: 5.2.0
         version: 5.2.0(@stripe/stripe-js@8.1.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -436,9 +439,6 @@ importers:
       lucide-react:
         specifier: 0.548.0
         version: 0.548.0(react@19.2.0)
-      nanoid:
-        specifier: 5.1.6
-        version: 5.1.6
       next:
         specifier: 16.0.1
         version: 16.0.1(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -541,10 +541,10 @@ importers:
     dependencies:
       '@content-collections/core':
         specifier: 0.11.1
-        version: 0.11.1(typescript@5.9.2)
+        version: 0.11.1(typescript@5.9.3)
       '@content-collections/next':
         specifier: 0.2.8
-        version: 0.2.8(@content-collections/core@0.11.1(typescript@5.9.2))(next@16.0.1(@opentelemetry/api@1.9.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))
+        version: 0.2.8(@content-collections/core@0.11.1(typescript@5.9.3))(next@16.0.1(@opentelemetry/api@1.9.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))
       '@hookform/resolvers':
         specifier: 5.2.2
         version: 5.2.2(react-hook-form@7.65.0(react@19.2.0))
@@ -740,7 +740,7 @@ importers:
         version: 10.4.21(postcss@8.5.6)
       openapi-typescript:
         specifier: 7.10.1
-        version: 7.10.1(typescript@5.9.2)
+        version: 7.10.1(typescript@5.9.3)
       postcss:
         specifier: ^8.5.6
         version: 8.5.6
@@ -802,12 +802,12 @@ importers:
       '@opentelemetry/api':
         specifier: 1.9.0
         version: 1.9.0
+      '@steebchen/id':
+        specifier: 1.3.0
+        version: 1.3.0
       drizzle-orm:
         specifier: 1.0.0-beta.1
         version: 1.0.0-beta.1(@opentelemetry/api@1.9.0)(@types/mssql@9.1.8)(@types/pg@8.15.5)(gel@2.1.0)(mssql@11.0.1)(pg@8.16.3)
-      nanoid:
-        specifier: 5.1.5
-        version: 5.1.5
       pg:
         specifier: ^8.16.3
         version: 8.16.3
@@ -3932,6 +3932,9 @@ packages:
     resolution: {integrity: sha512-NKVtA2iSzQd2VoQTProek+5bk7zhV1Oyvl0TNc+oVMu37Fm7JuoDfSzSOBnSNP1Spq0lA5i71ypmDqkTnqe/Bw==}
     peerDependencies:
       eslint: ^9
+
+  '@steebchen/id@1.3.0':
+    resolution: {integrity: sha512-igSNXZhW/SeNkpPHeA39mnDEEz9ThdeeyaHV4N5wnijcC0J8D2PuaUEbLPFeIdtc04uGSC/Ubufj78pl7I9SAA==}
 
   '@steebchen/lint-base@1.0.6':
     resolution: {integrity: sha512-7vm5RhG4tz5zMhm3HKsfVyynBhp8xVoAvAZ0aR3w1Q2llItuwhnih5wmsy3H+DrWhXebiB65UVyICdGKrafFGg==}
@@ -7714,16 +7717,6 @@ packages:
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
-  nanoid@5.1.5:
-    resolution: {integrity: sha512-Ir/+ZpE9fDsNH0hQ3C68uyThDXzYcim2EqcZ8zn8Chtt1iylPT9xXJB0kPCnqzgcEGikO9RxSrh63MsmVCU7Fw==}
-    engines: {node: ^18 || >=20}
-    hasBin: true
-
-  nanoid@5.1.6:
-    resolution: {integrity: sha512-c7+7RQ+dMB5dPwwCp4ee1/iV/q2P6aK1mTZcfr1BTuVlyW9hJYiMPybJCcnBlQtuSmTIWNeazm/zqNoZSSElBg==}
-    engines: {node: ^18 || >=20}
-    hasBin: true
-
   nanostores@1.0.1:
     resolution: {integrity: sha512-kNZ9xnoJYKg/AfxjrVL4SS0fKX++4awQReGqWnwTRHxeHGZ1FJFVgTqr/eMrNQdp0Tz7M7tG/TDaX8QfHDwVCw==}
     engines: {node: ^20.0.0 || >=22.0.0}
@@ -10458,7 +10451,7 @@ snapshots:
       '@types/conventional-commits-parser': 5.0.1
       chalk: 5.6.0
 
-  '@content-collections/core@0.11.1(typescript@5.9.2)':
+  '@content-collections/core@0.11.1(typescript@5.9.3)':
     dependencies:
       '@standard-schema/spec': 1.0.0
       camelcase: 8.0.0
@@ -10470,18 +10463,18 @@ snapshots:
       pluralize: 8.0.0
       serialize-javascript: 6.0.2
       tinyglobby: 0.2.15
-      typescript: 5.9.2
+      typescript: 5.9.3
       yaml: 2.8.1
       zod: 3.25.76
 
-  '@content-collections/integrations@0.3.0(@content-collections/core@0.11.1(typescript@5.9.2))':
+  '@content-collections/integrations@0.3.0(@content-collections/core@0.11.1(typescript@5.9.3))':
     dependencies:
-      '@content-collections/core': 0.11.1(typescript@5.9.2)
+      '@content-collections/core': 0.11.1(typescript@5.9.3)
 
-  '@content-collections/next@0.2.8(@content-collections/core@0.11.1(typescript@5.9.2))(next@16.0.1(@opentelemetry/api@1.9.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))':
+  '@content-collections/next@0.2.8(@content-collections/core@0.11.1(typescript@5.9.3))(next@16.0.1(@opentelemetry/api@1.9.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))':
     dependencies:
-      '@content-collections/core': 0.11.1(typescript@5.9.2)
-      '@content-collections/integrations': 0.3.0(@content-collections/core@0.11.1(typescript@5.9.2))
+      '@content-collections/core': 0.11.1(typescript@5.9.3)
+      '@content-collections/integrations': 0.3.0(@content-collections/core@0.11.1(typescript@5.9.3))
       next: 16.0.1(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
 
   '@drizzle-team/brocli@0.10.2': {}
@@ -13214,6 +13207,8 @@ snapshots:
       - supports-color
       - typescript
       - vue-eslint-parser
+
+  '@steebchen/id@1.3.0': {}
 
   '@steebchen/lint-base@1.0.6(@steebchen/commitlint-config@1.5.2)(@steebchen/prettier-config@1.4.2(prettier@3.6.2))(@typescript-eslint/eslint-plugin@8.39.1(@typescript-eslint/parser@8.39.1(eslint@9.34.0(jiti@2.6.1))(typescript@5.9.2))(eslint@9.34.0(jiti@2.6.1))(typescript@5.9.2))(@typescript-eslint/parser@8.39.1(eslint@9.34.0(jiti@2.6.1))(typescript@5.9.2))(eslint-import-resolver-typescript@4.4.4)(eslint-plugin-react@7.37.5(eslint@9.34.0(jiti@2.6.1)))(eslint@9.34.0(jiti@2.6.1))(husky@9.1.7)(lint-staged@16.0.0)(prettier@3.6.2)(sort-package-json@3.4.0)(typescript@5.9.2)':
     dependencies:
@@ -17556,10 +17551,6 @@ snapshots:
 
   nanoid@3.3.11: {}
 
-  nanoid@5.1.5: {}
-
-  nanoid@5.1.6: {}
-
   nanostores@1.0.1: {}
 
   napi-postinstall@0.3.3: {}
@@ -17748,16 +17739,6 @@ snapshots:
   openapi-types@12.1.3: {}
 
   openapi-typescript-helpers@0.0.15: {}
-
-  openapi-typescript@7.10.1(typescript@5.9.2):
-    dependencies:
-      '@redocly/openapi-core': 1.34.5(supports-color@10.2.2)
-      ansi-colors: 4.1.3
-      change-case: 5.4.4
-      parse-json: 8.3.0
-      supports-color: 10.2.2
-      typescript: 5.9.2
-      yargs-parser: 21.1.1
 
   openapi-typescript@7.10.1(typescript@5.9.3):
     dependencies:

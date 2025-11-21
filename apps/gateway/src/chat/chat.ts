@@ -21,7 +21,7 @@ import {
 	getProviderMetricsForCombinations,
 	isCachingEnabled,
 	type InferSelectModel,
-	shortid,
+	id,
 	type tables,
 } from "@llmgateway/db";
 import { logger } from "@llmgateway/logger";
@@ -359,7 +359,7 @@ const completions = createRoute({
 
 chat.openapi(completions, async (c) => {
 	// Extract or generate request ID
-	const requestId = c.req.header("x-request-id") || shortid(40);
+	const requestId = c.req.header("x-request-id") || id();
 
 	// Parse JSON manually even if it's malformed
 	let rawBody: unknown;

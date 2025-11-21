@@ -7,7 +7,7 @@ import { Redis } from "ioredis";
 
 import { sendTransactionalEmail } from "@/utils/email.js";
 
-import { db, eq, tables, shortid } from "@llmgateway/db";
+import { db, eq, tables, random } from "@llmgateway/db";
 import { logger } from "@llmgateway/logger";
 
 const apiUrl = process.env.API_URL || "http://localhost:4002";
@@ -721,7 +721,7 @@ export const apiAuth: ReturnType<typeof betterAuth> = instrumentBetterAuth(
 					// Generate a token with a prefix for better identification
 					const prefix =
 						process.env.NODE_ENV === "development" ? `llmgdev_` : "llmgtwy_";
-					const token = prefix + shortid(40);
+					const token = prefix + random(40);
 
 					await tx.insert(tables.apiKey).values({
 						projectId: project.id,

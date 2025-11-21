@@ -1,3 +1,4 @@
+import { id } from "@steebchen/id";
 import { sql } from "drizzle-orm";
 import {
 	boolean,
@@ -12,10 +13,11 @@ import {
 	timestamp,
 	unique,
 } from "drizzle-orm/pg-core";
-import { customAlphabet } from "nanoid";
 
 import type { errorDetails, tools, toolChoice, toolResults } from "./types.js";
 import type z from "zod";
+
+export { id, random } from "@steebchen/id";
 
 export const UnifiedFinishReason = {
 	COMPLETED: "completed",
@@ -32,14 +34,8 @@ export const UnifiedFinishReason = {
 export type UnifiedFinishReason =
 	(typeof UnifiedFinishReason)[keyof typeof UnifiedFinishReason];
 
-const generate = customAlphabet(
-	"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
-);
-
-export const shortid = (size = 20) => generate(size);
-
 export const user = pgTable("user", {
-	id: text().primaryKey().$defaultFn(shortid),
+	id: text().primaryKey().$defaultFn(id),
 	createdAt: timestamp().notNull().defaultNow(),
 	updatedAt: timestamp()
 		.notNull()
@@ -55,7 +51,7 @@ export const user = pgTable("user", {
 export const session = pgTable(
 	"session",
 	{
-		id: text().primaryKey().$defaultFn(shortid),
+		id: text().primaryKey().$defaultFn(id),
 		expiresAt: timestamp().notNull().defaultNow(),
 		token: text().notNull().unique(),
 		createdAt: timestamp().notNull().defaultNow(),
@@ -75,7 +71,7 @@ export const session = pgTable(
 export const account = pgTable(
 	"account",
 	{
-		id: text().primaryKey().$defaultFn(shortid),
+		id: text().primaryKey().$defaultFn(id),
 		accountId: text().notNull(),
 		providerId: text().notNull(),
 		userId: text()
@@ -98,7 +94,7 @@ export const account = pgTable(
 );
 
 export const verification = pgTable("verification", {
-	id: text().primaryKey().$defaultFn(shortid),
+	id: text().primaryKey().$defaultFn(id),
 	identifier: text().notNull(),
 	value: text().notNull(),
 	expiresAt: timestamp().notNull().defaultNow(),
@@ -107,7 +103,7 @@ export const verification = pgTable("verification", {
 });
 
 export const organization = pgTable("organization", {
-	id: text().primaryKey().notNull().$defaultFn(shortid),
+	id: text().primaryKey().notNull().$defaultFn(id),
 	createdAt: timestamp().notNull().defaultNow(),
 	updatedAt: timestamp()
 		.notNull()
@@ -148,7 +144,7 @@ export const organization = pgTable("organization", {
 export const transaction = pgTable(
 	"transaction",
 	{
-		id: text().primaryKey().notNull().$defaultFn(shortid),
+		id: text().primaryKey().notNull().$defaultFn(id),
 		createdAt: timestamp().notNull().defaultNow(),
 		updatedAt: timestamp()
 			.notNull()
@@ -185,7 +181,7 @@ export const transaction = pgTable(
 export const userOrganization = pgTable(
 	"user_organization",
 	{
-		id: text().primaryKey().notNull().$defaultFn(shortid),
+		id: text().primaryKey().notNull().$defaultFn(id),
 		createdAt: timestamp().notNull().defaultNow(),
 		updatedAt: timestamp()
 			.notNull()
@@ -212,7 +208,7 @@ export const userOrganization = pgTable(
 export const project = pgTable(
 	"project",
 	{
-		id: text().primaryKey().notNull().$defaultFn(shortid),
+		id: text().primaryKey().notNull().$defaultFn(id),
 		createdAt: timestamp().notNull().defaultNow(),
 		updatedAt: timestamp()
 			.notNull()
@@ -239,7 +235,7 @@ export const project = pgTable(
 export const apiKey = pgTable(
 	"api_key",
 	{
-		id: text().primaryKey().notNull().$defaultFn(shortid),
+		id: text().primaryKey().notNull().$defaultFn(id),
 		createdAt: timestamp().notNull().defaultNow(),
 		updatedAt: timestamp()
 			.notNull()
@@ -268,7 +264,7 @@ export const apiKey = pgTable(
 export const apiKeyIamRule = pgTable(
 	"api_key_iam_rule",
 	{
-		id: text().primaryKey().notNull().$defaultFn(shortid),
+		id: text().primaryKey().notNull().$defaultFn(id),
 		createdAt: timestamp().notNull().defaultNow(),
 		updatedAt: timestamp()
 			.notNull()
@@ -323,7 +319,7 @@ export interface ProviderKeyOptions {
 export const providerKey = pgTable(
 	"provider_key",
 	{
-		id: text().primaryKey().notNull().$defaultFn(shortid),
+		id: text().primaryKey().notNull().$defaultFn(id),
 		createdAt: timestamp().notNull().defaultNow(),
 		updatedAt: timestamp()
 			.notNull()
@@ -350,7 +346,7 @@ export const providerKey = pgTable(
 export const log = pgTable(
 	"log",
 	{
-		id: text().primaryKey().notNull().$defaultFn(shortid),
+		id: text().primaryKey().notNull().$defaultFn(id),
 		requestId: text().notNull(),
 		createdAt: timestamp().notNull().defaultNow(),
 		updatedAt: timestamp()
@@ -453,7 +449,7 @@ export const log = pgTable(
 export const passkey = pgTable(
 	"passkey",
 	{
-		id: text().primaryKey().$defaultFn(shortid),
+		id: text().primaryKey().$defaultFn(id),
 		createdAt: timestamp().notNull().defaultNow(),
 		updatedAt: timestamp()
 			.notNull()
@@ -476,7 +472,7 @@ export const passkey = pgTable(
 export const paymentMethod = pgTable(
 	"payment_method",
 	{
-		id: text().primaryKey().$defaultFn(shortid),
+		id: text().primaryKey().$defaultFn(id),
 		createdAt: timestamp().notNull().defaultNow(),
 		updatedAt: timestamp().notNull().defaultNow(),
 		stripePaymentMethodId: text().notNull(),
@@ -494,7 +490,7 @@ export const paymentMethod = pgTable(
 export const organizationAction = pgTable(
 	"organization_action",
 	{
-		id: text().primaryKey().$defaultFn(shortid),
+		id: text().primaryKey().$defaultFn(id),
 		createdAt: timestamp().notNull().defaultNow(),
 		updatedAt: timestamp()
 			.notNull()
@@ -515,7 +511,7 @@ export const organizationAction = pgTable(
 );
 
 export const lock = pgTable("lock", {
-	id: text().primaryKey().$defaultFn(shortid),
+	id: text().primaryKey().$defaultFn(id),
 	createdAt: timestamp().notNull().defaultNow(),
 	updatedAt: timestamp()
 		.notNull()
@@ -527,7 +523,7 @@ export const lock = pgTable("lock", {
 export const chat = pgTable(
 	"chat",
 	{
-		id: text().primaryKey().$defaultFn(shortid),
+		id: text().primaryKey().$defaultFn(id),
 		createdAt: timestamp().notNull().defaultNow(),
 		updatedAt: timestamp()
 			.notNull()
@@ -548,7 +544,7 @@ export const chat = pgTable(
 export const message = pgTable(
 	"message",
 	{
-		id: text().primaryKey().$defaultFn(shortid),
+		id: text().primaryKey().$defaultFn(id),
 		createdAt: timestamp().notNull().defaultNow(),
 		updatedAt: timestamp()
 			.notNull()
@@ -570,7 +566,7 @@ export const message = pgTable(
 );
 
 export const installation = pgTable("installation", {
-	id: text().primaryKey().$defaultFn(shortid),
+	id: text().primaryKey().$defaultFn(id),
 	createdAt: timestamp().notNull().defaultNow(),
 	updatedAt: timestamp()
 		.notNull()
@@ -648,7 +644,7 @@ export const model = pgTable(
 export const modelProviderMapping = pgTable(
 	"model_provider_mapping",
 	{
-		id: text().primaryKey().$defaultFn(shortid),
+		id: text().primaryKey().$defaultFn(id),
 		createdAt: timestamp().notNull().defaultNow(),
 		updatedAt: timestamp()
 			.notNull()
@@ -703,7 +699,7 @@ export const modelProviderMapping = pgTable(
 export const modelProviderMappingHistory = pgTable(
 	"model_provider_mapping_history",
 	{
-		id: text().primaryKey().$defaultFn(shortid),
+		id: text().primaryKey().$defaultFn(id),
 		createdAt: timestamp().notNull().defaultNow(),
 		updatedAt: timestamp()
 			.notNull()
@@ -752,7 +748,7 @@ export const modelProviderMappingHistory = pgTable(
 export const modelHistory = pgTable(
 	"model_history",
 	{
-		id: text().primaryKey().$defaultFn(shortid),
+		id: text().primaryKey().$defaultFn(id),
 		createdAt: timestamp().notNull().defaultNow(),
 		updatedAt: timestamp()
 			.notNull()

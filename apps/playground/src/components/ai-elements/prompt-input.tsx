@@ -1,5 +1,6 @@
 "use client";
 
+import { id } from "@steebchen/id";
 import {
 	ImageIcon,
 	Loader2Icon,
@@ -10,7 +11,6 @@ import {
 	SquareIcon,
 	XIcon,
 } from "lucide-react";
-import { nanoid } from "nanoid";
 import {
 	type ChangeEvent,
 	type ChangeEventHandler,
@@ -146,7 +146,7 @@ export function PromptInputProvider({
 		setAttachements((prev) =>
 			prev.concat(
 				incoming.map((file) => ({
-					id: nanoid(),
+					id: id(),
 					type: "file" as const,
 					url: URL.createObjectURL(file),
 					mediaType: file.type,
@@ -520,7 +520,7 @@ export const PromptInput = ({
 				const next: (FileUIPart & { id: string })[] = [];
 				for (const file of capped) {
 					next.push({
-						id: nanoid(),
+						id: id(),
 						type: "file",
 						url: URL.createObjectURL(file),
 						mediaType: file.type,
