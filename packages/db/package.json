@@ -18,6 +18,7 @@
 	"scripts": {
 		"build": "tsc && resolve-tspaths",
 		"dev": "tsc-watch --onSuccess 'resolve-tspaths'",
+		"encrypt-keys": "node dist/encrypt-provider-keys.js",
 		"format": "eslint --fix . && prettier --write .",
 		"lint": "eslint . && prettier --check .",
 		"migrate": "pnpm drizzle-kit migrate --config drizzle.config.ts",
@@ -29,6 +30,7 @@
 		"@kubiks/otel-drizzle": "2.0.3",
 		"@llmgateway/cache": "workspace:*",
 		"@llmgateway/logger": "workspace:*",
+		"@llmgateway/shared": "workspace:*",
 		"@opentelemetry/api": "1.9.0",
 		"drizzle-orm": "1.0.0-beta.1",
 		"nanoid": "5.1.5",
