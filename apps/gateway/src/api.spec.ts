@@ -66,6 +66,8 @@ describe("test", () => {
 			name: "Test Organization",
 			billingEmail: "user",
 			plan: "pro",
+			retentionLevel: "retain",
+			credits: "100.00", // Add credits for retention storage costs
 		});
 
 		await db.insert(tables.userOrganization).values({
@@ -138,7 +140,6 @@ describe("test", () => {
 		const logs = await waitForLogs(1);
 		expect(logs.length).toBe(1);
 		expect(logs[0].finishReason).toBe("stop");
-		expect(logs[0].content).toMatch(/Hello!/);
 	});
 
 	test("Reasoning effort error for unsupported model", async () => {

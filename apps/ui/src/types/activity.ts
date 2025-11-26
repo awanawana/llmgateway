@@ -19,10 +19,13 @@ export interface DailyActivity {
 	cost: number;
 	outputCost: number;
 	inputCost: number;
+	requestCost: number;
+	dataStorageCost: number;
 	errorCount: number;
 	errorRate: number;
 	cacheCount: number;
 	cacheRate: number;
+	discountSavings: number;
 	modelBreakdown: ActivityModelUsage[];
 }
 
@@ -42,10 +45,12 @@ export type ActivitT =
 				inputCost: number;
 				outputCost: number;
 				requestCost: number;
+				dataStorageCost: number;
 				errorCount: number;
 				errorRate: number;
 				cacheCount: number;
 				cacheRate: number;
+				discountSavings: number;
 				modelBreakdown: ActivityModelUsage[];
 			}[];
 	  }

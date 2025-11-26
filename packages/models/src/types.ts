@@ -213,6 +213,9 @@ export interface AnthropicRequestBody extends BaseRequestBody {
 		type: "enabled";
 		budget_tokens: number;
 	};
+	output_config?: {
+		effort?: "low" | "medium" | "high";
+	};
 }
 
 export interface GoogleRequestBody {
@@ -224,6 +227,11 @@ export interface GoogleRequestBody {
 		topP?: number;
 		thinkingConfig?: {
 			includeThoughts: boolean;
+		};
+		responseModalities?: string[];
+		imageConfig?: {
+			aspectRatio?: string;
+			imageSize?: string;
 		};
 	};
 }
@@ -289,6 +297,10 @@ export type RequestBodyPreparer = (
 	reasoning_effort?: "minimal" | "low" | "medium" | "high",
 	supportsReasoning?: boolean,
 	isProd?: boolean,
+	maxImageSizeMB?: number,
+	userPlan?: "free" | "pro" | null,
+	sensitive_word_check?: { status: "DISABLE" | "ENABLE" },
+	image_config?: { aspect_ratio?: string; image_size?: string },
 ) => Promise<ProviderRequestBody>;
 
 // Type guards

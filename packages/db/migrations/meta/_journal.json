@@ -470,6 +470,48 @@
       "when": 1763639575989,
       "tag": "1763639575_quiet_blue_blade",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "8",
+      "when": 1763720390006,
+      "tag": "1763720390_slimy_lucky_pierre",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "8",
+      "when": 1763803848710,
+      "tag": "1763803848_aromatic_northstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "8",
+      "when": 1763804758084,
+      "tag": "1763804758_pink_venom",
+      "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "8",
+      "when": 1763832260035,
+      "tag": "1763832260_jittery_abomination",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "8",
+      "when": 1764069190554,
+      "tag": "1764069190_clever_anthem",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "8",
+      "when": 1764086480829,
+      "tag": "1764086480_flashy_salo",
+      "breakpoints": true
     }
   ]
 }

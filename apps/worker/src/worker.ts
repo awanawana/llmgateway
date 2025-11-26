@@ -6,6 +6,7 @@ import {
 	consumeFromQueue,
 	LOG_QUEUE,
 	closeRedisClient,
+	publishToQueue,
 } from "@llmgateway/cache";
 import {
 	db,
@@ -66,9 +67,11 @@ const schema = z.object({
 	requested_model: z.string(),
 	requested_provider: z.string().nullable(),
 	used_model: z.string(),
+	used_model_mapping: z.string().nullable(),
 	used_provider: z.string(),
 	response_size: z.number(),
 	hasError: z.boolean().nullable(),
+	data_storage_cost: z.string().nullable(),
 });
 
 export async function acquireLock(key: string): Promise<boolean> {
@@ -335,7 +338,7 @@ export async function cleanupExpiredLogData(): Promise<void> {
 
 		// Define retention periods in days
 		const FREE_PLAN_RETENTION_DAYS = 3;
-		const PRO_PLAN_RETENTION_DAYS = 7;
+		const PRO_PLAN_RETENTION_DAYS = 30;
 		const CLEANUP_BATCH_SIZE = 10000;
 
 		const now = new Date();
@@ -356,15 +359,21 @@ export async function cleanupExpiredLogData(): Promise<void> {
 		while (hasMoreFreePlanRecords) {
 			const batchResult = await db.transaction(async (tx) => {
 				// Find IDs of records to clean up (with LIMIT for batching)
+				// Use JOIN instead of subquery for better performance with large tables
+				// dataRetentionCleanedUp=false implies there's data to clean, no need for OR conditions
+				// Use project_id subquery to leverage partial index on (project_id, created_at)
 				const recordsToClean = await tx
 					.select({ id: log.id })
 					.from(log)
 					.where(
 						and(
-							sql`${log.organizationId} IN (SELECT id FROM ${organization} WHERE plan = 'free')`,
+							sql`${log.projectId} IN (
+								SELECT ${tables.project.id} FROM ${tables.project}
+								INNER JOIN ${organization} ON ${tables.project.organizationId} = ${organization.id}
+								WHERE ${organization.plan} = 'free'
+							)`,
 							lt(log.createdAt, freePlanCutoff),
 							sql`${log.dataRetentionCleanedUp} = false`,
-							sql`(${log.messages} IS NOT NULL OR ${log.content} IS NOT NULL OR ${log.reasoningContent} IS NOT NULL OR ${log.tools} IS NOT NULL OR ${log.toolChoice} IS NOT NULL OR ${log.toolResults} IS NOT NULL OR ${log.customHeaders} IS NOT NULL OR ${log.rawRequest} IS NOT NULL OR ${log.rawResponse} IS NOT NULL OR ${log.upstreamRequest} IS NOT NULL OR ${log.upstreamResponse} IS NOT NULL)`,
 						),
 					)
 					.limit(CLEANUP_BATCH_SIZE)
@@ -422,15 +431,21 @@ export async function cleanupExpiredLogData(): Promise<void> {
 		while (hasMoreProPlanRecords) {
 			const batchResult = await db.transaction(async (tx) => {
 				// Find IDs of records to clean up (with LIMIT for batching)
+				// Use JOIN instead of subquery for better performance with large tables
+				// dataRetentionCleanedUp=false implies there's data to clean, no need for OR conditions
+				// Use project_id subquery to leverage partial index on (project_id, created_at)
 				const recordsToClean = await tx
 					.select({ id: log.id })
 					.from(log)
 					.where(
 						and(
-							sql`${log.organizationId} IN (SELECT id FROM ${organization} WHERE plan = 'pro')`,
+							sql`${log.projectId} IN (
+								SELECT ${tables.project.id} FROM ${tables.project}
+								INNER JOIN ${organization} ON ${tables.project.organizationId} = ${organization.id}
+								WHERE ${organization.plan} = 'pro'
+							)`,
 							lt(log.createdAt, proPlanCutoff),
 							sql`${log.dataRetentionCleanedUp} = false`,
-							sql`(${log.messages} IS NOT NULL OR ${log.content} IS NOT NULL OR ${log.reasoningContent} IS NOT NULL OR ${log.tools} IS NOT NULL OR ${log.toolChoice} IS NOT NULL OR ${log.toolResults} IS NOT NULL OR ${log.customHeaders} IS NOT NULL OR ${log.rawRequest} IS NOT NULL OR ${log.rawResponse} IS NOT NULL OR ${log.upstreamRequest} IS NOT NULL OR ${log.upstreamResponse} IS NOT NULL)`,
 						),
 					)
 					.limit(CLEANUP_BATCH_SIZE)
@@ -518,9 +533,11 @@ export async function batchProcessLogs(): Promise<void> {
 					requested_model: log.requestedModel,
 					requested_provider: log.requestedProvider,
 					used_model: log.usedModel,
+					used_model_mapping: log.usedModelMapping,
 					used_provider: log.usedProvider,
 					response_size: log.responseSize,
 					hasError: log.hasError,
+					data_storage_cost: log.dataStorageCost,
 				})
 				.from(log)
 				.leftJoin(tables.project, eq(tables.project.id, log.projectId))
@@ -565,6 +582,7 @@ export async function batchProcessLogs(): Promise<void> {
 					requestedModel: row.requested_model,
 					requestedProvider: row.requested_provider,
 					usedModel: row.used_model,
+					usedModelMapping: row.used_model_mapping,
 					usedProvider: row.used_provider,
 					responseSize: row.response_size,
 				});
@@ -578,14 +596,28 @@ export async function batchProcessLogs(): Promise<void> {
 						currentApiKeyCost.plus(new Decimal(row.cost)),
 					);
 
-					// Only deduct organization credits when the log actually used credits
+					// Deduct organization credits based on mode:
+					// - Credits mode: deduct full cost (includes request cost + storage cost)
+					// - API keys mode: only deduct storage cost (data retention billing)
 					if (row.used_mode === "credits") {
+						// In credits mode, deduct the full cost
 						const currentOrgCost =
 							orgCosts.get(row.organization_id) || new Decimal(0);
 						orgCosts.set(
 							row.organization_id,
 							currentOrgCost.plus(new Decimal(row.cost)),
 						);
+					} else if (row.used_mode === "api-keys" && row.data_storage_cost) {
+						// In API keys mode, only deduct storage cost for data retention
+						const storageCost = new Decimal(row.data_storage_cost);
+						if (storageCost.greaterThan(0)) {
+							const currentOrgCost =
+								orgCosts.get(row.organization_id) || new Decimal(0);
+							orgCosts.set(
+								row.organization_id,
+								currentOrgCost.plus(storageCost),
+							);
+						}
 					}
 				}
 
@@ -593,6 +625,9 @@ export async function batchProcessLogs(): Promise<void> {
 			}
 
 			// Batch update organization credits within the same transaction
+			// Also calculate referral earnings (1% of spent credits)
+			const referralEarnings = new Map<string, Decimal>();
+
 			for (const [orgId, totalCost] of orgCosts.entries()) {
 				if (totalCost.greaterThan(0)) {
 					const costNumber = totalCost.toNumber();
@@ -605,6 +640,42 @@ export async function batchProcessLogs(): Promise<void> {
 
 					logger.info(
 						`Deducted ${costNumber} credits from organization ${orgId}`,
+					);
+
+					// Check if this org was referred and calculate 1% referral earnings
+					const referral = await tx.query.referral.findFirst({
+						where: {
+							referredOrganizationId: { eq: orgId },
+						},
+					});
+
+					if (referral) {
+						const earnings = totalCost.times(0.01);
+						const currentEarnings =
+							referralEarnings.get(referral.referrerOrganizationId) ||
+							new Decimal(0);
+						referralEarnings.set(
+							referral.referrerOrganizationId,
+							currentEarnings.plus(earnings),
+						);
+					}
+				}
+			}
+
+			// Apply referral earnings to referrer organizations
+			for (const [referrerOrgId, earnings] of referralEarnings.entries()) {
+				if (earnings.greaterThan(0)) {
+					const earningsNumber = earnings.toNumber();
+					await tx
+						.update(organization)
+						.set({
+							credits: sql`${organization.credits} + ${earningsNumber}`,
+							referralEarnings: sql`${organization.referralEarnings} + ${earningsNumber}`,
+						})
+						.where(eq(organization.id, referrerOrgId));
+
+					logger.info(
+						`Added ${earningsNumber} referral credits to organization ${referrerOrgId}`,
 					);
 				}
 			}
@@ -651,6 +722,8 @@ export async function processLogQueue(): Promise<void> {
 		return;
 	}
 
+	const MAX_RETRIES = 5;
+
 	try {
 		const logData = message.map((i) => JSON.parse(i) as LogInsertData);
 
@@ -680,14 +753,61 @@ export async function processLogQueue(): Promise<void> {
 			}),
 		);
 
-		// Insert logs without processing credits or API key usage - they will be processed in batches
-		// Type assertion is safe here as both LogInsertData and its subset are compatible with the log insert schema
-		await db.insert(log).values(processedLogData as LogInsertData[]);
+		// Insert logs with retry logic
+		let lastError: Error | undefined;
+		for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+			try {
+				// Type assertion is safe here as both LogInsertData and its subset are compatible with the log insert schema
+				await db.insert(log).values(processedLogData as LogInsertData[]);
+				return; // Success, exit function
+			} catch (insertError) {
+				lastError =
+					insertError instanceof Error
+						? insertError
+						: new Error(String(insertError));
+
+				if (attempt < MAX_RETRIES) {
+					const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s, 8s, 16s, ...
+					logger.warn(
+						`Failed to insert logs (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retrying in ${delay}ms...`,
+						lastError,
+					);
+					await new Promise((resolve) => {
+						setTimeout(resolve, delay);
+					});
+				}
+			}
+		}
+
+		// All retries exhausted, push messages back to queue for later processing
+		logger.error(
+			`Failed to insert logs after ${MAX_RETRIES + 1} attempts, pushing back to queue`,
+			lastError,
+		);
+
+		// Re-add messages to queue
+		for (const msg of message) {
+			await publishToQueue(LOG_QUEUE, JSON.parse(msg));
+		}
 	} catch (error) {
 		logger.error(
 			"Error processing log message",
 			error instanceof Error ? error : new Error(String(error)),
 		);
+
+		// Re-add messages to queue on unexpected errors
+		try {
+			for (const msg of message) {
+				await publishToQueue(LOG_QUEUE, JSON.parse(msg));
+			}
+		} catch (requeueError) {
+			logger.error(
+				"Failed to re-queue log messages",
+				requeueError instanceof Error
+					? requeueError
+					: new Error(String(requeueError)),
+			);
+		}
 	}
 }
 

@@ -73,6 +73,38 @@ function convertOpenAISchemaToGoogle(schema: any): any {
 }
 
 /**
+ * Recursively strips unsupported properties from JSON schema for Google
+ * Google doesn't support additionalProperties, $schema, and some other JSON schema properties
+ */
+function stripUnsupportedSchemaProperties(schema: any): any {
+	if (!schema || typeof schema !== "object") {
+		return schema;
+	}
+
+	if (Array.isArray(schema)) {
+		return schema.map(stripUnsupportedSchemaProperties);
+	}
+
+	const cleaned: any = {};
+
+	for (const [key, value] of Object.entries(schema)) {
+		// Skip unsupported properties
+		if (key === "additionalProperties" || key === "$schema") {
+			continue;
+		}
+
+		// Recursively clean nested objects
+		if (value && typeof value === "object") {
+			cleaned[key] = stripUnsupportedSchemaProperties(value);
+		} else {
+			cleaned[key] = value;
+		}
+	}
+
+	return cleaned;
+}
+
+/**
  * Transforms messages for models that don't support system roles by converting system messages to user messages
  */
 function transformMessagesForNoSystemRole(messages: any[]): any[] {
@@ -109,6 +141,8 @@ export async function prepareRequestBody(
 	maxImageSizeMB = 20,
 	userPlan: "free" | "pro" | null = null,
 	sensitive_word_check?: { status: "DISABLE" | "ENABLE" },
+	image_config?: { aspect_ratio?: string; image_size?: string },
+	effort?: "low" | "medium" | "high",
 ): Promise<ProviderRequestBody> {
 	// Check if the model supports system role
 	const modelDef = models.find((m) => m.id === usedModel);
@@ -478,6 +512,12 @@ export async function prepareRequestBody(
 			if (presence_penalty !== undefined) {
 				requestBody.presence_penalty = presence_penalty;
 			}
+			if (effort !== undefined) {
+				if (!requestBody.output_config) {
+					requestBody.output_config = {};
+				}
+				requestBody.output_config.effort = effort;
+			}
 			break;
 		}
 		case "aws-bedrock": {
@@ -618,12 +658,10 @@ export async function prepareRequestBody(
 				requestBody.tools = [
 					{
 						functionDeclarations: tools.map((tool: any) => {
-							// Remove additionalProperties and $schema from parameters as Google doesn't accept them
-							const {
-								additionalProperties: _additionalProperties,
-								$schema: _$schema,
-								...cleanParameters
-							} = tool.function.parameters || {};
+							// Recursively strip additionalProperties and $schema from parameters as Google doesn't accept them
+							const cleanParameters = stripUnsupportedSchemaProperties(
+								tool.function.parameters || {},
+							);
 							return {
 								name: tool.function.name,
 								description: tool.function.description,
@@ -682,6 +720,24 @@ export async function prepareRequestBody(
 					};
 					requestBody.generationConfig.thinkingConfig.thinkingBudget =
 						getThinkingBudget(reasoning_effort);
+				}
+			}
+
+			// Add image generation config if provided
+			if (
+				image_config?.aspect_ratio !== undefined ||
+				image_config?.image_size !== undefined
+			) {
+				// Set responseModalities to enable image output
+				requestBody.generationConfig.responseModalities = ["TEXT", "IMAGE"];
+				requestBody.generationConfig.imageConfig = {};
+				if (image_config.aspect_ratio !== undefined) {
+					requestBody.generationConfig.imageConfig.aspectRatio =
+						image_config.aspect_ratio;
+				}
+				if (image_config.image_size !== undefined) {
+					requestBody.generationConfig.imageConfig.imageSize =
+						image_config.image_size;
 				}
 			}
 
