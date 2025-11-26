@@ -95,6 +95,7 @@ interface ModelDetail {
 	providers: ProviderWithInfo[];
 	stability?: StabilityLevel;
 	jsonOutput: boolean;
+	jsonOutputSchema: boolean;
 	aggregated: {
 		streaming: boolean;
 		vision: boolean;
@@ -139,6 +140,7 @@ type ComparisonRowKey =
 	| "parallelToolCalls"
 	| "reasoning"
 	| "jsonOutput"
+	| "jsonOutputSchema"
 	| "supportedParameters";
 
 const groupedRows: Array<{
@@ -180,6 +182,7 @@ const groupedRows: Array<{
 			{ key: "parallelToolCalls", label: "Parallel Tool Calls" },
 			{ key: "reasoning", label: "Reasoning" },
 			{ key: "jsonOutput", label: "JSON Output" },
+			{ key: "jsonOutputSchema", label: "Structured JSON" },
 		],
 	},
 	{
@@ -345,6 +348,7 @@ function collectModelDetail(modelId?: ModelId): ModelDetail | undefined {
 		providers: providersWithInfo,
 		stability: pickMostUnstableStability(model),
 		jsonOutput: model.providers.some((p) => p.jsonOutput),
+		jsonOutputSchema: model.providers.some((p) => p.jsonOutputSchema),
 		aggregated,
 	};
 }
@@ -578,6 +582,8 @@ function renderRowValue(
 			return <BooleanBadge value={detail.aggregated.reasoning} />;
 		case "jsonOutput":
 			return <BooleanBadge value={detail.jsonOutput} />;
+		case "jsonOutputSchema":
+			return <BooleanBadge value={detail.jsonOutputSchema} />;
 		case "supportedParameters":
 			return (
 				<ParametersList parameters={detail.aggregated.supportedParameters} />

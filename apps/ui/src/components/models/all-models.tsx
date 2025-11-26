@@ -23,6 +23,7 @@ import {
 	Percent,
 	Scale,
 	Braces,
+	FileJson2,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -127,6 +128,7 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 			tools: searchParams.get("tools") === "true",
 			reasoning: searchParams.get("reasoning") === "true",
 			jsonOutput: searchParams.get("jsonOutput") === "true",
+			structuredJsonOutput: searchParams.get("structuredJsonOutput") === "true",
 			imageGeneration: searchParams.get("imageGeneration") === "true",
 			free: searchParams.get("free") === "true",
 			discounted: searchParams.get("discounted") === "true",
@@ -245,6 +247,12 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 			if (
 				filters.capabilities.jsonOutput &&
 				!model.providerDetails.some((p) => p.provider.jsonOutput)
+			) {
+				return false;
+			}
+			if (
+				filters.capabilities.structuredJsonOutput &&
+				!model.providerDetails.some((p) => p.provider.jsonOutputSchema)
 			) {
 				return false;
 			}
@@ -560,6 +568,13 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 				color: "text-cyan-500",
 			});
 		}
+		if (provider.jsonOutputSchema) {
+			capabilities.push({
+				icon: FileJson2,
+				label: "Structured JSON",
+				color: "text-teal-500",
+			});
+		}
 		if (model?.output?.includes("image")) {
 			capabilities.push({
 				icon: ImagePlus,
@@ -579,6 +594,7 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 				tools: false,
 				reasoning: false,
 				jsonOutput: false,
+				structuredJsonOutput: false,
 				imageGeneration: false,
 				free: false,
 				discounted: false,
@@ -598,6 +614,7 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 			tools: undefined,
 			reasoning: undefined,
 			jsonOutput: undefined,
+			structuredJsonOutput: undefined,
 			free: undefined,
 			discounted: undefined,
 			provider: undefined,
@@ -663,6 +680,12 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 									label: "JSON Output",
 									icon: Braces,
 									color: "text-cyan-500",
+								},
+								{
+									key: "structuredJsonOutput",
+									label: "Structured JSON",
+									icon: FileJson2,
+									color: "text-teal-500",
 								},
 								{
 									key: "imageGeneration",

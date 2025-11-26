@@ -53,6 +53,9 @@ export function getModelCapabilities(model: ModelDefinition): string[] {
 	if (provider?.jsonOutput) {
 		capabilities.push("JSON Output");
 	}
+	if (provider?.jsonOutputSchema) {
+		capabilities.push("Structured JSON");
+	}
 
 	if (model.output?.includes("image")) {
 		capabilities.push("Image Generation");
