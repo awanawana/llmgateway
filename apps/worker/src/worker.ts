@@ -364,9 +364,7 @@ export async function cleanupExpiredLogData(): Promise<void> {
 		while (hasMoreFreePlanRecords) {
 			const batchResult = await db.transaction(async (tx) => {
 				// Find IDs of records to clean up (with LIMIT for batching)
-				// Use JOIN instead of subquery for better performance with large tables
-				// dataRetentionCleanedUp=false implies there's data to clean, no need for OR conditions
-				// Use project_id subquery to leverage partial index on (project_id, created_at)
+				// Use project_id subquery to leverage partial index on (project_id, created_at) WHERE cleaned_up_at IS NULL
 				const recordsToClean = await tx
 					.select({ id: log.id })
 					.from(log)
@@ -378,7 +376,7 @@ export async function cleanupExpiredLogData(): Promise<void> {
 								WHERE ${organization.plan} = 'free'
 							)`,
 							lt(log.createdAt, freePlanCutoff),
-							sql`${log.dataRetentionCleanedUp} = false`,
+							sql`${log.cleanedUpAt} IS NULL`,
 						),
 					)
 					.limit(CLEANUP_BATCH_SIZE)
@@ -405,7 +403,7 @@ export async function cleanupExpiredLogData(): Promise<void> {
 						rawResponse: null,
 						upstreamRequest: null,
 						upstreamResponse: null,
-						dataRetentionCleanedUp: true,
+						cleanedUpAt: new Date(),
 					})
 					.where(inArray(log.id, idsToClean));
 
@@ -436,9 +434,7 @@ export async function cleanupExpiredLogData(): Promise<void> {
 		while (hasMoreProPlanRecords) {
 			const batchResult = await db.transaction(async (tx) => {
 				// Find IDs of records to clean up (with LIMIT for batching)
-				// Use JOIN instead of subquery for better performance with large tables
-				// dataRetentionCleanedUp=false implies there's data to clean, no need for OR conditions
-				// Use project_id subquery to leverage partial index on (project_id, created_at)
+				// Use project_id subquery to leverage partial index on (project_id, created_at) WHERE cleaned_up_at IS NULL
 				const recordsToClean = await tx
 					.select({ id: log.id })
 					.from(log)
@@ -450,7 +446,7 @@ export async function cleanupExpiredLogData(): Promise<void> {
 								WHERE ${organization.plan} = 'pro'
 							)`,
 							lt(log.createdAt, proPlanCutoff),
-							sql`${log.dataRetentionCleanedUp} = false`,
+							sql`${log.cleanedUpAt} IS NULL`,
 						),
 					)
 					.limit(CLEANUP_BATCH_SIZE)
@@ -477,7 +473,7 @@ export async function cleanupExpiredLogData(): Promise<void> {
 						rawResponse: null,
 						upstreamRequest: null,
 						upstreamResponse: null,
-						dataRetentionCleanedUp: true,
+						cleanedUpAt: new Date(),
 					})
 					.where(inArray(log.id, idsToClean));
 

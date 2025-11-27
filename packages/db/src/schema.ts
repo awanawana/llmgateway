@@ -459,7 +459,7 @@ export const log = pgTable(
 		upstreamRequest: jsonb(),
 		upstreamResponse: jsonb(),
 		traceId: text(),
-		dataRetentionCleanedUp: boolean().default(false),
+		cleanedUpAt: timestamp(),
 		dataStorageCost: decimal().notNull().default("0"),
 	},
 	(table) => [
@@ -470,11 +470,13 @@ export const log = pgTable(
 			table.usedModel,
 			table.usedProvider,
 		),
-		// Partial index for data retention cleanup: project_id first for filtering, then created_at for range
-		// Only indexes rows that need cleanup (data_retention_cleaned_up = false)
-		index("log_data_retention_pending_idx")
+		// Partial index for cleanup worker - only uncleaned rows (cleaned_up_at IS NULL)
+		// Includes project_id for filtering by org plan, created_at for date range
+		index("idx_log_cleanup_queue")
 			.on(table.projectId, table.createdAt)
-			.where(sql`data_retention_cleaned_up = false`),
+			.where(sql`cleaned_up_at IS NULL`),
+		// Index for cleaned history - helps exclude old cleaned rows from scans
+		index("idx_log_cleaned_history").on(table.cleanedUpAt),
 		// Index for distinct usedModel queries by project
 		index("log_project_id_used_model_idx").on(table.projectId, table.usedModel),
 	],
