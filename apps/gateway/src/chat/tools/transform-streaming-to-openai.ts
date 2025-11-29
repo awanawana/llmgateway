@@ -270,18 +270,30 @@ export function transformStreamingToOpenai(
 				}
 
 				// Emit tool_calls if present
+				// Include thoughtSignature if present (required for Gemini 3 multi-turn conversations)
 				if (hasFunctionCalls) {
 					const toolCalls = parts
 						.filter((part: any) => part.functionCall)
-						.map((part: any, index: number) => ({
-							id: part.functionCall.name + "_" + Date.now() + "_" + index,
-							type: "function",
-							index: index,
-							function: {
-								name: part.functionCall.name,
-								arguments: JSON.stringify(part.functionCall.args || {}),
-							},
-						}));
+						.map((part: any, index: number) => {
+							const toolCall: any = {
+								id: part.functionCall.name + "_" + Date.now() + "_" + index,
+								type: "function",
+								index: index,
+								function: {
+									name: part.functionCall.name,
+									arguments: JSON.stringify(part.functionCall.args || {}),
+								},
+							};
+							// Include thoughtSignature in extra_content for client to pass back
+							if (part.thoughtSignature) {
+								toolCall.extra_content = {
+									google: {
+										thought_signature: part.thoughtSignature,
+									},
+								};
+							}
+							return toolCall;
+						});
 					if (toolCalls.length > 0) {
 						delta.tool_calls = toolCalls;
 					}
