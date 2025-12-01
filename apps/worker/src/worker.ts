@@ -1,4 +1,5 @@
 import { Decimal } from "decimal.js";
+import nodemailer from "nodemailer";
 import Stripe from "stripe";
 import { z } from "zod";
 
@@ -7,6 +8,8 @@ import {
 	LOG_QUEUE,
 	closeRedisClient,
 	publishToQueue,
+	setCache,
+	getCache,
 } from "@llmgateway/cache";
 import {
 	db,
@@ -47,6 +50,219 @@ const AUTO_TOPUP_LOCK_KEY = "auto_topup_check";
 const CREDIT_PROCESSING_LOCK_KEY = "credit_processing";
 const DATA_RETENTION_LOCK_KEY = "data_retention_cleanup";
 const LOCK_DURATION_MINUTES = 5;
+
+// Email configuration
+const smtpHost = process.env.SMTP_HOST;
+const smtpPort = parseInt(process.env.SMTP_PORT || "587", 10);
+const smtpUser = process.env.SMTP_USER;
+const smtpPass = process.env.SMTP_PASS;
+const smtpFromEmail = process.env.SMTP_FROM_EMAIL || "contact@llmgateway.io";
+const replyToEmail = process.env.SMTP_REPLY_TO_EMAIL || "contact@llmgateway.io";
+
+// Lock key prefix for auto top-up failure email rate limiting (24 hours)
+const AUTO_TOPUP_FAILURE_EMAIL_LOCK_PREFIX = "auto_topup_failure_email:";
+const AUTO_TOPUP_FAILURE_EMAIL_LOCK_DURATION_SECONDS = 24 * 60 * 60; // 24 hours
+
+function escapeHtml(text: string): string {
+	const htmlEscapeMap: Record<string, string> = {
+		"&": "&amp;",
+		"<": "&lt;",
+		">": "&gt;",
+		'"': "&quot;",
+		"'": "&#x27;",
+		"/": "&#x2F;",
+	};
+	return text.replace(/[&<>"'/]/g, (char) => htmlEscapeMap[char] || char);
+}
+
+function generateAutoTopUpFailedEmailHtml(
+	organizationName: string,
+	cardLast4: string,
+	errorMessage: string,
+): string {
+	const escapedOrgName = escapeHtml(organizationName);
+	const escapedCardLast4 = escapeHtml(cardLast4);
+	const escapedErrorMessage = escapeHtml(errorMessage);
+
+	return `
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Auto Top-Up Failed - LLMGateway</title>
+	</head>
+	<body
+		style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #ffffff;"
+	>
+		<table role="presentation" style="width: 100%; border-collapse: collapse;">
+			<tr>
+				<td align="center" style="padding: 40px 20px;">
+					<table role="presentation" style="max-width: 600px; width: 100%; border-collapse: collapse;">
+						<!-- Header -->
+						<tr>
+							<td
+								style="background-color: #dc2626; padding: 40px 30px; text-align: center; border-radius: 8px 8px 0 0;"
+							>
+								<h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600;">Auto Top-Up Failed</h1>
+							</td>
+						</tr>
+
+						<!-- Main Content -->
+						<tr>
+							<td style="background-color: #f8f9fa; padding: 40px 30px;">
+								<p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #333333;">
+									Hi there,
+								</p>
+
+								<p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #333333;">
+									We attempted to process an automatic top-up for <strong>${escapedOrgName}</strong>, but the payment was declined.
+								</p>
+
+								<div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 16px; margin: 20px 0;">
+									<p style="margin: 0 0 8px 0; font-size: 14px; color: #991b1b; font-weight: 600;">
+										Payment Method: Card ending in ${escapedCardLast4}
+									</p>
+									<p style="margin: 0; font-size: 14px; color: #991b1b;">
+										Error: ${escapedErrorMessage}
+									</p>
+								</div>
+
+								<p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #333333;">
+									Your credits may run low if this issue is not resolved. To ensure uninterrupted service, please:
+								</p>
+
+								<ul style="margin: 0 0 20px 0; padding-left: 20px; font-size: 16px; line-height: 1.8; color: #333333;">
+									<li>Update your payment method with a valid card</li>
+									<li>Ensure your card has sufficient funds</li>
+									<li>Contact your bank if the card was declined in error</li>
+								</ul>
+
+								<!-- CTA Button -->
+								<table role="presentation" style="width: 100%; border-collapse: collapse;">
+									<tr>
+										<td align="center" style="padding: 10px 0;">
+											<a
+												href="https://llmgateway.io/dashboard/settings/org/billing"
+												style="display: inline-block; background-color: #000000; color: #ffffff; padding: 14px 40px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px;"
+											>Update Payment Method</a>
+										</td>
+									</tr>
+								</table>
+
+								<p style="margin: 30px 0 0 0; font-size: 14px; line-height: 1.6; color: #666666;">
+									If you need assistance, please reply to this email or contact our support team.
+								</p>
+							</td>
+						</tr>
+
+						<!-- Footer -->
+						<tr>
+							<td
+								style="padding: 30px 40px; background-color: #f8f9fa; border-radius: 0 0 8px 8px; border-top: 1px solid #e9ecef;"
+							>
+								<p style="margin: 0 0 12px; color: #666666; font-size: 14px; line-height: 1.6;">
+									Need help? Check out our <a
+									href="https://docs.llmgateway.io" style="color: #000000; text-decoration: none;"
+								>documentation</a> or reply to this email for any questions.
+								</p>
+								<p style="margin: 0; color: #999999; font-size: 12px;">
+									© 2025 LLM Gateway. All rights reserved. This is a transactional email and it can't be unsubscribed from.
+								</p>
+							</td>
+						</tr>
+					</table>
+				</td>
+			</tr>
+		</table>
+	</body>
+</html>
+	`.trim();
+}
+
+async function sendAutoTopUpFailedEmail(
+	organizationId: string,
+	billingEmail: string,
+	organizationName: string,
+	cardLast4: string,
+	errorMessage: string,
+): Promise<void> {
+	// Check if we've already sent an email for this organization in the last 24 hours
+	const lockKey = `${AUTO_TOPUP_FAILURE_EMAIL_LOCK_PREFIX}${organizationId}`;
+	const existingLock = await getCache(lockKey);
+
+	if (existingLock) {
+		logger.info(
+			`Skipping auto top-up failure email for organization ${organizationId}: already sent within 24 hours`,
+		);
+		return;
+	}
+
+	// Set the lock to prevent sending duplicate emails
+	await setCache(
+		lockKey,
+		{ sentAt: new Date().toISOString() },
+		AUTO_TOPUP_FAILURE_EMAIL_LOCK_DURATION_SECONDS,
+	);
+
+	// In non-production environments, just log the email content
+	if (process.env.NODE_ENV !== "production") {
+		logger.info(
+			"Auto top-up failure email content (not sent in non-production)",
+			{
+				to: billingEmail,
+				subject: "Auto Top-Up Failed - Action Required",
+				organizationId,
+				organizationName,
+				cardLast4,
+				errorMessage,
+			},
+		);
+		return;
+	}
+
+	if (!smtpHost || !smtpUser || !smtpPass) {
+		logger.error(
+			"SMTP configuration is not set. Auto top-up failure email will not be sent.",
+			new Error(`SMTP not configured for email to ${billingEmail}`),
+		);
+		return;
+	}
+
+	const transporter = nodemailer.createTransport({
+		host: smtpHost,
+		port: smtpPort,
+		secure: smtpPort === 465,
+		auth: {
+			user: smtpUser,
+			pass: smtpPass,
+		},
+	});
+
+	try {
+		await transporter.sendMail({
+			from: `LLMGateway <${smtpFromEmail}>`,
+			replyTo: replyToEmail,
+			to: billingEmail,
+			subject: "Auto Top-Up Failed - Action Required",
+			html: generateAutoTopUpFailedEmailHtml(
+				organizationName,
+				cardLast4,
+				errorMessage,
+			),
+		});
+
+		logger.info("Auto top-up failure email sent successfully", {
+			to: billingEmail,
+			organizationId,
+		});
+	} catch (error) {
+		logger.error(
+			"Failed to send auto top-up failure email",
+			error instanceof Error ? error : new Error(String(error)),
+		);
+	}
+}
 
 // Configuration for batch processing
 const BATCH_SIZE = Number(process.env.CREDIT_BATCH_SIZE) || 100;
@@ -297,18 +513,48 @@ async function processAutoTopUp(): Promise<void> {
 							.where(eq(tables.transaction.id, pendingTransaction.id));
 					}
 				} catch (stripeError) {
-					logger.error(
-						`Stripe error for organization ${org.id}`,
+					const errorMessage =
 						stripeError instanceof Error
-							? stripeError
-							: new Error(String(stripeError)),
-					);
+							? stripeError.message
+							: "Unknown error";
+
+					// Check if this is a card decline error (expected behavior)
+					const isCardDecline =
+						stripeError instanceof Stripe.errors.StripeCardError ||
+						(stripeError instanceof Error &&
+							stripeError.message.includes("card was declined"));
+
+					if (isCardDecline) {
+						// Log as info since card declines are expected behavior
+						logger.info(
+							`Auto top-up card declined for organization ${org.id}: ${errorMessage}`,
+						);
+
+						// Send email notification to the user (rate-limited to once per 24h)
+						const cardLast4 = stripePaymentMethod.card?.last4 || "****";
+						await sendAutoTopUpFailedEmail(
+							org.id,
+							org.billingEmail,
+							org.name,
+							cardLast4,
+							errorMessage,
+						);
+					} else {
+						// Log other Stripe errors as errors
+						logger.error(
+							`Stripe error for organization ${org.id}`,
+							stripeError instanceof Error
+								? stripeError
+								: new Error(String(stripeError)),
+						);
+					}
+
 					// Mark transaction as failed
 					await db
 						.update(tables.transaction)
 						.set({
 							status: "failed",
-							description: `Auto top-up failed: ${stripeError instanceof Error ? stripeError.message : "Unknown error"}`,
+							description: `Auto top-up failed: ${errorMessage}`,
 						})
 						.where(eq(tables.transaction.id, pendingTransaction.id));
 				}

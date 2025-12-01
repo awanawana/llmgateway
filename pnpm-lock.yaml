@@ -768,12 +768,19 @@ importers:
       decimal.js:
         specifier: 10.5.0
         version: 10.5.0
+      nodemailer:
+        specifier: ^7.0.9
+        version: 7.0.9
       stripe:
         specifier: 18.1.1
         version: 18.1.1(@types/node@24.10.1)
       zod:
         specifier: 3.25.75
         version: 3.25.75
+    devDependencies:
+      '@types/nodemailer':
+        specifier: 7.0.2
+        version: 7.0.2
 
   packages/cache:
     dependencies:
@@ -13487,7 +13494,7 @@ snapshots:
 
   '@types/bunyan@1.8.11':
     dependencies:
-      '@types/node': 24.9.1
+      '@types/node': 24.10.1
 
   '@types/chai@5.2.3':
     dependencies:
@@ -13496,11 +13503,11 @@ snapshots:
 
   '@types/connect@3.4.38':
     dependencies:
-      '@types/node': 24.9.1
+      '@types/node': 24.10.1
 
   '@types/conventional-commits-parser@5.0.1':
     dependencies:
-      '@types/node': 24.3.3
+      '@types/node': 24.10.1
 
   '@types/d3-array@3.2.2': {}
 
@@ -13651,7 +13658,7 @@ snapshots:
 
   '@types/memcached@2.2.10':
     dependencies:
-      '@types/node': 24.9.1
+      '@types/node': 24.10.1
 
   '@types/ms@2.1.0': {}
 
@@ -13665,7 +13672,7 @@ snapshots:
 
   '@types/mysql@2.15.27':
     dependencies:
-      '@types/node': 24.9.1
+      '@types/node': 24.10.1
 
   '@types/node@20.19.14':
     dependencies:
@@ -13686,13 +13693,13 @@ snapshots:
   '@types/nodemailer@7.0.2':
     dependencies:
       '@aws-sdk/client-sesv2': 3.901.0
-      '@types/node': 24.9.1
+      '@types/node': 24.10.1
     transitivePeerDependencies:
       - aws-crt
 
   '@types/oracledb@6.5.2':
     dependencies:
-      '@types/node': 24.9.1
+      '@types/node': 24.10.1
 
   '@types/pako@2.0.4': {}
 
@@ -13729,7 +13736,7 @@ snapshots:
 
   '@types/tedious@4.0.14':
     dependencies:
-      '@types/node': 24.9.1
+      '@types/node': 24.10.1
 
   '@types/trusted-types@2.0.7':
     optional: true
@@ -18094,7 +18101,7 @@ snapshots:
       '@protobufjs/path': 1.1.2
       '@protobufjs/pool': 1.1.0
       '@protobufjs/utf8': 1.1.0
-      '@types/node': 24.9.1
+      '@types/node': 24.10.1
       long: 5.3.2
 
   proxy-addr@2.0.7:
