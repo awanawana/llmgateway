@@ -2802,6 +2802,17 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Payment failed due to card decline */
+                402: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            message: string;
+                        };
+                    };
+                };
             };
         };
         delete?: never;

@@ -517,6 +517,16 @@ const topUpWithSavedMethod = createRoute({
 			},
 			description: "Payment processed successfully",
 		},
+		402: {
+			content: {
+				"application/json": {
+					schema: z.object({
+						message: z.string(),
+					}),
+				},
+			},
+			description: "Payment failed due to card decline",
+		},
 	},
 });
 
@@ -614,25 +624,70 @@ payments.openapi(topUpWithSavedMethod, async (c) => {
 		promoCodeApplied,
 	} = promoResult;
 
-	const paymentIntent = await stripe.paymentIntents.create({
-		amount: Math.round(feeBreakdown.totalAmount * 100),
-		currency: "usd",
-		description: `Credit purchase for ${amount} USD (including fees)`,
-		payment_method: paymentMethod.stripePaymentMethodId,
-		customer: stripeCustomerId,
-		confirm: true,
-		off_session: true,
-		metadata: {
-			organizationId: userOrganization.organization.id,
-			baseAmount: amount.toString(),
-			totalFees: feeBreakdown.totalFees.toString(),
-			userEmail: user.email,
-			userId: user.id,
-			promoCode: promoCodeApplied || "",
-			promoDiscountAmount: promoDiscountAmount.toString(),
-			totalAmountBeforePromo: totalAmountBeforePromo.toString(),
-		},
-	});
+	let paymentIntent;
+	try {
+		paymentIntent = await stripe.paymentIntents.create({
+			amount: Math.round(feeBreakdown.totalAmount * 100),
+			currency: "usd",
+			description: `Credit purchase for ${amount} USD (including fees)`,
+			payment_method: paymentMethod.stripePaymentMethodId,
+			customer: stripeCustomerId,
+			confirm: true,
+			off_session: true,
+			metadata: {
+				organizationId: userOrganization.organization.id,
+				baseAmount: amount.toString(),
+				totalFees: feeBreakdown.totalFees.toString(),
+				userEmail: user.email,
+				userId: user.id,
+				promoCode: promoCodeApplied || "",
+				promoDiscountAmount: promoDiscountAmount.toString(),
+				totalAmountBeforePromo: totalAmountBeforePromo.toString(),
+			},
+		});
+	} catch (error) {
+		if (error instanceof Stripe.errors.StripeCardError) {
+			const declineCode = error.decline_code;
+			const errorCode = error.code;
+
+			let userMessage =
+				"Your card was declined. Please try a different payment method.";
+
+			if (declineCode === "insufficient_funds") {
+				userMessage =
+					"Your card has insufficient funds. Please try a different payment method.";
+			} else if (declineCode === "fraudulent") {
+				userMessage =
+					"Your card was declined. Please contact your bank or try a different payment method.";
+			} else if (declineCode === "lost_card" || declineCode === "stolen_card") {
+				userMessage =
+					"Your card was declined. Please try a different payment method.";
+			} else if (
+				declineCode === "expired_card" ||
+				errorCode === "expired_card"
+			) {
+				userMessage =
+					"Your card has expired. Please update your card details or try a different payment method.";
+			} else if (
+				declineCode === "incorrect_cvc" ||
+				errorCode === "incorrect_cvc"
+			) {
+				userMessage =
+					"Your card's security code is incorrect. Please try again.";
+			} else if (declineCode === "processing_error") {
+				userMessage =
+					"An error occurred while processing your card. Please try again.";
+			} else if (declineCode === "card_not_supported") {
+				userMessage =
+					"Your card does not support this type of purchase. Please try a different card.";
+			}
+
+			throw new HTTPException(402, {
+				message: userMessage,
+			});
+		}
+		throw error;
+	}
 
 	if (paymentIntent.status !== "succeeded") {
 		throw new HTTPException(400, {
@@ -640,9 +695,12 @@ payments.openapi(topUpWithSavedMethod, async (c) => {
 		});
 	}
 
-	return c.json({
-		success: true,
-	});
+	return c.json(
+		{
+			success: true,
+		},
+		200,
+	);
 });
 const calculateFeesRoute = createRoute({
 	method: "post",
