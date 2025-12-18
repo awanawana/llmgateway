@@ -666,6 +666,7 @@ async function handlePaymentIntentFailed(
 async function handleChargeRefunded(event: Stripe.ChargeRefundedEvent) {
 	const charge = event.data.object;
 	const { payment_intent, amount_refunded } = charge;
+	const chargeInvoice = (charge as any).invoice as string | null | undefined;
 
 	if (!payment_intent) {
 		logger.error("No payment intent in charge.refunded event");
@@ -673,16 +674,27 @@ async function handleChargeRefunded(event: Stripe.ChargeRefundedEvent) {
 	}
 
 	// Find the original transaction by stripePaymentIntentId
-	const originalTransaction = await db.query.transaction.findFirst({
+	let originalTransaction = await db.query.transaction.findFirst({
 		where: {
 			stripePaymentIntentId: { eq: payment_intent as string },
 			type: { in: ["credit_topup", "subscription_start"] },
 		},
 	});
 
+	// Fallback: if not found and invoice is present, try finding by invoice ID
+	// This handles cases where subscription transactions might not have payment_intent stored
+	if (!originalTransaction && chargeInvoice) {
+		originalTransaction = await db.query.transaction.findFirst({
+			where: {
+				stripeInvoiceId: { eq: chargeInvoice },
+				type: { eq: "subscription_start" },
+			},
+		});
+	}
+
 	if (!originalTransaction) {
 		logger.error(
-			`Original transaction not found for payment intent: ${payment_intent}`,
+			`Original transaction not found for payment intent: ${payment_intent}${chargeInvoice ? ` or invoice: ${chargeInvoice}` : ""}`,
 		);
 		return;
 	}
