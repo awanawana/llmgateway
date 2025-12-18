@@ -676,7 +676,7 @@ async function handleChargeRefunded(event: Stripe.ChargeRefundedEvent) {
 	const originalTransaction = await db.query.transaction.findFirst({
 		where: {
 			stripePaymentIntentId: { eq: payment_intent as string },
-			type: { eq: "credit_topup" },
+			type: { in: ["credit_topup", "subscription_start"] },
 		},
 	});
 
@@ -717,21 +717,18 @@ async function handleChargeRefunded(event: Stripe.ChargeRefundedEvent) {
 
 	// Calculate refund amounts
 	const refundAmountInDollars = amount_refunded / 100;
-	const originalAmount = Number.parseFloat(originalTransaction.amount || "0");
-	const originalCreditAmount = Number.parseFloat(
-		originalTransaction.creditAmount || "0",
-	);
+	const isSubscriptionRefund =
+		originalTransaction.type === "subscription_start";
 
-	// Calculate proportional credit refund
-	const refundRatio =
-		originalAmount > 0 ? refundAmountInDollars / originalAmount : 0;
-	const creditRefundAmount = originalCreditAmount * refundRatio;
+	// Determine refund type and check for duplicates
+	const refundType = isSubscriptionRefund
+		? "subscription_refund"
+		: "credit_refund";
 
-	// Check if refund already exists (prevent duplicates)
 	const existingRefund = await db.query.transaction.findFirst({
 		where: {
 			relatedTransactionId: { eq: originalTransaction.id },
-			type: { eq: "credit_refund" },
+			type: { eq: refundType },
 			amount: { eq: refundAmountInDollars.toString() },
 		},
 	});
@@ -743,56 +740,109 @@ async function handleChargeRefunded(event: Stripe.ChargeRefundedEvent) {
 		return;
 	}
 
-	// Create refund transaction
-	await db.insert(tables.transaction).values({
-		organizationId: originalTransaction.organizationId,
-		type: "credit_refund",
-		amount: refundAmountInDollars.toString(),
-		creditAmount: (-creditRefundAmount).toString(),
-		currency: originalTransaction.currency,
-		status: "completed",
-		stripePaymentIntentId: payment_intent as string,
-		relatedTransactionId: originalTransaction.id,
-		refundReason: latestRefund.reason || null,
-		description: `Credit refund: $${refundAmountInDollars.toFixed(2)} (${(refundRatio * 100).toFixed(1)}% of original purchase)`,
-	});
+	if (isSubscriptionRefund) {
+		// Handle subscription refund (no credit deduction)
+		await db.insert(tables.transaction).values({
+			organizationId: originalTransaction.organizationId,
+			type: "subscription_refund",
+			amount: refundAmountInDollars.toString(),
+			currency: originalTransaction.currency,
+			status: "completed",
+			stripePaymentIntentId: payment_intent as string,
+			relatedTransactionId: originalTransaction.id,
+			refundReason: latestRefund.reason || null,
+			description: `Pro subscription refund: $${refundAmountInDollars.toFixed(2)}`,
+		});
 
-	// Deduct credits from organization (allow negative)
-	await db
-		.update(tables.organization)
-		.set({
-			credits: sql`${tables.organization.credits} - ${creditRefundAmount}`,
-		})
-		.where(eq(tables.organization.id, originalTransaction.organizationId));
+		// Track in PostHog
+		posthog.groupIdentify({
+			groupType: "organization",
+			groupKey: originalTransaction.organizationId,
+			properties: {
+				name: organization.name,
+			},
+		});
+		posthog.capture({
+			distinctId: "organization",
+			event: "subscription_refunded",
+			groups: {
+				organization: originalTransaction.organizationId,
+			},
+			properties: {
+				refundAmount: refundAmountInDollars,
+				originalTransactionId: originalTransaction.id,
+				organization: originalTransaction.organizationId,
+				reason: latestRefund.reason,
+			},
+		});
 
-	// Track in PostHog
-	posthog.groupIdentify({
-		groupType: "organization",
-		groupKey: originalTransaction.organizationId,
-		properties: {
-			name: organization.name,
-		},
-	});
-	posthog.capture({
-		distinctId: "organization",
-		event: "credits_refunded",
-		groups: {
-			organization: originalTransaction.organizationId,
-		},
-		properties: {
-			refundAmount: refundAmountInDollars,
-			creditRefundAmount: creditRefundAmount,
-			refundRatio: refundRatio,
-			originalTransactionId: originalTransaction.id,
-			organization: originalTransaction.organizationId,
-			reason: latestRefund.reason,
-		},
-	});
+		logger.info(
+			`Processed subscription refund for organization ${originalTransaction.organizationId}: ` +
+				`refunded $${refundAmountInDollars}`,
+		);
+	} else {
+		// Handle credit refund (with credit deduction)
+		const originalAmount = Number.parseFloat(originalTransaction.amount || "0");
+		const originalCreditAmount = Number.parseFloat(
+			originalTransaction.creditAmount || "0",
+		);
 
-	logger.info(
-		`Processed refund for organization ${originalTransaction.organizationId}: ` +
-			`refunded $${refundAmountInDollars} (${creditRefundAmount} credits deducted)`,
-	);
+		// Calculate proportional credit refund
+		const refundRatio =
+			originalAmount > 0 ? refundAmountInDollars / originalAmount : 0;
+		const creditRefundAmount = originalCreditAmount * refundRatio;
+
+		// Create refund transaction
+		await db.insert(tables.transaction).values({
+			organizationId: originalTransaction.organizationId,
+			type: "credit_refund",
+			amount: refundAmountInDollars.toString(),
+			creditAmount: (-creditRefundAmount).toString(),
+			currency: originalTransaction.currency,
+			status: "completed",
+			stripePaymentIntentId: payment_intent as string,
+			relatedTransactionId: originalTransaction.id,
+			refundReason: latestRefund.reason || null,
+			description: `Credit refund: $${refundAmountInDollars.toFixed(2)} (${(refundRatio * 100).toFixed(1)}% of original purchase)`,
+		});
+
+		// Deduct credits from organization (allow negative)
+		await db
+			.update(tables.organization)
+			.set({
+				credits: sql`${tables.organization.credits} - ${creditRefundAmount}`,
+			})
+			.where(eq(tables.organization.id, originalTransaction.organizationId));
+
+		// Track in PostHog
+		posthog.groupIdentify({
+			groupType: "organization",
+			groupKey: originalTransaction.organizationId,
+			properties: {
+				name: organization.name,
+			},
+		});
+		posthog.capture({
+			distinctId: "organization",
+			event: "credits_refunded",
+			groups: {
+				organization: originalTransaction.organizationId,
+			},
+			properties: {
+				refundAmount: refundAmountInDollars,
+				creditRefundAmount: creditRefundAmount,
+				refundRatio: refundRatio,
+				originalTransactionId: originalTransaction.id,
+				organization: originalTransaction.organizationId,
+				reason: latestRefund.reason,
+			},
+		});
+
+		logger.info(
+			`Processed refund for organization ${originalTransaction.organizationId}: ` +
+				`refunded $${refundAmountInDollars} (${creditRefundAmount} credits deducted)`,
+		);
+	}
 }
 
 async function handleSetupIntentSucceeded(

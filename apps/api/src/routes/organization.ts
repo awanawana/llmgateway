@@ -68,6 +68,7 @@ const transactionSchema = z.object({
 		"subscription_start",
 		"subscription_cancel",
 		"subscription_end",
+		"subscription_refund",
 		"credit_topup",
 		"credit_refund",
 	]),

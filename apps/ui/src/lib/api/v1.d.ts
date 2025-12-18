@@ -2419,7 +2419,7 @@ export interface paths {
                                 updatedAt: string;
                                 organizationId: string;
                                 /** @enum {string} */
-                                type: "subscription_start" | "subscription_cancel" | "subscription_end" | "credit_topup" | "credit_refund";
+                                type: "subscription_start" | "subscription_cancel" | "subscription_end" | "subscription_refund" | "credit_topup" | "credit_refund";
                                 amount: string | null;
                                 creditAmount: string | null;
                                 currency: string;
