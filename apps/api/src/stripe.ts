@@ -684,6 +684,9 @@ async function handleChargeRefunded(event: Stripe.ChargeRefundedEvent) {
 	// Fallback: if not found and invoice is present, try finding by invoice ID
 	// This handles cases where subscription transactions might not have payment_intent stored
 	if (!originalTransaction && chargeInvoice) {
+		logger.info(
+			`Payment intent ${payment_intent} not found, trying invoice fallback: ${chargeInvoice}`,
+		);
 		originalTransaction = await db.query.transaction.findFirst({
 			where: {
 				stripeInvoiceId: { eq: chargeInvoice },
@@ -694,10 +697,14 @@ async function handleChargeRefunded(event: Stripe.ChargeRefundedEvent) {
 
 	if (!originalTransaction) {
 		logger.error(
-			`Original transaction not found for payment intent: ${payment_intent}${chargeInvoice ? ` or invoice: ${chargeInvoice}` : ""}`,
+			`Original transaction not found for payment intent: ${payment_intent}${chargeInvoice ? `, invoice: ${chargeInvoice}` : " (no invoice)"}`,
 		);
 		return;
 	}
+
+	logger.info(
+		`Found original transaction ${originalTransaction.id} for refund (type: ${originalTransaction.type})`,
+	);
 
 	// Get organization
 	const organization = await db.query.organization.findFirst({
