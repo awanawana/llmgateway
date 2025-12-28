@@ -311,7 +311,7 @@ importers:
         version: 16.5.0
       drizzle-zod:
         specifier: 0.8.3
-        version: 0.8.3(drizzle-orm@1.0.0-beta.1-fd5d1e8(@opentelemetry/api@1.9.0)(@types/pg@8.15.5)(gel@2.1.0)(kysely@0.28.8)(pg@8.16.3))(zod@3.25.75)
+        version: 0.8.3(drizzle-orm@1.0.0-beta.3-36e9b9e(@opentelemetry/api@1.9.0)(@types/mssql@9.1.8)(@types/pg@8.15.5)(gel@2.1.0)(mssql@11.0.1)(pg@8.16.3))(zod@3.25.75)
       gateway:
         specifier: workspace:*
         version: link:../gateway
@@ -973,7 +973,7 @@ importers:
     dependencies:
       '@kubiks/otel-drizzle':
         specifier: 2.0.3
-        version: 2.0.3(@opentelemetry/api@1.9.0)(drizzle-orm@1.0.0-beta.1(@opentelemetry/api@1.9.0)(@types/mssql@9.1.8)(@types/pg@8.15.5)(gel@2.1.0)(mssql@11.0.1)(pg@8.16.3))
+        version: 2.0.3(@opentelemetry/api@1.9.0)(drizzle-orm@1.0.0-beta.3-36e9b9e(@opentelemetry/api@1.9.0)(@types/mssql@9.1.8)(@types/pg@8.15.5)(gel@2.1.0)(mssql@11.0.1)(pg@8.16.3))
       '@llmgateway/cache':
         specifier: workspace:*
         version: link:../cache
@@ -984,8 +984,8 @@ importers:
         specifier: 1.9.0
         version: 1.9.0
       drizzle-orm:
-        specifier: 1.0.0-beta.1
-        version: 1.0.0-beta.1(@opentelemetry/api@1.9.0)(@types/mssql@9.1.8)(@types/pg@8.15.5)(gel@2.1.0)(mssql@11.0.1)(pg@8.16.3)
+        specifier: 1.0.0-beta.3-36e9b9e
+        version: 1.0.0-beta.3-36e9b9e(@opentelemetry/api@1.9.0)(@types/mssql@9.1.8)(@types/pg@8.15.5)(gel@2.1.0)(mssql@11.0.1)(pg@8.16.3)
       nanoid:
         specifier: 5.1.5
         version: 5.1.5
@@ -1000,8 +1000,8 @@ importers:
         specifier: ^8.15.5
         version: 8.15.5
       drizzle-kit:
-        specifier: 1.0.0-beta.1
-        version: 1.0.0-beta.1
+        specifier: 1.0.0-beta.3-36e9b9e
+        version: 1.0.0-beta.3-36e9b9e
       ioredis:
         specifier: 5.7.0
         version: 5.7.0
@@ -1633,8 +1633,8 @@ packages:
       '@content-collections/core': 0.x
       next: ^12 || ^13 || ^14 || ^15 || ^16
 
-  '@drizzle-team/brocli@0.10.2':
-    resolution: {integrity: sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w==}
+  '@drizzle-team/brocli@0.11.0':
+    resolution: {integrity: sha512-hD3pekGiPg0WPCCGAZmusBBJsDqGUR66Y452YgQsZOnkdQ7ViEPKuyP4huUGEZQefp8g34RRodXYmJ2TbCH+tg==}
 
   '@emnapi/core@1.4.5':
     resolution: {integrity: sha512-XsLw1dEOpkSX/WucdqUhPWP7hDxSvZiY+fsUC14h+FtQ2Ifni4znbBt8punRX+Uj2JG/uDb8nEHVKvrVlvdZ5Q==}
@@ -5850,12 +5850,12 @@ packages:
     resolution: {integrity: sha512-m/C+AwOAr9/W1UOIZUo232ejMNnJAJtYQjUbHoNTBNTJSvqzzDh7vnrei3o3r3m9blf6ZoDkvcw0VmozNRFJxg==}
     engines: {node: '>=12'}
 
-  drizzle-kit@1.0.0-beta.1:
-    resolution: {integrity: sha512-jnbxiBeHcsVhBEyxm+MHMQTJcUGXf+JlK5RSPEw1WJeQXH4m+ETBmNXNiGNZhmT6ZPyeH7fdmsXJV+z4UiEK0Q==}
+  drizzle-kit@1.0.0-beta.3-36e9b9e:
+    resolution: {integrity: sha512-BVbVt1qPtNSJz2hN810tbVsa8lpixGiTKumTIo776GbT9BWwIC/RoH6nTdi8KnWw3A0X6ZRit3021fkJsTJimQ==}
     hasBin: true
 
-  drizzle-orm@1.0.0-beta.1:
-    resolution: {integrity: sha512-Aqw2JsiHVnL9P5yd3D+6hEv5qTylTyrCogda/lDK4Id838EQQ/5431gDlqTpVOIqeEIHKq6ewA24zAvNvAYMVA==}
+  drizzle-orm@1.0.0-beta.3-36e9b9e:
+    resolution: {integrity: sha512-Qif2Ehqe8WH0Ra2NoMBxB3glbJIdFUf6/j67ibo8X50nuN/tD5htJNmx1LmyF+OM2PcWjI9qHXBl4sakz/K/Hg==}
     peerDependencies:
       '@aws-sdk/client-rds-data': '>=3'
       '@cloudflare/workers-types': '>=4'
@@ -5867,6 +5867,7 @@ packages:
       '@opentelemetry/api': ^1.4.1
       '@planetscale/database': '>=1.13'
       '@prisma/client': '*'
+      '@sqlitecloud/drivers': '>=1.0.653'
       '@tidbcloud/serverless': '*'
       '@tursodatabase/database': '>=0.2.1'
       '@tursodatabase/database-common': '>=0.2.1'
@@ -5910,6 +5911,8 @@ packages:
         optional: true
       '@prisma/client':
         optional: true
+      '@sqlitecloud/drivers':
+        optional: true
       '@tidbcloud/serverless':
         optional: true
       '@tursodatabase/database':
@@ -5937,95 +5940,6 @@ packages:
       expo-sqlite:
         optional: true
       gel:
-        optional: true
-      mysql2:
-        optional: true
-      pg:
-        optional: true
-      postgres:
-        optional: true
-      prisma:
-        optional: true
-      sql.js:
-        optional: true
-      sqlite3:
-        optional: true
-
-  drizzle-orm@1.0.0-beta.1-fd5d1e8:
-    resolution: {integrity: sha512-p/6rhE/MU3qD61sYOiUW9u6EM3S+GspByTzpgDHwzv9s7JEMSmfcDrFa4eyRSWCczx6/IC2AnB4SJt6uM0xydQ==}
-    peerDependencies:
-      '@aws-sdk/client-rds-data': '>=3'
-      '@cloudflare/workers-types': '>=4'
-      '@electric-sql/pglite': '>=0.2.0'
-      '@libsql/client': '>=0.10.0'
-      '@libsql/client-wasm': '>=0.10.0'
-      '@neondatabase/serverless': '>=0.10.0'
-      '@op-engineering/op-sqlite': '>=2'
-      '@opentelemetry/api': ^1.4.1
-      '@planetscale/database': '>=1'
-      '@prisma/client': '*'
-      '@tidbcloud/serverless': '*'
-      '@types/better-sqlite3': '*'
-      '@types/pg': '*'
-      '@types/sql.js': '*'
-      '@vercel/postgres': '>=0.8.0'
-      '@xata.io/client': '*'
-      better-sqlite3: '>=9.3.0'
-      bun-types: '*'
-      expo-sqlite: '>=14.0.0'
-      gel: '>=2'
-      knex: '*'
-      kysely: '*'
-      mysql2: '>=2'
-      pg: '>=8'
-      postgres: '>=3'
-      prisma: '*'
-      sql.js: '>=1'
-      sqlite3: '>=5'
-    peerDependenciesMeta:
-      '@aws-sdk/client-rds-data':
-        optional: true
-      '@cloudflare/workers-types':
-        optional: true
-      '@electric-sql/pglite':
-        optional: true
-      '@libsql/client':
-        optional: true
-      '@libsql/client-wasm':
-        optional: true
-      '@neondatabase/serverless':
-        optional: true
-      '@op-engineering/op-sqlite':
-        optional: true
-      '@opentelemetry/api':
-        optional: true
-      '@planetscale/database':
-        optional: true
-      '@prisma/client':
-        optional: true
-      '@tidbcloud/serverless':
-        optional: true
-      '@types/better-sqlite3':
-        optional: true
-      '@types/pg':
-        optional: true
-      '@types/sql.js':
-        optional: true
-      '@vercel/postgres':
-        optional: true
-      '@xata.io/client':
-        optional: true
-      better-sqlite3:
-        optional: true
-      bun-types:
-        optional: true
-      expo-sqlite:
-        optional: true
-      gel:
-        optional: true
-      knex:
-        optional: true
-      kysely:
         optional: true
       mysql2:
         optional: true
@@ -10733,7 +10647,7 @@ snapshots:
       '@content-collections/integrations': 0.3.0(@content-collections/core@0.11.1(typescript@5.9.2))
       next: 16.0.10(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
 
-  '@drizzle-team/brocli@0.10.2': {}
+  '@drizzle-team/brocli@0.11.0': {}
 
   '@emnapi/core@1.4.5':
     dependencies:
@@ -11344,10 +11258,10 @@ snapshots:
       '@opentelemetry/api': 1.9.0
       better-auth: 1.3.26
 
-  '@kubiks/otel-drizzle@2.0.3(@opentelemetry/api@1.9.0)(drizzle-orm@1.0.0-beta.1(@opentelemetry/api@1.9.0)(@types/mssql@9.1.8)(@types/pg@8.15.5)(gel@2.1.0)(mssql@11.0.1)(pg@8.16.3))':
+  '@kubiks/otel-drizzle@2.0.3(@opentelemetry/api@1.9.0)(drizzle-orm@1.0.0-beta.3-36e9b9e(@opentelemetry/api@1.9.0)(@types/mssql@9.1.8)(@types/pg@8.15.5)(gel@2.1.0)(mssql@11.0.1)(pg@8.16.3))':
     dependencies:
       '@opentelemetry/api': 1.9.0
-      drizzle-orm: 1.0.0-beta.1(@opentelemetry/api@1.9.0)(@types/mssql@9.1.8)(@types/pg@8.15.5)(gel@2.1.0)(mssql@11.0.1)(pg@8.16.3)
+      drizzle-orm: 1.0.0-beta.3-36e9b9e(@opentelemetry/api@1.9.0)(@types/mssql@9.1.8)(@types/pg@8.15.5)(gel@2.1.0)(mssql@11.0.1)(pg@8.16.3)
 
   '@levischuck/tiny-cbor@0.2.11': {}
 
@@ -15157,16 +15071,16 @@ snapshots:
 
   dotenv@16.5.0: {}
 
-  drizzle-kit@1.0.0-beta.1:
+  drizzle-kit@1.0.0-beta.3-36e9b9e:
     dependencies:
-      '@drizzle-team/brocli': 0.10.2
+      '@drizzle-team/brocli': 0.11.0
       '@js-temporal/polyfill': 0.5.1
       esbuild: 0.25.12
       esbuild-register: 3.6.0(esbuild@0.25.12)
     transitivePeerDependencies:
       - supports-color
 
-  drizzle-orm@1.0.0-beta.1(@opentelemetry/api@1.9.0)(@types/mssql@9.1.8)(@types/pg@8.15.5)(gel@2.1.0)(mssql@11.0.1)(pg@8.16.3):
+  drizzle-orm@1.0.0-beta.3-36e9b9e(@opentelemetry/api@1.9.0)(@types/mssql@9.1.8)(@types/pg@8.15.5)(gel@2.1.0)(mssql@11.0.1)(pg@8.16.3):
     dependencies:
       '@types/mssql': 9.1.8
       mssql: 11.0.1
@@ -15176,17 +15090,9 @@ snapshots:
       gel: 2.1.0
       pg: 8.16.3
 
-  drizzle-orm@1.0.0-beta.1-fd5d1e8(@opentelemetry/api@1.9.0)(@types/pg@8.15.5)(gel@2.1.0)(kysely@0.28.8)(pg@8.16.3):
-    optionalDependencies:
-      '@opentelemetry/api': 1.9.0
-      '@types/pg': 8.15.5
-      gel: 2.1.0
-      kysely: 0.28.8
-      pg: 8.16.3
-
-  drizzle-zod@0.8.3(drizzle-orm@1.0.0-beta.1-fd5d1e8(@opentelemetry/api@1.9.0)(@types/pg@8.15.5)(gel@2.1.0)(kysely@0.28.8)(pg@8.16.3))(zod@3.25.75):
+  drizzle-zod@0.8.3(drizzle-orm@1.0.0-beta.3-36e9b9e(@opentelemetry/api@1.9.0)(@types/mssql@9.1.8)(@types/pg@8.15.5)(gel@2.1.0)(mssql@11.0.1)(pg@8.16.3))(zod@3.25.75):
     dependencies:
-      drizzle-orm: 1.0.0-beta.1-fd5d1e8(@opentelemetry/api@1.9.0)(@types/pg@8.15.5)(gel@2.1.0)(kysely@0.28.8)(pg@8.16.3)
+      drizzle-orm: 1.0.0-beta.3-36e9b9e(@opentelemetry/api@1.9.0)(@types/mssql@9.1.8)(@types/pg@8.15.5)(gel@2.1.0)(mssql@11.0.1)(pg@8.16.3)
       zod: 3.25.75
 
   dunder-proto@1.0.1:
