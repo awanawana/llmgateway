@@ -351,7 +351,6 @@ export const googleModels = [
 				jsonOutputSchema: true,
 			},
 			{
-				test: "skip",
 				discount: 0.1,
 				providerId: "nanogpt",
 				modelName: "google/gemini-2.5-flash-preview-09-2025",
