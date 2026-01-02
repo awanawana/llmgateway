@@ -353,7 +353,7 @@ export const googleModels = [
 			{
 				discount: 0.1,
 				providerId: "nanogpt",
-				modelName: "google/gemini-2.5-flash-preview-09-2025",
+				modelName: "google/gemini-2.5-flash-preview-09-2025-thinking",
 				inputPrice: 0.3 / 1e6,
 				outputPrice: 2.5 / 1e6,
 				cachedInputPrice: 0.075 / 1e6,
@@ -591,7 +591,7 @@ export const googleModels = [
 			{
 				discount: 0.1,
 				providerId: "nanogpt",
-				modelName: "google/gemini-3-pro-preview",
+				modelName: "google/gemini-3-pro-preview-thinking",
 				inputPrice: 2 / 1e6,
 				outputPrice: 12 / 1e6,
 				pricingTiers: [
@@ -698,7 +698,7 @@ export const googleModels = [
 			{
 				discount: 0.1,
 				providerId: "nanogpt",
-				modelName: "google/gemini-3-flash-preview",
+				modelName: "google/gemini-3-flash-preview-thinking",
 				inputPrice: 0.5 / 1e6,
 				outputPrice: 3 / 1e6,
 				pricingTiers: [
