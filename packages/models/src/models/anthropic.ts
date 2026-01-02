@@ -255,7 +255,7 @@ export const anthropicModels = [
 			{
 				discount: 0.1,
 				providerId: "nanogpt",
-				modelName: "anthropic/claude-sonnet-4-5-20250929",
+				modelName: "anthropic/claude-sonnet-4-5",
 				inputPrice: 3.0 / 1e6,
 				outputPrice: 15.0 / 1e6,
 				cachedInputPrice: 0.3 / 1e6,
