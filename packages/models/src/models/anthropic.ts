@@ -255,7 +255,7 @@ export const anthropicModels = [
 			{
 				discount: 0.1,
 				providerId: "nanogpt",
-				modelName: "anthropic/claude-sonnet-4-5",
+				modelName: "claude-sonnet-4-5-20250929",
 				inputPrice: 3.0 / 1e6,
 				outputPrice: 15.0 / 1e6,
 				cachedInputPrice: 0.3 / 1e6,
@@ -316,7 +316,7 @@ export const anthropicModels = [
 			{
 				discount: 0.1,
 				providerId: "nanogpt",
-				modelName: "anthropic/claude-sonnet-4-5-20250929",
+				modelName: "claude-sonnet-4-5-20250929",
 				inputPrice: 3.0 / 1e6,
 				outputPrice: 15.0 / 1e6,
 				cachedInputPrice: 0.3 / 1e6,
@@ -357,7 +357,7 @@ export const anthropicModels = [
 			{
 				discount: 0.1,
 				providerId: "nanogpt",
-				modelName: "anthropic/claude-haiku-4-5",
+				modelName: "claude-haiku-4-5-20251001",
 				inputPrice: 1.0 / 1e6,
 				outputPrice: 5.0 / 1e6,
 				cachedInputPrice: 0.1 / 1e6,
@@ -397,7 +397,7 @@ export const anthropicModels = [
 			{
 				discount: 0.1,
 				providerId: "nanogpt",
-				modelName: "anthropic/claude-haiku-4-5-20251001",
+				modelName: "claude-haiku-4-5-20251001",
 				inputPrice: 1.0 / 1e6,
 				outputPrice: 5.0 / 1e6,
 				cachedInputPrice: 0.1 / 1e6,
@@ -705,7 +705,7 @@ export const anthropicModels = [
 				test: "skip",
 				discount: 0.1,
 				providerId: "nanogpt",
-				modelName: "anthropic/claude-opus-4-5-20251101",
+				modelName: "claude-opus-4-5-20251101",
 				inputPrice: 5.0 / 1e6,
 				outputPrice: 25.0 / 1e6,
 				cachedInputPrice: 0.5 / 1e6,
