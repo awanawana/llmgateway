@@ -37,6 +37,8 @@ export const googleModels = [
 				streaming: true,
 				vision: true,
 				tools: true,
+				webSearch: true,
+				webSearchPrice: 0.035, // $35 per 1000 prompts
 				jsonOutput: true,
 				jsonOutputSchema: true,
 			},
@@ -67,6 +69,8 @@ export const googleModels = [
 				streaming: true,
 				vision: true,
 				tools: true,
+				webSearch: true,
+				webSearchPrice: 0.035, // $35 per 1000 prompts
 				jsonOutput: true,
 				jsonOutputSchema: true,
 			},
@@ -391,6 +395,8 @@ export const googleModels = [
 				streaming: true,
 				vision: true,
 				tools: true,
+				webSearch: true,
+				webSearchPrice: 0.035, // $35 per 1000 prompts
 				jsonOutput: true,
 				jsonOutputSchema: true,
 			},
@@ -408,6 +414,8 @@ export const googleModels = [
 				streaming: true,
 				vision: true,
 				tools: true,
+				webSearch: true,
+				webSearchPrice: 0.035, // $35 per 1000 prompts
 				jsonOutput: true,
 				jsonOutputSchema: true,
 			},
@@ -553,6 +561,8 @@ export const googleModels = [
 				streaming: true,
 				vision: true,
 				tools: true,
+				webSearch: true,
+				webSearchPrice: 0.014, // $14 per 1000 queries for Gemini 3
 				jsonOutput: true,
 				jsonOutputSchema: true,
 			},
@@ -585,6 +595,8 @@ export const googleModels = [
 				streaming: true,
 				vision: true,
 				tools: true,
+				webSearch: true,
+				webSearchPrice: 0.014, // $14 per 1000 queries for Gemini 3
 				jsonOutput: true,
 				jsonOutputSchema: true,
 			},
@@ -661,6 +673,8 @@ export const googleModels = [
 				streaming: true,
 				vision: true,
 				tools: true,
+				webSearch: true,
+				webSearchPrice: 0.014, // $14 per 1000 queries for Gemini 3
 				jsonOutput: true,
 				jsonOutputSchema: true,
 			},
@@ -693,6 +707,8 @@ export const googleModels = [
 				streaming: true,
 				vision: true,
 				tools: true,
+				webSearch: true,
+				webSearchPrice: 0.014, // $14 per 1000 queries for Gemini 3
 				jsonOutput: true,
 				jsonOutputSchema: true,
 			},

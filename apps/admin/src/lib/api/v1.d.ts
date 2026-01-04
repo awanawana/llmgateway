@@ -602,7 +602,7 @@ export interface paths {
                                 presencePenalty: number | null;
                                 reasoningEffort: string | null;
                                 responseFormat?: unknown;
-                                tools: {
+                                tools: ({
                                     /** @enum {string} */
                                     type: "function";
                                     function: {
@@ -612,7 +612,19 @@ export interface paths {
                                             [key: string]: unknown;
                                         };
                                     };
-                                }[] | null;
+                                } | {
+                                    /** @enum {string} */
+                                    type: "web_search";
+                                    user_location?: {
+                                        city?: string;
+                                        region?: string;
+                                        country?: string;
+                                        timezone?: string;
+                                    };
+                                    /** @enum {string} */
+                                    search_context_size?: "low" | "medium" | "high";
+                                    max_uses?: number;
+                                })[] | null;
                                 toolChoice: "none" | "auto" | "required" | {
                                     /** @enum {string} */
                                     type: "function";
@@ -3043,6 +3055,7 @@ export interface paths {
                                 model: string;
                                 /** @enum {string} */
                                 status: "active" | "archived" | "deleted";
+                                webSearch: boolean;
                                 /** Format: date-time */
                                 createdAt: string;
                                 /** Format: date-time */
@@ -3067,6 +3080,8 @@ export interface paths {
                     "application/json": {
                         title: string;
                         model: string;
+                        /** @default false */
+                        webSearch?: boolean;
                     };
                 };
             };
@@ -3084,6 +3099,7 @@ export interface paths {
                                 model: string;
                                 /** @enum {string} */
                                 status: "active" | "archived" | "deleted";
+                                webSearch: boolean;
                                 /** Format: date-time */
                                 createdAt: string;
                                 /** Format: date-time */
@@ -3143,6 +3159,7 @@ export interface paths {
                                 model: string;
                                 /** @enum {string} */
                                 status: "active" | "archived" | "deleted";
+                                webSearch: boolean;
                                 /** Format: date-time */
                                 createdAt: string;
                                 /** Format: date-time */
@@ -3237,6 +3254,7 @@ export interface paths {
                                 model: string;
                                 /** @enum {string} */
                                 status: "active" | "archived" | "deleted";
+                                webSearch: boolean;
                                 /** Format: date-time */
                                 createdAt: string;
                                 /** Format: date-time */
