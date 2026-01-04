@@ -440,6 +440,7 @@ export const providers = [
 		color: "#10b981",
 		website: "https://nano-gpt.com",
 		announcement: null,
+		priority: 0.8,
 	},
 ] as const satisfies ProviderDefinition[];
 
