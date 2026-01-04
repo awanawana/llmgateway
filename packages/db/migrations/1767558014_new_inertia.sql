@@ -1,0 +1,1 @@
+ALTER TABLE "log" ADD COLUMN "kind" text DEFAULT 'inference' NOT NULL;
