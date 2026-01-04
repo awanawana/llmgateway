@@ -441,6 +441,11 @@ export const log = pgTable(
 		usedMode: text({
 			enum: ["api-keys", "credits"],
 		}).notNull(),
+		kind: text({
+			enum: ["inference", "embedding"],
+		})
+			.notNull()
+			.default("inference"),
 		source: text(),
 		customHeaders: json().$type<{ [key: string]: string }>(),
 		routingMetadata: json().$type<{

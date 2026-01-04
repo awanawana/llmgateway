@@ -8,6 +8,7 @@ import {
 	ChevronDown,
 	ChevronUp,
 	Info,
+	Database,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -107,12 +108,23 @@ export function ModelCard({
 								<AlertTriangle className="h-5 w-5 text-amber-400 shrink-0" />
 							)}
 						</div>
-						<Badge
-							variant="secondary"
-							className="text-xs font-medium bg-muted text-muted-foreground border hover:bg-muted/80"
-						>
-							{model.family}
-						</Badge>
+						<div className="flex items-center gap-2">
+							<Badge
+								variant="secondary"
+								className="text-xs font-medium bg-muted text-muted-foreground border hover:bg-muted/80"
+							>
+								{model.family}
+							</Badge>
+							{model.kind === "embedding" && (
+								<Badge
+									variant="secondary"
+									className="text-xs font-medium bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300"
+								>
+									<Database className="h-3 w-3 mr-1" />
+									Embedding
+								</Badge>
+							)}
+						</div>
 					</div>
 
 					<div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted border">

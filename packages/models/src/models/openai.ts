@@ -1251,3 +1251,78 @@ export const openaiModels = [
 		],
 	},
 ] as const satisfies ModelDefinition[];
+
+export const openaiEmbeddingModels = [
+	{
+		id: "text-embedding-3-small",
+		name: "Text Embedding 3 Small",
+		description:
+			"Small, efficient embedding model for most use cases. Outputs 1536-dimensional vectors.",
+		family: "openai",
+		kind: "embedding" as const,
+		output: ["embedding"] as "embedding"[],
+		releasedAt: new Date("2024-01-25"),
+		publishedAt: new Date("2024-01-25"),
+		providers: [
+			{
+				providerId: "openai",
+				modelName: "text-embedding-3-small",
+				inputPrice: 0.02 / 1e6, // $0.02 per 1M tokens
+				outputPrice: 0, // Embedding models don't produce output tokens
+				dimensions: 1536,
+				maxDimensions: 1536,
+				supportsDimensionReduction: true,
+				maxInputTokens: 8191,
+				streaming: false,
+			},
+		],
+	},
+	{
+		id: "text-embedding-3-large",
+		name: "Text Embedding 3 Large",
+		description:
+			"Most capable embedding model with higher dimensionality for complex tasks. Outputs 3072-dimensional vectors.",
+		family: "openai",
+		kind: "embedding" as const,
+		output: ["embedding"] as "embedding"[],
+		releasedAt: new Date("2024-01-25"),
+		publishedAt: new Date("2024-01-25"),
+		providers: [
+			{
+				providerId: "openai",
+				modelName: "text-embedding-3-large",
+				inputPrice: 0.13 / 1e6, // $0.13 per 1M tokens
+				outputPrice: 0, // Embedding models don't produce output tokens
+				dimensions: 3072,
+				maxDimensions: 3072,
+				supportsDimensionReduction: true,
+				maxInputTokens: 8191,
+				streaming: false,
+			},
+		],
+	},
+	{
+		id: "text-embedding-ada-002",
+		name: "Text Embedding Ada 002",
+		description:
+			"Legacy embedding model, still widely used. Outputs 1536-dimensional vectors.",
+		family: "openai",
+		kind: "embedding" as const,
+		output: ["embedding"] as "embedding"[],
+		releasedAt: new Date("2022-12-15"),
+		publishedAt: new Date("2022-12-15"),
+		providers: [
+			{
+				providerId: "openai",
+				modelName: "text-embedding-ada-002",
+				inputPrice: 0.1 / 1e6, // $0.10 per 1M tokens
+				outputPrice: 0, // Embedding models don't produce output tokens
+				dimensions: 1536,
+				maxDimensions: 1536,
+				supportsDimensionReduction: false,
+				maxInputTokens: 8191,
+				streaming: false,
+			},
+		],
+	},
+] as const satisfies ModelDefinition[];

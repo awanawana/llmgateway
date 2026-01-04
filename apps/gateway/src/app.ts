@@ -18,6 +18,7 @@ import { HealthChecker } from "@llmgateway/shared";
 
 import { anthropic } from "./anthropic/anthropic.js";
 import { chat } from "./chat/chat.js";
+import { embeddings } from "./embeddings/route.js";
 import { tracingMiddleware } from "./middleware/tracing.js";
 import { models } from "./models/route.js";
 import { responses } from "./responses/responses.js";
@@ -228,6 +229,7 @@ app.openapi(root, async (c) => {
 const v1 = new OpenAPIHono<ServerTypes>();
 
 v1.route("/chat", chat);
+v1.route("/embeddings", embeddings);
 v1.route("/models", models);
 v1.route("/messages", anthropic);
 v1.route("/responses", responses);

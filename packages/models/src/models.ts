@@ -9,7 +9,7 @@ import { minimaxModels } from "./models/minimax.js";
 import { mistralModels } from "./models/mistral.js";
 import { moonshotModels } from "./models/moonshot.js";
 import { nousresearchModels } from "./models/nousresearch.js";
-import { openaiModels } from "./models/openai.js";
+import { openaiModels, openaiEmbeddingModels } from "./models/openai.js";
 import { perplexityModels } from "./models/perplexity.js";
 import { routewayModels } from "./models/routeway.js";
 import { xaiModels } from "./models/xai.js";
@@ -58,6 +58,22 @@ export interface ProviderModelMapping {
 	 * Price per output token in USD
 	 */
 	outputPrice?: number;
+	/**
+	 * Default embedding dimensions (for embedding models)
+	 */
+	dimensions?: number;
+	/**
+	 * Maximum dimensions supported (for embedding models with dimension reduction)
+	 */
+	maxDimensions?: number;
+	/**
+	 * Whether this model supports dimension reduction (for embedding models)
+	 */
+	supportsDimensionReduction?: boolean;
+	/**
+	 * Maximum number of input tokens (for embedding models)
+	 */
+	maxInputTokens?: number;
 	/**
 	 * Price per image output token in USD (for models with separate text/image output pricing)
 	 */
@@ -212,7 +228,13 @@ export interface ModelDefinition {
 	/**
 	 * Output formats supported by the model (defaults to ['text'] if not specified)
 	 */
-	output?: ("text" | "image")[];
+	output?: ("text" | "image" | "embedding")[];
+	/**
+	 * The kind of model - determines which API endpoint it uses
+	 * - 'inference': Chat completions / text generation (default)
+	 * - 'embedding': Text embeddings
+	 */
+	kind?: "inference" | "embedding";
 	/**
 	 * Stability level of the model (defaults to 'stable' if not specified)
 	 * - stable: Fully tested and production ready
@@ -256,4 +278,9 @@ export const models = [
 	...nousresearchModels,
 	...routewayModels,
 	...zaiModels,
+] as const satisfies ModelDefinition[];
+
+/** Embedding models only */
+export const embeddingModels = [
+	...openaiEmbeddingModels,
 ] as const satisfies ModelDefinition[];

@@ -3,13 +3,17 @@ import { HTTPException } from "hono/http-exception";
 
 import { logger } from "@llmgateway/logger";
 import {
-	models as modelsList,
+	models,
+	embeddingModels,
 	providers,
 	type ProviderModelMapping,
 	type ModelDefinition,
 } from "@llmgateway/models";
 
 import type { ServerTypes } from "@/vars.js";
+
+// Combine inference and embedding models for the API response
+const modelsList: readonly ModelDefinition[] = [...models, ...embeddingModels];
 
 export const modelsApi = new OpenAPIHono<ServerTypes>();
 
@@ -20,9 +24,10 @@ const modelSchema = z.object({
 	created: z.number(),
 	description: z.string().optional(),
 	family: z.string(),
+	kind: z.enum(["inference", "embedding"]).optional(),
 	architecture: z.object({
 		input_modalities: z.array(z.enum(["text", "image"])),
-		output_modalities: z.array(z.enum(["text", "image"])),
+		output_modalities: z.array(z.enum(["text", "image", "embedding"])),
 		tokenizer: z.string().optional(),
 	}),
 	top_provider: z.object({
@@ -48,6 +53,7 @@ const modelSchema = z.object({
 			stability: z
 				.enum(["stable", "beta", "unstable", "experimental"])
 				.optional(),
+			dimensions: z.number().optional(),
 		}),
 	),
 	pricing: z.object({
@@ -61,6 +67,7 @@ const modelSchema = z.object({
 		internal_reasoning: z.string().optional(),
 	}),
 	context_length: z.number().optional(),
+	dimensions: z.number().optional(),
 	per_request_limits: z.record(z.string()).optional(),
 	supported_parameters: z.array(z.string()).optional(),
 	json_output: z.boolean(),
@@ -155,7 +162,8 @@ modelsApi.openapi(listModels, async (c) => {
 			}
 
 			// Determine output modalities from model definition or default to text only
-			const outputModalities: ("text" | "image")[] = model.output || ["text"];
+			const outputModalities: ("text" | "image" | "embedding")[] =
+				model.output || ["text"];
 
 			const firstProviderWithPricing = model.providers.find(
 				(p: ProviderModelMapping) =>
@@ -171,6 +179,10 @@ modelsApi.openapi(listModels, async (c) => {
 			const imagePrice =
 				firstProviderWithPricing?.imageInputPrice?.toString() || "0";
 
+			// Get dimensions for embedding models
+			const dimensions =
+				model.kind === "embedding" ? model.providers[0]?.dimensions : undefined;
+
 			return {
 				id: model.id,
 				name: model.name || model.id,
@@ -178,6 +190,7 @@ modelsApi.openapi(listModels, async (c) => {
 				created: Math.floor(Date.now() / 1000), // Current timestamp in seconds
 				description: `${model.id} provided by ${model.providers.map((p) => p.providerId).join(", ")}`,
 				family: model.family,
+				kind: model.kind || "inference",
 				architecture: {
 					input_modalities: inputModalities,
 					output_modalities: outputModalities,
@@ -212,6 +225,7 @@ modelsApi.openapi(listModels, async (c) => {
 						parallelToolCalls: provider.parallelToolCalls || false,
 						reasoning: provider.reasoning || false,
 						stability: provider.stability || model.stability,
+						dimensions: provider.dimensions,
 					};
 				}),
 				pricing: {
@@ -229,6 +243,8 @@ modelsApi.openapi(listModels, async (c) => {
 				context_length:
 					Math.max(...model.providers.map((p) => p.contextSize || 0)) ||
 					undefined,
+				// Dimensions for embedding models
+				dimensions,
 				// Get supported parameters from model definitions with fallback to defaults
 				supported_parameters: getSupportedParametersFromModel(model),
 				// Add model-level capabilities

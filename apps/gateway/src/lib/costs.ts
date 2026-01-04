@@ -6,6 +6,7 @@ import {
 	type Model,
 	type ModelDefinition,
 	models,
+	embeddingModels,
 	type PricingTier,
 	type ToolCall,
 } from "@llmgateway/models";
@@ -325,5 +326,66 @@ export function calculateCosts(
 		estimatedCost: isEstimated,
 		discount: discount !== 0 ? discount : undefined,
 		pricingTier: pricing.tierName,
+	};
+}
+
+/**
+ * Calculate costs for embedding requests (input tokens only, no output tokens)
+ */
+export function calculateEmbeddingCosts(
+	model: string,
+	provider: string,
+	promptTokens: number | null,
+) {
+	// Find the embedding model info
+	let modelInfo = embeddingModels.find(
+		(m) => m.id === model,
+	) as ModelDefinition;
+
+	if (!modelInfo) {
+		modelInfo = embeddingModels.find((m) =>
+			m.providers.some((p) => p.modelName === model),
+		) as ModelDefinition;
+	}
+
+	if (!modelInfo) {
+		return {
+			inputCost: null,
+			totalCost: null,
+			promptTokens,
+			estimatedCost: false,
+			discount: undefined,
+		};
+	}
+
+	// Find the provider-specific pricing
+	const providerInfo = modelInfo.providers.find(
+		(p) => p.providerId === provider,
+	);
+
+	if (!providerInfo || !promptTokens) {
+		return {
+			inputCost: null,
+			totalCost: null,
+			promptTokens,
+			estimatedCost: false,
+			discount: undefined,
+		};
+	}
+
+	const inputPrice = new Decimal(providerInfo.inputPrice || 0);
+	const discount = providerInfo.discount || 0;
+	const discountMultiplier = new Decimal(1).minus(discount);
+
+	const inputCost = new Decimal(promptTokens)
+		.times(inputPrice)
+		.times(discountMultiplier);
+
+	return {
+		inputCost: inputCost.toNumber(),
+		totalCost: inputCost.toNumber(),
+		promptTokens,
+		estimatedCost: false,
+		discount: discount !== 0 ? discount : undefined,
 	};
 }

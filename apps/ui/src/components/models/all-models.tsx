@@ -25,6 +25,7 @@ import {
 	Scale,
 	Braces,
 	FileJson2,
+	Database,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -132,6 +133,7 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 			jsonOutput: searchParams.get("jsonOutput") === "true",
 			jsonOutputSchema: searchParams.get("jsonOutputSchema") === "true",
 			imageGeneration: searchParams.get("imageGeneration") === "true",
+			embedding: searchParams.get("embedding") === "true",
 			webSearch: searchParams.get("webSearch") === "true",
 			free: searchParams.get("free") === "true",
 			discounted: searchParams.get("discounted") === "true",
@@ -263,6 +265,9 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 				filters.capabilities.imageGeneration &&
 				!model.output?.includes("image")
 			) {
+				return false;
+			}
+			if (filters.capabilities.embedding && model.kind !== "embedding") {
 				return false;
 			}
 			if (
@@ -615,6 +620,7 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 				jsonOutput: false,
 				jsonOutputSchema: false,
 				imageGeneration: false,
+				embedding: false,
 				webSearch: false,
 				free: false,
 				discounted: false,
@@ -636,6 +642,7 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 			jsonOutput: undefined,
 			jsonOutputSchema: undefined,
 			imageGeneration: undefined,
+			embedding: undefined,
 			webSearch: undefined,
 			free: undefined,
 			discounted: undefined,
@@ -714,6 +721,12 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 									label: "Image Generation",
 									icon: ImagePlus,
 									color: "text-pink-500",
+								},
+								{
+									key: "embedding",
+									label: "Embedding",
+									icon: Database,
+									color: "text-indigo-500",
 								},
 								{
 									key: "webSearch",
@@ -1007,6 +1020,15 @@ export function AllModels({ children }: { children: React.ReactNode }) {
 											<div className="truncate max-w-[150px]">
 												{model.name || model.id}
 											</div>
+											{model.kind === "embedding" && (
+												<Badge
+													variant="secondary"
+													className="text-xs bg-indigo-100 text-indigo-700 border-indigo-200"
+												>
+													<Database className="h-3 w-3 mr-1" />
+													Embedding
+												</Badge>
+											)}
 											{shouldShowStabilityWarning(model.stability) && (
 												<AlertTriangle className="h-4 w-4 text-orange-500" />
 											)}
