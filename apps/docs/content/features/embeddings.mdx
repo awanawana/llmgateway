@@ -1,0 +1,170 @@
+---
+title: Embeddings
+description: Generate text embeddings using OpenAI-compatible embedding models.
+icon: Database
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+
+# Embeddings
+
+LLMGateway supports the OpenAI-compatible embeddings API for generating vector representations of text. Embeddings are useful for semantic search, clustering, recommendations, and retrieval-augmented generation (RAG).
+
+## Endpoint
+
+```
+POST https://api.llmgateway.io/v1/embeddings
+```
+
+## Supported Models
+
+| Model                    | Dimensions | Price          | Dimension Reduction |
+| ------------------------ | ---------- | -------------- | ------------------- |
+| `text-embedding-3-small` | 1536       | $0.02/M tokens | Yes                 |
+| `text-embedding-3-large` | 3072       | $0.13/M tokens | Yes                 |
+| `text-embedding-ada-002` | 1536       | $0.10/M tokens | No                  |
+
+You can also view embedding models on the [models page with embedding filter](https://llmgateway.io/models?filters=1&embedding=true).
+
+## cURL Example
+
+### Basic Embedding
+
+```bash
+curl -X POST "https://api.llmgateway.io/v1/embeddings" \
+  -H "Authorization: Bearer $LLM_GATEWAY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "text-embedding-3-small",
+    "input": "The quick brown fox jumps over the lazy dog."
+  }'
+```
+
+### Multiple Inputs
+
+```bash
+curl -X POST "https://api.llmgateway.io/v1/embeddings" \
+  -H "Authorization: Bearer $LLM_GATEWAY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "text-embedding-3-small",
+    "input": [
+      "First document to embed",
+      "Second document to embed",
+      "Third document to embed"
+    ]
+  }'
+```
+
+### Custom Dimensions
+
+For `text-embedding-3-small` and `text-embedding-3-large`, you can reduce the output dimensions:
+
+```bash
+curl -X POST "https://api.llmgateway.io/v1/embeddings" \
+  -H "Authorization: Bearer $LLM_GATEWAY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "text-embedding-3-large",
+    "input": "Reduce dimensions for this text",
+    "dimensions": 256
+  }'
+```
+
+## OpenAI SDK Example
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="your-llmgateway-api-key",
+    base_url="https://api.llmgateway.io/v1"
+)
+
+# Single input
+response = client.embeddings.create(
+    model="text-embedding-3-small",
+    input="The quick brown fox jumps over the lazy dog."
+)
+
+print(response.data[0].embedding)
+print(f"Dimensions: {len(response.data[0].embedding)}")
+print(f"Tokens used: {response.usage.total_tokens}")
+```
+
+### Multiple Inputs
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="your-llmgateway-api-key",
+    base_url="https://api.llmgateway.io/v1"
+)
+
+response = client.embeddings.create(
+    model="text-embedding-3-small",
+    input=[
+        "First document to embed",
+        "Second document to embed",
+        "Third document to embed"
+    ]
+)
+
+for i, embedding in enumerate(response.data):
+    print(f"Document {i}: {len(embedding.embedding)} dimensions")
+```
+
+### Dimension Reduction
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="your-llmgateway-api-key",
+    base_url="https://api.llmgateway.io/v1"
+)
+
+response = client.embeddings.create(
+    model="text-embedding-3-large",
+    input="Reduce dimensions for this text",
+    dimensions=256
+)
+
+print(f"Dimensions: {len(response.data[0].embedding)}")  # 256
+```
+
+## Response Format
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "object": "embedding",
+      "embedding": [0.0023064255, -0.009327292, ...],
+      "index": 0
+    }
+  ],
+  "model": "openai/text-embedding-3-small",
+  "usage": {
+    "prompt_tokens": 9,
+    "total_tokens": 9
+  }
+}
+```
+
+## Request Parameters
+
+| Parameter         | Type            | Required | Description                                                                     |
+| ----------------- | --------------- | -------- | ------------------------------------------------------------------------------- |
+| `model`           | string          | Yes      | Model ID (e.g., `text-embedding-3-small`)                                       |
+| `input`           | string or array | Yes      | Text to embed. Can be a single string or array of strings.                      |
+| `dimensions`      | integer         | No       | Number of dimensions for output. Only supported by `text-embedding-3-*` models. |
+| `encoding_format` | string          | No       | Format of embeddings: `float` (default) or `base64`.                            |
+| `user`            | string          | No       | Unique identifier for your end-user.                                            |
+
+<Callout type="info">
+	Embedding models are billed only for input tokens. There are no output tokens
+	since embeddings are fixed-size vectors.
+</Callout>
