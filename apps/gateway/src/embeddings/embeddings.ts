@@ -391,6 +391,17 @@ embeddings.openapi(embeddingsRoute, async (c) => {
 	// Store upstream request for logging (if debug mode is enabled)
 	const upstreamRequest = debugMode ? requestBody : undefined;
 
+	// Format input for display in UI (used in both success and error logging)
+	const inputText = Array.isArray(input) ? input.join(" | ") : input;
+	const truncatedInput =
+		inputText.length > 200 ? `${inputText.slice(0, 200)}...` : inputText;
+	const messages = [
+		{
+			role: "user",
+			content: inputText,
+		},
+	];
+
 	try {
 		response = await fetch(embeddingsUrl, {
 			method: "POST",
@@ -437,6 +448,8 @@ embeddings.openapi(embeddingsRoute, async (c) => {
 			kind: "embedding",
 			userAgent,
 			dataStorageCost: "0",
+			content: `Embedding request: ${truncatedInput}`,
+			messages,
 			rawRequest,
 			upstreamRequest,
 		});
@@ -480,6 +493,8 @@ embeddings.openapi(embeddingsRoute, async (c) => {
 			kind: "embedding",
 			userAgent,
 			dataStorageCost: "0",
+			content: `Embedding request: ${truncatedInput}`,
+			messages,
 			rawRequest,
 			upstreamRequest,
 			upstreamResponse,
@@ -547,6 +562,8 @@ embeddings.openapi(embeddingsRoute, async (c) => {
 		kind: "embedding",
 		userAgent,
 		dataStorageCost,
+		content: `Embedding request: ${truncatedInput}`,
+		messages,
 		rawRequest,
 		rawResponse,
 		upstreamRequest,
