@@ -4,6 +4,11 @@ slug: "embeddings-api-support"
 date: "2026-01-05"
 title: "OpenAI-Compatible Embeddings API"
 summary: "Generate text embeddings with OpenAI embedding models through our new /v1/embeddings endpoint. Supports text-embedding-3-small, text-embedding-3-large, and text-embedding-ada-002."
+image:
+  src: "/changelog/embeddings-api-support.png"
+  alt: "OpenAI-Compatible Embeddings API now available on LLM Gateway"
+  width: 1768
+  height: 677
 ---
 
 We're excited to announce the **Embeddings API** - a new OpenAI-compatible endpoint for generating text embeddings. Embeddings are vector representations of text useful for semantic search, clustering, recommendations, and RAG applications.

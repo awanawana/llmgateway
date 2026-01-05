@@ -63,7 +63,11 @@ import {
 import { useAppConfig } from "@/lib/config";
 import { cn, formatContextSize } from "@/lib/utils";
 
-import { models, providers } from "@llmgateway/models";
+import {
+	models as inferenceModels,
+	embeddingModels,
+	providers,
+} from "@llmgateway/models";
 import { getProviderIcon } from "@llmgateway/shared/components";
 
 import { ModelCard } from "./model-card";
@@ -73,6 +77,9 @@ import type {
 	ProviderModelMapping,
 	StabilityLevel,
 } from "@llmgateway/models";
+
+// Combine inference and embedding models for the UI
+const models = [...inferenceModels, ...embeddingModels];
 
 interface ModelWithProviders extends ModelDefinition {
 	providerDetails: Array<{
