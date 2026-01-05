@@ -132,6 +132,12 @@ embeddings.openapi(embeddingsRoute, async (c) => {
 	// Extract User-Agent for logging
 	const userAgent = c.req.header("User-Agent") || undefined;
 
+	// Check for debug mode
+	const debugMode = c.req.header("x-debug") === "true";
+
+	// Store raw request for logging (if debug mode is enabled)
+	const rawRequest = debugMode ? rawBody : undefined;
+
 	// Store original requested model
 	const initialRequestedModel = modelInput;
 
@@ -380,6 +386,10 @@ embeddings.openapi(embeddingsRoute, async (c) => {
 
 	let response: Response;
 	let responseData: any;
+	let upstreamResponse: any;
+
+	// Store upstream request for logging (if debug mode is enabled)
+	const upstreamRequest = debugMode ? requestBody : undefined;
 
 	try {
 		response = await fetch(embeddingsUrl, {
@@ -392,6 +402,9 @@ embeddings.openapi(embeddingsRoute, async (c) => {
 		});
 
 		responseData = await response.json();
+
+		// Store upstream response for logging (if debug mode is enabled)
+		upstreamResponse = debugMode ? responseData : undefined;
 	} catch (error) {
 		const duration = Date.now() - startTime;
 		logger.error("Embeddings request failed", {
@@ -424,6 +437,8 @@ embeddings.openapi(embeddingsRoute, async (c) => {
 			kind: "embedding",
 			userAgent,
 			dataStorageCost: "0",
+			rawRequest,
+			upstreamRequest,
 		});
 
 		throw new HTTPException(500, {
@@ -465,6 +480,9 @@ embeddings.openapi(embeddingsRoute, async (c) => {
 			kind: "embedding",
 			userAgent,
 			dataStorageCost: "0",
+			rawRequest,
+			upstreamRequest,
+			upstreamResponse,
 		});
 
 		throw new HTTPException(response.status as 400 | 401 | 500, {
@@ -476,7 +494,7 @@ embeddings.openapi(embeddingsRoute, async (c) => {
 
 	// Extract usage info
 	const promptTokens = responseData.usage?.prompt_tokens || 0;
-	const totalTokens = responseData.usage?.total_tokens || promptTokens;
+	const totalTokens = responseData.usage?.total_tokens || 0;
 
 	// Calculate costs
 	const costs = calculateEmbeddingCosts(usedModel, usedProvider, promptTokens);
@@ -489,6 +507,20 @@ embeddings.openapi(embeddingsRoute, async (c) => {
 		null,
 		retentionLevel,
 	);
+
+	// Build response with model name including provider
+	const finalResponse = {
+		object: "list" as const,
+		data: responseData.data,
+		model: `${usedProvider}/${usedModel}`,
+		usage: {
+			prompt_tokens: promptTokens,
+			total_tokens: totalTokens,
+		},
+	};
+
+	// Store raw response for logging (if debug mode is enabled)
+	const rawResponse = debugMode ? finalResponse : undefined;
 
 	// Log the successful request
 	await insertLog({
@@ -515,18 +547,11 @@ embeddings.openapi(embeddingsRoute, async (c) => {
 		kind: "embedding",
 		userAgent,
 		dataStorageCost,
+		rawRequest,
+		rawResponse,
+		upstreamRequest,
+		upstreamResponse,
 	});
-
-	// Build response with model name including provider
-	const finalResponse = {
-		object: "list" as const,
-		data: responseData.data,
-		model: `${usedProvider}/${usedModel}`,
-		usage: {
-			prompt_tokens: promptTokens,
-			total_tokens: totalTokens,
-		},
-	};
 
 	return c.json(finalResponse);
 });
