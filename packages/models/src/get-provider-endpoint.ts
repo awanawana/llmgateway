@@ -18,6 +18,7 @@ export function getProviderEndpoint(
 	providerKeyOptions?: ProviderKeyOptions,
 	configIndex?: number,
 	imageGenerations?: boolean,
+	endpointType?: "inference" | "embedding",
 ): string {
 	let modelName = model;
 	if (model && model !== "custom") {
@@ -265,6 +266,10 @@ export function getProviderEndpoint(
 			}
 		}
 		case "openai": {
+			// Return embeddings endpoint if specified
+			if (endpointType === "embedding") {
+				return `${url}/v1/embeddings`;
+			}
 			// Use responses endpoint for models that support responses API
 			if (model) {
 				// Look up by model ID first, then fall back to provider modelName

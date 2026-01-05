@@ -345,8 +345,19 @@ embeddings.openapi(embeddingsRoute, async (c) => {
 	}
 
 	// Build request to OpenAI embeddings API
-	const providerEndpoint = getProviderEndpoint(usedProvider);
-	const embeddingsUrl = `${providerEndpoint}/v1/embeddings`;
+	const embeddingsUrl = getProviderEndpoint(
+		usedProvider,
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		undefined,
+		"embedding",
+	);
 
 	const providerHeaders = getProviderHeaders(usedProvider, providerToken);
 
