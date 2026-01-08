@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { CacheRateChart } from "@/components/usage/cache-rate-chart";
 import { CostBreakdownChart } from "@/components/usage/cost-breakdown-chart";
 import { ErrorRateChart } from "@/components/usage/error-rate-chart";
+import { ModelUsageChart } from "@/components/usage/model-usage-chart";
 import { ModelUsageTable } from "@/components/usage/model-usage-table";
 import { UsageChart } from "@/components/usage/usage-chart";
 import { useDashboardNavigation } from "@/hooks/useDashboardNavigation";
@@ -167,6 +168,10 @@ export function UsageClient({
 						</Card>
 					</TabsContent>
 					<TabsContent value="models" className="space-y-4">
+						<ModelUsageChart
+							initialData={apiKeyId ? undefined : initialActivityData}
+							apiKeyId={apiKeyId}
+						/>
 						<Card>
 							<CardHeader>
 								<CardTitle>Top Used Models</CardTitle>
