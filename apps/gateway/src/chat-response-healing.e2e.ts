@@ -380,9 +380,7 @@ describe("Response Healing E2E", () => {
 		});
 
 		test("should work with json_schema response format", async () => {
-			setMockResponse(
-				'```json\n{"temperature": "72F", "conditions": "sunny"}\n```',
-			);
+			setMockResponse('```json\n{"date": "Tuesday", "time": "3pm"}\n```');
 
 			const res = await app.request("/v1/chat/completions", {
 				method: "POST",
@@ -392,19 +390,25 @@ describe("Response Healing E2E", () => {
 				},
 				body: JSON.stringify({
 					model: "llmgateway/custom",
-					messages: [{ role: "user", content: "What is the weather?" }],
+					messages: [
+						{
+							role: "user",
+							content:
+								"Extract the meeting details from: 'Meeting scheduled for Tuesday at 3pm.'",
+						},
+					],
 					response_format: {
 						type: "json_schema",
 						json_schema: {
-							name: "weather_response",
-							description: "Weather information",
+							name: "message_analysis",
+							description: "Extracted meeting details",
 							schema: {
 								type: "object",
 								properties: {
-									temperature: { type: "string" },
-									conditions: { type: "string" },
+									date: { type: "string" },
+									time: { type: "string" },
 								},
-								required: ["temperature", "conditions"],
+								required: ["date", "time"],
 							},
 						},
 					},
@@ -419,8 +423,8 @@ describe("Response Healing E2E", () => {
 			const content = json.choices[0].message.content;
 			expect(() => JSON.parse(content)).not.toThrow();
 			expect(JSON.parse(content)).toEqual({
-				temperature: "72F",
-				conditions: "sunny",
+				date: "Tuesday",
+				time: "3pm",
 			});
 		});
 	});

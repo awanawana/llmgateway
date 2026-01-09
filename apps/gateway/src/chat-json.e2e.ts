@@ -85,11 +85,11 @@ describe("e2e", getConcurrentTestOptions(), () => {
 		}),
 	)("JSON schema output $model", getTestOptions(), async ({ model }) => {
 		// Define the Zod schema that matches our JSON schema payload
-		const weatherResponseSchema = z
+		const messageAnalysisSchema = z
 			.object({
+				day: z.string(),
+				time: z.string(),
 				location: z.string(),
-				temperature: z.string(),
-				conditions: z.string(),
 			})
 			.strict(); // strict() ensures no additional properties
 
@@ -104,35 +104,37 @@ describe("e2e", getConcurrentTestOptions(), () => {
 				messages: [
 					{
 						role: "system",
-						content: "You are a helpful assistant.",
+						content:
+							"You are a helpful assistant that extracts information from text.",
 					},
 					{
 						role: "user",
-						content: "What is the weather like today?",
+						content:
+							"Extract the meeting details from this message: 'Meeting scheduled for Tuesday at 3pm in Conference Room B.'",
 					},
 				],
 				response_format: {
 					type: "json_schema",
 					json_schema: {
-						name: "weather_response",
-						description: "A response about the weather",
+						name: "message_analysis",
+						description: "Extracted details from a meeting message",
 						schema: {
 							type: "object",
 							properties: {
+								day: {
+									type: "string",
+									description: "The day of the meeting",
+								},
+								time: {
+									type: "string",
+									description: "The time of the meeting",
+								},
 								location: {
 									type: "string",
-									description: "The location for the weather",
-								},
-								temperature: {
-									type: "string",
-									description: "The temperature",
-								},
-								conditions: {
-									type: "string",
-									description: "The weather conditions",
+									description: "The location of the meeting",
 								},
 							},
-							required: ["location", "temperature", "conditions"],
+							required: ["date", "time", "location"],
 							additionalProperties: false,
 						},
 						strict: true,
@@ -153,7 +155,7 @@ describe("e2e", getConcurrentTestOptions(), () => {
 		const parsedContent = JSON.parse(content);
 
 		// Validate the parsed content matches the exact schema using Zod
-		const validationResult = weatherResponseSchema.safeParse(parsedContent);
+		const validationResult = messageAnalysisSchema.safeParse(parsedContent);
 		if (!validationResult.success) {
 			console.error(
 				"Schema validation failed:",
@@ -169,12 +171,12 @@ describe("e2e", getConcurrentTestOptions(), () => {
 		// Additional type-safe assertions after validation
 		if (validationResult.success) {
 			const data = validationResult.data;
+			expect(typeof data.day).toBe("string");
+			expect(typeof data.time).toBe("string");
 			expect(typeof data.location).toBe("string");
-			expect(typeof data.temperature).toBe("string");
-			expect(typeof data.conditions).toBe("string");
+			expect(data.day.length).toBeGreaterThan(0);
+			expect(data.time.length).toBeGreaterThan(0);
 			expect(data.location.length).toBeGreaterThan(0);
-			expect(data.temperature.length).toBeGreaterThan(0);
-			expect(data.conditions.length).toBeGreaterThan(0);
 		}
 	});
 });
