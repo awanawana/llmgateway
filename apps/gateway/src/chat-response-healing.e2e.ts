@@ -380,7 +380,9 @@ describe("Response Healing E2E", () => {
 		});
 
 		test("should work with json_schema response format", async () => {
-			setMockResponse('```json\n{"date": "Tuesday", "time": "3pm"}\n```');
+			setMockResponse(
+				'```json\n{"date": "Friday", "location": "Central Park"}\n```',
+			);
 
 			const res = await app.request("/v1/chat/completions", {
 				method: "POST",
@@ -394,21 +396,20 @@ describe("Response Healing E2E", () => {
 						{
 							role: "user",
 							content:
-								"Extract the meeting details from: 'Meeting scheduled for Tuesday at 3pm.'",
+								"Extract date and location: 'The concert is on Friday in Central Park.'",
 						},
 					],
 					response_format: {
 						type: "json_schema",
 						json_schema: {
-							name: "message_analysis",
-							description: "Extracted meeting details",
+							name: "extraction",
 							schema: {
 								type: "object",
 								properties: {
 									date: { type: "string" },
-									time: { type: "string" },
+									location: { type: "string" },
 								},
-								required: ["date", "time"],
+								required: ["date", "location"],
 							},
 						},
 					},
@@ -423,8 +424,8 @@ describe("Response Healing E2E", () => {
 			const content = json.choices[0].message.content;
 			expect(() => JSON.parse(content)).not.toThrow();
 			expect(JSON.parse(content)).toEqual({
-				date: "Tuesday",
-				time: "3pm",
+				date: "Friday",
+				location: "Central Park",
 			});
 		});
 	});

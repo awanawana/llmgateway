@@ -84,14 +84,12 @@ describe("e2e", getConcurrentTestOptions(), () => {
 			);
 		}),
 	)("JSON schema output $model", getTestOptions(), async ({ model }) => {
-		// Define the Zod schema that matches our JSON schema payload
-		const messageAnalysisSchema = z
+		const schema = z
 			.object({
-				day: z.string(),
-				time: z.string(),
+				date: z.string(),
 				location: z.string(),
 			})
-			.strict(); // strict() ensures no additional properties
+			.strict();
 
 		const res = await app.request("/v1/chat/completions", {
 			method: "POST",
@@ -103,38 +101,22 @@ describe("e2e", getConcurrentTestOptions(), () => {
 				model: model,
 				messages: [
 					{
-						role: "system",
-						content:
-							"You are a helpful assistant that extracts information from text.",
-					},
-					{
 						role: "user",
 						content:
-							"Extract the meeting details from this message: 'Meeting scheduled for Tuesday at 3pm in Conference Room B.'",
+							"Extract date and location: 'The concert is on Friday in Central Park.'",
 					},
 				],
 				response_format: {
 					type: "json_schema",
 					json_schema: {
-						name: "message_analysis",
-						description: "Extracted details from a meeting message",
+						name: "extraction",
 						schema: {
 							type: "object",
 							properties: {
-								day: {
-									type: "string",
-									description: "The day of the meeting",
-								},
-								time: {
-									type: "string",
-									description: "The time of the meeting",
-								},
-								location: {
-									type: "string",
-									description: "The location of the meeting",
-								},
+								date: { type: "string" },
+								location: { type: "string" },
 							},
-							required: ["date", "time", "location"],
+							required: ["date", "location"],
 							additionalProperties: false,
 						},
 						strict: true,
@@ -153,9 +135,7 @@ describe("e2e", getConcurrentTestOptions(), () => {
 		expect(() => JSON.parse(content)).not.toThrow();
 
 		const parsedContent = JSON.parse(content);
-
-		// Validate the parsed content matches the exact schema using Zod
-		const validationResult = messageAnalysisSchema.safeParse(parsedContent);
+		const validationResult = schema.safeParse(parsedContent);
 		if (!validationResult.success) {
 			console.error(
 				"Schema validation failed:",
@@ -168,15 +148,9 @@ describe("e2e", getConcurrentTestOptions(), () => {
 		}
 		expect(validationResult.success).toBe(true);
 
-		// Additional type-safe assertions after validation
 		if (validationResult.success) {
-			const data = validationResult.data;
-			expect(typeof data.day).toBe("string");
-			expect(typeof data.time).toBe("string");
-			expect(typeof data.location).toBe("string");
-			expect(data.day.length).toBeGreaterThan(0);
-			expect(data.time.length).toBeGreaterThan(0);
-			expect(data.location.length).toBeGreaterThan(0);
+			expect(validationResult.data.date.length).toBeGreaterThan(0);
+			expect(validationResult.data.location.length).toBeGreaterThan(0);
 		}
 	});
 });
