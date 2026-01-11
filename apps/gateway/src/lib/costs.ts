@@ -265,8 +265,19 @@ export function calculateCosts(
 		.times(inputPrice)
 		.times(discountMultiplier);
 
-	// For Google models, reasoning tokens are billed at the output token rate
-	const totalOutputTokens = calculatedCompletionTokens + (reasoningTokens || 0);
+	// For Google and Anthropic models, reasoning tokens are separate from completion tokens
+	// and need to be added. For OpenAI-compatible providers (including Cerebras),
+	// completion_tokens already includes reasoning_tokens, so we don't add them again.
+	const providersWithSeparateReasoningTokens = [
+		"google-ai-studio",
+		"google-vertex",
+		"anthropic",
+	];
+	const shouldAddReasoningTokens =
+		providersWithSeparateReasoningTokens.includes(provider);
+	const totalOutputTokens =
+		calculatedCompletionTokens +
+		(shouldAddReasoningTokens ? reasoningTokens || 0 : 0);
 
 	// Calculate output cost, handling separate image output pricing if applicable
 	let outputCost: Decimal;
