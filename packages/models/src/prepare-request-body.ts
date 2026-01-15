@@ -84,6 +84,71 @@ function convertOpenAISchemaToGoogle(schema: any): any {
 }
 
 /**
+ * Recursively ensures additionalProperties: false is set on all object schemas for Cerebras
+ * Cerebras requires this property to be explicitly set
+ */
+function ensureAdditionalPropertiesFalse(schema: any): any {
+	if (!schema || typeof schema !== "object") {
+		return schema;
+	}
+
+	if (Array.isArray(schema)) {
+		return schema.map((item) => ensureAdditionalPropertiesFalse(item));
+	}
+
+	const result: any = { ...schema };
+
+	// If this is an object type schema, ensure additionalProperties is false
+	if (result.type === "object") {
+		result.additionalProperties = false;
+	}
+
+	// Recursively process properties
+	if (result.properties) {
+		result.properties = Object.fromEntries(
+			Object.entries(result.properties).map(([key, value]) => [
+				key,
+				ensureAdditionalPropertiesFalse(value),
+			]),
+		);
+	}
+
+	// Recursively process items (for arrays)
+	if (result.items) {
+		result.items = ensureAdditionalPropertiesFalse(result.items);
+	}
+
+	// Recursively process anyOf, oneOf, allOf
+	for (const key of ["anyOf", "oneOf", "allOf"]) {
+		if (result[key] && Array.isArray(result[key])) {
+			result[key] = result[key].map((item: any) =>
+				ensureAdditionalPropertiesFalse(item),
+			);
+		}
+	}
+
+	// Recursively process $defs/definitions
+	if (result.$defs) {
+		result.$defs = Object.fromEntries(
+			Object.entries(result.$defs).map(([key, value]) => [
+				key,
+				ensureAdditionalPropertiesFalse(value),
+			]),
+		);
+	}
+	if (result.definitions) {
+		result.definitions = Object.fromEntries(
+			Object.entries(result.definitions).map(([key, value]) => [
+				key,
+				ensureAdditionalPropertiesFalse(value),
+			]),
+		);
+	}
+
+	return result;
+}
+
+/**
  * Resolves a $ref path like "#/$defs/QuestionOption" to the actual definition
  */
 function resolveRef(ref: string, rootDefs: Record<string, any>): any {
@@ -1177,12 +1242,16 @@ export async function prepareRequestBody(
 			}
 
 			// Cerebras requires strict: true inside each tool's function object
+			// and additionalProperties: false on all object schemas
 			if (requestBody.tools && Array.isArray(requestBody.tools)) {
 				requestBody.tools = requestBody.tools.map((tool: any) => ({
 					...tool,
 					function: {
 						...tool.function,
 						strict: true,
+						parameters: tool.function.parameters
+							? ensureAdditionalPropertiesFalse(tool.function.parameters)
+							: tool.function.parameters,
 					},
 				}));
 			}

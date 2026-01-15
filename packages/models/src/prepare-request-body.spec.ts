@@ -384,4 +384,55 @@ describe("prepareRequestBody - Google AI Studio", () => {
 		// Should not have additionalProperties
 		expect(params.additionalProperties).toBeUndefined();
 	});
+
+	test("should add additionalProperties: false to Cerebras tool parameters", async () => {
+		const toolsWithoutAdditionalProps = [
+			{
+				type: "function" as const,
+				function: {
+					name: "test_tool",
+					description: "Test tool",
+					parameters: {
+						type: "object",
+						properties: {
+							name: { type: "string" },
+							nested: {
+								type: "object",
+								properties: {
+									value: { type: "string" },
+								},
+							},
+						},
+					},
+				},
+			},
+		];
+
+		const requestBody = (await prepareRequestBody(
+			"cerebras",
+			"llama-4-scout-17b-16e-instruct",
+			[{ role: "user", content: "test" }],
+			false,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			toolsWithoutAdditionalProps,
+			undefined,
+			undefined,
+			false,
+			false,
+		)) as any;
+
+		const params = requestBody.tools[0].function.parameters;
+
+		// Should have additionalProperties: false at root
+		expect(params.additionalProperties).toBe(false);
+		// Should have additionalProperties: false on nested objects
+		expect(params.properties.nested.additionalProperties).toBe(false);
+		// Should have strict: true on function
+		expect(requestBody.tools[0].function.strict).toBe(true);
+	});
 });
