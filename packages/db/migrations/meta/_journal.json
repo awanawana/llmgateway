@@ -554,6 +554,27 @@
       "when": 1767536657166,
       "tag": "1767536657_odd_molly_hayes",
       "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "8",
+      "when": 1767656749613,
+      "tag": "1767656749_broken_stranger",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "8",
+      "when": 1768485558006,
+      "tag": "1768485558_calm_nocturne",
+      "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "8",
+      "when": 1768492522403,
+      "tag": "1768492522_chilly_makkari",
+      "breakpoints": true
     }
   ]
 }

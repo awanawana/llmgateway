@@ -273,4 +273,223 @@ describe("prepareRequestBody - Google AI Studio", () => {
 
 		expect(requestBody.generationConfig.thinkingConfig).toBeUndefined();
 	});
+
+	test("should expand $ref references in tool parameters", async () => {
+		const toolsWithRef = [
+			{
+				type: "function" as const,
+				function: {
+					name: "ask_question",
+					description: "Ask a question",
+					parameters: {
+						type: "object",
+						properties: {
+							question: { type: "string" },
+							options: {
+								type: "array",
+								items: { $ref: "#/$defs/QuestionOption" },
+							},
+						},
+						$defs: {
+							QuestionOption: {
+								type: "object",
+								properties: {
+									label: { type: "string" },
+									value: { type: "string" },
+								},
+								required: ["label", "value"],
+							},
+						},
+						required: ["question"],
+					},
+				},
+			},
+		];
+
+		const requestBody = (await prepareRequestBody(
+			"google-ai-studio",
+			"gemini-2.0-flash",
+			[{ role: "user", content: "test" }],
+			false,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			toolsWithRef,
+			undefined,
+			undefined,
+			false,
+			false,
+		)) as any;
+
+		expect(requestBody.tools).toBeDefined();
+		expect(requestBody.tools[0].functionDeclarations).toBeDefined();
+
+		const params = requestBody.tools[0].functionDeclarations[0].parameters;
+
+		// Should not have $defs anymore
+		expect(params.$defs).toBeUndefined();
+
+		// The $ref should be expanded inline
+		expect(params.properties.options.items).toEqual({
+			type: "object",
+			properties: {
+				label: { type: "string" },
+				value: { type: "string" },
+			},
+			required: ["label", "value"],
+		});
+	});
+
+	test("should strip additionalProperties from tool parameters", async () => {
+		const toolsWithAdditionalProps = [
+			{
+				type: "function" as const,
+				function: {
+					name: "test_tool",
+					description: "Test tool",
+					parameters: {
+						type: "object",
+						properties: {
+							name: { type: "string" },
+						},
+						additionalProperties: false,
+					},
+				},
+			},
+		];
+
+		const requestBody = (await prepareRequestBody(
+			"google-ai-studio",
+			"gemini-2.0-flash",
+			[{ role: "user", content: "test" }],
+			false,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			toolsWithAdditionalProps,
+			undefined,
+			undefined,
+			false,
+			false,
+		)) as any;
+
+		const params = requestBody.tools[0].functionDeclarations[0].parameters;
+
+		// Should not have additionalProperties
+		expect(params.additionalProperties).toBeUndefined();
+	});
+
+	test("should add additionalProperties: false to Cerebras tool parameters", async () => {
+		const toolsWithoutAdditionalProps = [
+			{
+				type: "function" as const,
+				function: {
+					name: "test_tool",
+					description: "Test tool",
+					parameters: {
+						type: "object",
+						properties: {
+							name: { type: "string" },
+							nested: {
+								type: "object",
+								properties: {
+									value: { type: "string" },
+								},
+							},
+						},
+					},
+				},
+			},
+		];
+
+		const requestBody = (await prepareRequestBody(
+			"cerebras",
+			"llama-4-scout-17b-16e-instruct",
+			[{ role: "user", content: "test" }],
+			false,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			toolsWithoutAdditionalProps,
+			undefined,
+			undefined,
+			false,
+			false,
+		)) as any;
+
+		const params = requestBody.tools[0].function.parameters;
+
+		// Should have additionalProperties: false at root
+		expect(params.additionalProperties).toBe(false);
+		// Should have additionalProperties: false on nested objects
+		expect(params.properties.nested.additionalProperties).toBe(false);
+		// Should have strict: true on function
+		expect(requestBody.tools[0].function.strict).toBe(true);
+	});
+
+	test("should strip unsupported string fields from Cerebras tool parameters", async () => {
+		const toolsWithStringFields = [
+			{
+				type: "function" as const,
+				function: {
+					name: "fetch_url",
+					description: "Fetch a URL",
+					parameters: {
+						type: "object",
+						properties: {
+							url: { type: "string", format: "uri" },
+							email: { type: "string", format: "email" },
+							name: { type: "string", minLength: 1, maxLength: 100 },
+							code: { type: "string", pattern: "^[A-Z]+$" },
+							plainString: { type: "string" },
+						},
+					},
+				},
+			},
+		];
+
+		const requestBody = (await prepareRequestBody(
+			"cerebras",
+			"llama-4-scout-17b-16e-instruct",
+			[{ role: "user", content: "test" }],
+			false,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			toolsWithStringFields,
+			undefined,
+			undefined,
+			false,
+			false,
+		)) as any;
+
+		const params = requestBody.tools[0].function.parameters;
+
+		// Should strip format field from string schemas
+		expect(params.properties.url.format).toBeUndefined();
+		expect(params.properties.email.format).toBeUndefined();
+		// Should strip minLength/maxLength
+		expect(params.properties.name.minLength).toBeUndefined();
+		expect(params.properties.name.maxLength).toBeUndefined();
+		// Should strip pattern
+		expect(params.properties.code.pattern).toBeUndefined();
+		// Should preserve type
+		expect(params.properties.url.type).toBe("string");
+		expect(params.properties.email.type).toBe("string");
+		expect(params.properties.name.type).toBe("string");
+		expect(params.properties.code.type).toBe("string");
+		expect(params.properties.plainString.type).toBe("string");
+	});
 });

@@ -146,7 +146,7 @@ async function processAutoTopUp(): Promise<void> {
 
 		for (const org of filteredOrgs) {
 			try {
-				// Check if there's a recent pending or failed auto top-up transaction
+				// Check if there's a recent pending transaction
 				const recentTransaction = await db.query.transaction.findFirst({
 					where: {
 						organizationId: {
@@ -161,24 +161,40 @@ async function processAutoTopUp(): Promise<void> {
 					},
 				});
 
-				// Additional check for time constraint (within 1 hour) and status
+				// Check for pending transaction within 1 hour
 				if (recentTransaction) {
 					const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-					if (recentTransaction.createdAt > oneHourAgo) {
-						// Recent transaction within 1 hour, check its status
-						if (recentTransaction.status === "pending") {
-							logger.info(
-								`Skipping auto top-up for organization ${org.id}: pending transaction exists`,
-							);
-							continue;
-						}
+					if (
+						recentTransaction.createdAt > oneHourAgo &&
+						recentTransaction.status === "pending"
+					) {
+						logger.info(
+							`Skipping auto top-up for organization ${org.id}: pending transaction exists`,
+						);
+						continue;
+					}
+				}
 
-						if (recentTransaction.status === "failed") {
-							logger.info(
-								`Skipping auto top-up for organization ${org.id}: most recent transaction failed`,
-							);
-							continue;
-						}
+				// Check for exponential backoff based on payment failure count
+				// Backoff intervals: 1h, 2h, 4h, 8h, 16h, 24h (capped)
+				if (org.lastPaymentFailureAt && (org.paymentFailureCount ?? 0) > 0) {
+					const failureCount = org.paymentFailureCount ?? 0;
+					const baseBackoffHours = 1;
+					const maxBackoffHours = 24;
+					const backoffHours = Math.min(
+						baseBackoffHours * Math.pow(2, failureCount - 1),
+						maxBackoffHours,
+					);
+					const backoffMs = backoffHours * 60 * 60 * 1000;
+					const nextRetryTime = new Date(
+						org.lastPaymentFailureAt.getTime() + backoffMs,
+					);
+
+					if (new Date() < nextRetryTime) {
+						logger.info(
+							`Skipping auto top-up for organization ${org.id}: in backoff period (${failureCount} failures, next retry at ${nextRetryTime.toISOString()})`,
+						);
+						continue;
 					}
 				}
 
@@ -359,26 +375,31 @@ export async function cleanupExpiredLogData(): Promise<void> {
 		let totalFreePlanCleaned = 0;
 		let totalProPlanCleaned = 0;
 
+		// Fetch project IDs for each plan upfront (small query, runs once)
+		const freePlanProjects = await db
+			.select({ id: tables.project.id })
+			.from(tables.project)
+			.innerJoin(
+				organization,
+				eq(tables.project.organizationId, organization.id),
+			)
+			.where(eq(organization.plan, "free"));
+		const freePlanProjectIds = freePlanProjects.map((p) => p.id);
+
 		// Process free plan organizations in batches
-		let hasMoreFreePlanRecords = true;
+		let hasMoreFreePlanRecords = freePlanProjectIds.length > 0;
 		while (hasMoreFreePlanRecords) {
 			const batchResult = await db.transaction(async (tx) => {
 				// Find IDs of records to clean up (with LIMIT for batching)
-				// Use JOIN instead of subquery for better performance with large tables
-				// dataRetentionCleanedUp=false implies there's data to clean, no need for OR conditions
-				// Use project_id subquery to leverage partial index on (project_id, created_at)
+				// Uses inArray with actual values to leverage index on (project_id, created_at)
 				const recordsToClean = await tx
 					.select({ id: log.id })
 					.from(log)
 					.where(
 						and(
-							sql`${log.projectId} IN (
-								SELECT ${tables.project.id} FROM ${tables.project}
-								INNER JOIN ${organization} ON ${tables.project.organizationId} = ${organization.id}
-								WHERE ${organization.plan} = 'free'
-							)`,
+							inArray(log.projectId, freePlanProjectIds),
 							lt(log.createdAt, freePlanCutoff),
-							sql`${log.dataRetentionCleanedUp} = false`,
+							eq(log.dataRetentionCleanedUp, false),
 						),
 					)
 					.limit(CLEANUP_BATCH_SIZE)
@@ -432,26 +453,31 @@ export async function cleanupExpiredLogData(): Promise<void> {
 			);
 		}
 
+		// Fetch pro plan project IDs upfront
+		const proPlanProjects = await db
+			.select({ id: tables.project.id })
+			.from(tables.project)
+			.innerJoin(
+				organization,
+				eq(tables.project.organizationId, organization.id),
+			)
+			.where(eq(organization.plan, "pro"));
+		const proPlanProjectIds = proPlanProjects.map((p) => p.id);
+
 		// Process pro plan organizations in batches
-		let hasMoreProPlanRecords = true;
+		let hasMoreProPlanRecords = proPlanProjectIds.length > 0;
 		while (hasMoreProPlanRecords) {
 			const batchResult = await db.transaction(async (tx) => {
 				// Find IDs of records to clean up (with LIMIT for batching)
-				// Use JOIN instead of subquery for better performance with large tables
-				// dataRetentionCleanedUp=false implies there's data to clean, no need for OR conditions
-				// Use project_id subquery to leverage partial index on (project_id, created_at)
+				// Uses inArray with actual values to leverage index on (project_id, created_at)
 				const recordsToClean = await tx
 					.select({ id: log.id })
 					.from(log)
 					.where(
 						and(
-							sql`${log.projectId} IN (
-								SELECT ${tables.project.id} FROM ${tables.project}
-								INNER JOIN ${organization} ON ${tables.project.organizationId} = ${organization.id}
-								WHERE ${organization.plan} = 'pro'
-							)`,
+							inArray(log.projectId, proPlanProjectIds),
 							lt(log.createdAt, proPlanCutoff),
-							sql`${log.dataRetentionCleanedUp} = false`,
+							eq(log.dataRetentionCleanedUp, false),
 						),
 					)
 					.limit(CLEANUP_BATCH_SIZE)
@@ -643,23 +669,68 @@ export async function batchProcessLogs(): Promise<void> {
 
 			// Batch update organization credits within the same transaction
 			// Also calculate referral earnings (1% of spent credits)
+			// Dev plan credits are deducted first, then regular credits
 			const referralEarnings = new Map<string, Decimal>();
 
 			for (const [orgId, totalCost] of orgCosts.entries()) {
 				if (totalCost.greaterThan(0)) {
-					const costNumber = totalCost.toNumber();
-					await tx
-						.update(organization)
-						.set({
-							credits: sql`${organization.credits} - ${costNumber}`,
-						})
-						.where(eq(organization.id, orgId));
+					let remainingCost = totalCost;
 
-					logger.debug(
-						`Deducted ${costNumber} credits from organization ${orgId}`,
-					);
+					// Fetch the organization to check for dev plan
+					const org = await tx.query.organization.findFirst({
+						where: { id: { eq: orgId } },
+					});
+
+					// First, try to deduct from dev plan credits if available
+					if (org && org.devPlan !== "none") {
+						const devPlanCreditsLimit = new Decimal(
+							org.devPlanCreditsLimit || "0",
+						);
+						const devPlanCreditsUsed = new Decimal(
+							org.devPlanCreditsUsed || "0",
+						);
+						const devPlanRemaining =
+							devPlanCreditsLimit.minus(devPlanCreditsUsed);
+
+						if (devPlanRemaining.greaterThan(0)) {
+							const deductFromDevPlan = Decimal.min(
+								remainingCost,
+								devPlanRemaining,
+							);
+							const deductNumber = deductFromDevPlan.toNumber();
+
+							await tx
+								.update(organization)
+								.set({
+									devPlanCreditsUsed: sql`${organization.devPlanCreditsUsed} + ${deductNumber}`,
+								})
+								.where(eq(organization.id, orgId));
+
+							logger.debug(
+								`Deducted ${deductNumber} dev plan credits from organization ${orgId}`,
+							);
+
+							remainingCost = remainingCost.minus(deductFromDevPlan);
+						}
+					}
+
+					// Deduct any remaining cost from regular credits
+					if (remainingCost.greaterThan(0)) {
+						const costNumber = remainingCost.toNumber();
+						await tx
+							.update(organization)
+							.set({
+								credits: sql`${organization.credits} - ${costNumber}`,
+							})
+							.where(eq(organization.id, orgId));
+
+						logger.debug(
+							`Deducted ${costNumber} regular credits from organization ${orgId}`,
+						);
+					}
 
 					// Check if this org was referred and calculate 1% referral earnings
+					// Based on total cost (both dev plan and regular credits)
 					const referral = await tx.query.referral.findFirst({
 						where: {
 							referredOrganizationId: { eq: orgId },
