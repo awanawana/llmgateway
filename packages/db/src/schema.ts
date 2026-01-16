@@ -509,11 +509,15 @@ export const log = pgTable(
 			table.usedModel,
 			table.usedProvider,
 		),
-		// Partial index for data retention cleanup: project_id first for filtering, then created_at for range
-		// Only indexes rows that need cleanup (data_retention_cleaned_up = false)
-		index("log_data_retention_pending_idx")
-			.on(table.projectId, table.createdAt)
-			.where(sql`data_retention_cleaned_up = false`),
+		// Composite index for data retention cleanup queries
+		// NOTE: Partial indexes don't work with PostgreSQL generic plans (prepared statements),
+		// so we use a full composite index instead. The column order (project_id, data_retention_cleaned_up, created_at)
+		// allows efficient filtering: first by project_id (IN clause), then by cleanup status, then by date range.
+		index("log_data_retention_idx").on(
+			table.projectId,
+			table.dataRetentionCleanedUp,
+			table.createdAt,
+		),
 		// Index for distinct usedModel queries by project
 		index("log_project_id_used_model_idx").on(table.projectId, table.usedModel),
 		// Partial index for batch credit processing: only indexes unprocessed logs
