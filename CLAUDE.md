@@ -14,7 +14,7 @@ This file provides guidance to AI agents when working with code in this reposito
 
 NOTE: these commands can only be run in the root directory of the repository, not in individual app directories.
 
-- `pnpm dev` - Start all development servers (UI on :3002, Playground on :3003, API on :4002, Gateway on :4001, Docs on :3005, Admin on :3006)
+- `pnpm dev` - Start all development servers (UI on :3002, Playground on :3003, Code on :3004, API on :4002, Gateway on :4001, Docs on :3005, Admin on :3006)
 - `pnpm build` - Build all applications for production. Always run this after finishing work on a feature.
 - `pnpm clean` - Clean build artifacts and cache directories
 
@@ -77,6 +77,7 @@ NOTE: these commands can only be run in the root directory of the repository, no
 - **API** (`apps/api`) - Backend API for user management, billing, analytics (Hono + Zod + OpenAPI)
 - **UI** (`apps/ui`) - Frontend dashboard (Next.js App Router)
 - **Playground** (`apps/playground`) - Interactive LLM testing environment (Next.js App Router)
+- **Code** (`apps/code`) - Dev plans + coding tools landing & dashboard (Next.js App Router)
 - **Docs** (`apps/docs`) - Documentation site (Next.js + Fumadocs)
 
 ### Shared Packages
@@ -142,6 +143,7 @@ NOTE: these commands can only be run in the root directory of the repository, no
 
 - UI: http://localhost:3002
 - Playground: http://localhost:3003
+- Code: http://localhost:3004
 - API: http://localhost:4002
 - Gateway: http://localhost:4001
 - Docs: http://localhost:3005
@@ -153,6 +155,7 @@ NOTE: these commands can only be run in the root directory of the repository, no
 
 - `apps/ui`: Next.js frontend
 - `apps/playground`: Interactive LLM testing environment
+- `apps/code`: Dev plans + coding tools landing & dashboard
 - `apps/api`: Hono backend
 - `apps/gateway`: API gateway for routing LLM requests
 - `apps/docs`: Documentation site
