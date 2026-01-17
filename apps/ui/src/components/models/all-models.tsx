@@ -247,7 +247,7 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 				// Must have a stable provider with coding capabilities
 				const hasCodingCapabilities = model.providerDetails.some(
 					(p) =>
-						p.provider.jsonOutput &&
+						(p.provider.jsonOutput || p.provider.jsonOutputSchema) &&
 						p.provider.tools &&
 						p.provider.streaming &&
 						p.provider.cachedInputPrice !== null &&
