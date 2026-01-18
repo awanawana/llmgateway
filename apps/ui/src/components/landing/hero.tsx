@@ -1,17 +1,13 @@
 "use client";
 
-import { ArrowRight, ChevronRight, Copy } from "lucide-react";
+import { ArrowRight, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useTheme } from "next-themes";
-import { Highlight, themes } from "prism-react-renderer";
-import { useEffect, useState } from "react";
 
 import { AuthLink } from "@/components/shared/auth-link";
 import { Button } from "@/lib/components/button";
-import { toast } from "@/lib/components/use-toast";
+import { ShimmerButton } from "@/lib/components/shimmer-button";
 import { useAppConfig } from "@/lib/config";
-import { cn } from "@/lib/utils";
 
 import { providerLogoUrls } from "@llmgateway/shared/components";
 
@@ -20,8 +16,6 @@ import { Navbar } from "./navbar";
 
 import type { Variants } from "@/components/motion-wrapper";
 import type { ProviderId } from "@llmgateway/models";
-import type { Language, Token } from "prism-react-renderer";
-import type { CSSProperties } from "react";
 
 const transitionVariants: { item: Variants } = {
 	item: {
@@ -66,27 +60,6 @@ const PROVIDER_LOGOS: { name: string; providerId: ProviderId }[] = [
 	{ name: "Inference.net", providerId: "inference.net" },
 ];
 
-// TypeScript code example
-const typescriptExample = {
-	language: "typescript",
-	code: `import OpenAI from "openai";
-
-const client = new OpenAI({
-  apiKey: process.env.LLM_GATEWAY_API_KEY,
-  baseURL: "https://api.llmgateway.io/v1"
-});
-
-const response = await client.chat.completions.create({
-  model: "gpt-5",
-  messages: [
-    { role: "user", content: "Hello, how are you?" }
-  ]
-});
-
-console.log(response.choices[0].message.content);`,
-	highlightedLines: [4, 5], // Line 4 contains the apiKey
-};
-
 export function Hero({
 	navbarOnly,
 	sticky = true,
@@ -97,32 +70,6 @@ export function Hero({
 	children: React.ReactNode;
 }) {
 	const config = useAppConfig();
-	const { resolvedTheme } = useTheme();
-	const [mounted, setMounted] = useState(false);
-
-	useEffect(() => {
-		setMounted(true);
-	}, []);
-
-	const copyToClipboard = async (text: string) => {
-		try {
-			await navigator.clipboard.writeText(text);
-			toast({
-				title: "Copied to clipboard",
-				description:
-					"TypeScript code snippet has been copied to your clipboard.",
-				duration: 3000,
-			});
-		} catch (err) {
-			console.error("Failed to copy text: ", err);
-			toast({
-				title: "Copy failed",
-				description: "Could not copy to clipboard. Please try again.",
-				variant: "destructive",
-				duration: 3000,
-			});
-		}
-	};
 
 	return (
 		<>
@@ -144,15 +91,15 @@ export function Hero({
 								className="absolute inset-0 -z-10 size-full [background:radial-gradient(125%_125%_at_50%_100%,transparent_0%,var(--background)_75%)]"
 							/>
 							<div className="mx-auto max-w-7xl px-6">
-								{/* Open source badge - outside grid */}
-								<div className="mb-10 lg:mb-12">
+								{/* Announcement badge - centered */}
+								<div className="mb-10 lg:mb-12 flex justify-center">
 									<AnimatedGroup variants={transitionVariants}>
 										<Link
 											href="/changelog/gemini-3-pro-preview-support"
-											className="mx-auto lg:mx-0 hover:bg-background dark:hover:border-t-border bg-muted group flex w-fit items-center gap-4 rounded-full border p-1 pl-4 shadow-md shadow-black/5 transition-all duration-300 dark:border-t-white/5 dark:shadow-zinc-950"
+											className="hover:bg-background dark:hover:border-t-border bg-muted group flex w-fit items-center gap-4 rounded-full border p-1 pl-4 shadow-md shadow-black/5 transition-all duration-300 dark:border-t-white/5 dark:shadow-zinc-950"
 										>
 											<span className="text-foreground text-sm">
-												Gemini 3 is now live with a 20% discount
+												Gemini 3 is live with a 20% discount
 											</span>
 											<span className="dark:border-background block h-4 w-0.5 border-l bg-white dark:bg-zinc-700" />
 
@@ -170,171 +117,108 @@ export function Hero({
 									</AnimatedGroup>
 								</div>
 
-								{/* 2-column grid layout */}
-								<div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
-									{/* Column 1: Content */}
-									<div className="text-center lg:text-left">
-										<AnimatedGroup variants={transitionVariants}>
-											<h1 className="max-w-4xl mx-auto lg:mx-0 text-balance text-4xl md:text-6xl xl:text-6xl font-bold">
-												Use any model, from any provider
-												<br />— with just one API.
-											</h1>
-											<p className="mx-auto lg:mx-0 mt-8 max-w-2xl text-balance text-lg">
-												Route, manage, and analyze your LLM requests across
-												multiple providers with a unified API interface.
-											</p>
-										</AnimatedGroup>
+								{/* Centered hero content - optimized for conversion */}
+								<div className="text-center max-w-4xl mx-auto">
+									<AnimatedGroup variants={transitionVariants}>
+										<h1 className="text-balance text-2xl md:text-3xl lg:text-4xl font-medium tracking-tight text-foreground/80">
+											Use any model, from any provider with just one API.
+										</h1>
+										<p className="mt-4 md:mt-6 max-w-2xl mx-auto text-balance text-base md:text-lg text-muted-foreground">
+											Route, manage, and analyze your LLM requests across
+											multiple providers with one unified API interface.
+										</p>
+									</AnimatedGroup>
 
-										<AnimatedGroup
-											variants={{
-												container: {
-													visible: {
-														transition: {
-															staggerChildren: 0.05,
-															delayChildren: 0.75,
-														},
+									{/* Primary CTA - Maximum prominence */}
+									<AnimatedGroup
+										variants={{
+											container: {
+												visible: {
+													transition: {
+														staggerChildren: 0.05,
+														delayChildren: 0.5,
 													},
 												},
-												...transitionVariants,
-											}}
-											className="mt-12 flex flex-col items-center lg:items-start justify-center lg:justify-start gap-2 md:flex-row"
-										>
-											<div
-												key={1}
-												className="bg-foreground/10 rounded-[14px] border p-0.5"
-											>
-												<Button
-													asChild
-													size="lg"
-													className="rounded-xl px-5 text-base"
+											},
+											...transitionVariants,
+										}}
+										className="mt-8 md:mt-10 flex flex-col items-center gap-6"
+									>
+										{/* Primary CTA - ShimmerButton with glow */}
+										<div className="relative">
+											{/* Outer glow ring */}
+											<div className="absolute -inset-3 bg-blue-500/30 rounded-full blur-xl animate-pulse" />
+											<AuthLink href="/signup" className="group relative">
+												<ShimmerButton
+													background="rgb(37, 99, 235)"
+													className="shadow-2xl shadow-blue-500/25 px-10 md:px-12 py-3 md:py-4"
 												>
-													<AuthLink href="/signup">
-														<span className="text-nowrap">
-															Get your API key
-														</span>
-													</AuthLink>
-												</Button>
-											</div>
-											<Button
-												key={2}
-												asChild
-												size="lg"
-												variant="ghost"
-												className="h-10.5 rounded-xl px-5"
-											>
-												<a href={config.docsUrl ?? ""} target="_blank">
-													<span className="text-nowrap">
-														View documentation
+													<span className="flex items-center gap-3 text-center text-xl leading-none font-bold tracking-tight whitespace-pre-wrap text-white md:text-2xl">
+														<span>Get My API Key</span>
+														<ArrowRight className="size-6 md:size-7 transition-transform group-hover:translate-x-1" />
 													</span>
-												</a>
-											</Button>
-										</AnimatedGroup>
-									</div>
+												</ShimmerButton>
+											</AuthLink>
+										</div>
 
-									{/* Column 2: Code Example */}
-									<div className="hidden lg:block">
-										<AnimatedGroup
-											variants={{
-												container: {
-													visible: {
-														transition: {
-															staggerChildren: 0.05,
-															delayChildren: 0.5,
-														},
-													},
-												},
-												...transitionVariants,
-											}}
-										>
-											<div className="relative overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-950">
-												<Button
-													type="button"
-													variant="ghost"
-													size="sm"
-													className="absolute top-3 right-3 z-10 h-8 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm hover:bg-white dark:hover:bg-zinc-900"
-													onClick={() =>
-														copyToClipboard(typescriptExample.code)
-													}
+										{/* Trust indicators */}
+										<div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
+											<span className="flex items-center gap-1.5">
+												<svg
+													className="size-4 text-green-500"
+													fill="currentColor"
+													viewBox="0 0 20 20"
 												>
-													<Copy className="h-4 w-4 mr-1" />
-													Copy
-												</Button>
+													<path
+														fillRule="evenodd"
+														d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+														clipRule="evenodd"
+													/>
+												</svg>
+												Free tier included
+											</span>
+											<span className="flex items-center gap-1.5">
+												<svg
+													className="size-4 text-green-500"
+													fill="currentColor"
+													viewBox="0 0 20 20"
+												>
+													<path
+														fillRule="evenodd"
+														d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+														clipRule="evenodd"
+													/>
+												</svg>
+												No credit card required
+											</span>
+											<span className="flex items-center gap-1.5">
+												<svg
+													className="size-4 text-green-500"
+													fill="currentColor"
+													viewBox="0 0 20 20"
+												>
+													<path
+														fillRule="evenodd"
+														d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+														clipRule="evenodd"
+													/>
+												</svg>
+												Setup in 30 seconds
+											</span>
+										</div>
 
-												<div className="relative">
-													<Highlight
-														code={typescriptExample.code}
-														language={typescriptExample.language as Language}
-														theme={
-															mounted && resolvedTheme === "dark"
-																? themes.dracula
-																: themes.github
-														}
-													>
-														{({
-															className,
-															style,
-															tokens,
-															getLineProps,
-															getTokenProps,
-														}: {
-															className: string;
-															style: CSSProperties;
-															tokens: Token[][];
-															getLineProps: (input: {
-																line: Token[];
-																key?: React.Key;
-															}) => React.HTMLAttributes<HTMLElement>;
-															getTokenProps: (input: {
-																token: Token;
-																key?: React.Key;
-															}) => React.HTMLAttributes<HTMLElement>;
-														}) => (
-															<pre
-																className={cn(
-																	"py-4 overflow-x-auto text-sm leading-relaxed font-mono max-h-100 overflow-y-auto",
-																	className,
-																)}
-																style={{
-																	...style,
-																	borderRadius: 0,
-																	overflowX: "auto",
-																}}
-															>
-																{tokens.map((line, i: number) => {
-																	const isHighlighted =
-																		typescriptExample.highlightedLines?.includes(
-																			i + 1,
-																		);
-																	const lineProps = getLineProps({ line });
-																	return (
-																		<div
-																			key={i}
-																			{...lineProps}
-																			className={cn(
-																				"px-4",
-																				isHighlighted
-																					? "bg-green-500/10 dark:bg-green-500/20"
-																					: "",
-																			)}
-																		>
-																			{line.map((token, key: number) => {
-																				const tokenProps = getTokenProps({
-																					token,
-																				});
-																				return (
-																					<span key={key} {...tokenProps} />
-																				);
-																			})}
-																		</div>
-																	);
-																})}
-															</pre>
-														)}
-													</Highlight>
-												</div>
-											</div>
-										</AnimatedGroup>
-									</div>
+										{/* Secondary CTA - De-emphasized */}
+										<Button
+											asChild
+											variant="ghost"
+											className="text-muted-foreground hover:text-foreground"
+										>
+											<a href={config.docsUrl ?? ""} target="_blank">
+												<span>View documentation</span>
+												<ChevronRight className="size-4" />
+											</a>
+										</Button>
+									</AnimatedGroup>
 								</div>
 							</div>
 

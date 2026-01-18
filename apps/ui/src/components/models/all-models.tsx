@@ -26,6 +26,10 @@ import {
 	FileJson2,
 	List,
 	Grid,
+	Bot,
+	Brain,
+	Sparkles,
+	PenTool,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -132,8 +136,8 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 		(searchParams.get("sortDir") as SortDirection) === "desc" ? "desc" : "asc",
 	);
 	const [filters, setFilters] = useState({
+		category: searchParams.get("category") || "all",
 		capabilities: {
-			coding: searchParams.get("coding") === "true",
 			streaming: searchParams.get("streaming") === "true",
 			vision: searchParams.get("vision") === "true",
 			tools: searchParams.get("tools") === "true",
@@ -231,34 +235,85 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 				}
 			}
 
-			// Capability filters
-			if (filters.capabilities.coding) {
-				// Exclude free models
-				if (model.free) {
-					return false;
-				}
-				// Exclude unstable/experimental models
-				if (
-					model.stability === "unstable" ||
-					model.stability === "experimental"
-				) {
-					return false;
-				}
-				// Must have a stable provider with coding capabilities
-				const hasCodingCapabilities = model.providerDetails.some(
-					(p) =>
-						(p.provider.jsonOutput || p.provider.jsonOutputSchema) &&
-						p.provider.tools &&
-						p.provider.streaming &&
-						p.provider.cachedInputPrice !== null &&
-						p.provider.cachedInputPrice !== undefined &&
-						p.provider.stability !== "unstable" &&
-						p.provider.stability !== "experimental",
-				);
-				if (!hasCodingCapabilities) {
-					return false;
+			// Category filter
+			if (filters.category && filters.category !== "all") {
+				switch (filters.category) {
+					case "code": {
+						// Code generation: needs tools, JSON output, streaming
+						if (model.free) {
+							return false;
+						}
+						if (
+							model.stability === "unstable" ||
+							model.stability === "experimental"
+						) {
+							return false;
+						}
+						const hasCodeCapabilities = model.providerDetails.some(
+							(p) =>
+								(p.provider.jsonOutput || p.provider.jsonOutputSchema) &&
+								p.provider.tools &&
+								p.provider.streaming,
+						);
+						if (!hasCodeCapabilities) {
+							return false;
+						}
+						break;
+					}
+					case "chat": {
+						// Chat & Assistants: general chat models with streaming
+						const hasStreaming = model.providerDetails.some(
+							(p) => p.provider.streaming,
+						);
+						if (!hasStreaming) {
+							return false;
+						}
+						break;
+					}
+					case "reasoning": {
+						// Reasoning & Analysis: models with reasoning capability
+						const hasReasoning = model.providerDetails.some(
+							(p) => p.provider.reasoning,
+						);
+						if (!hasReasoning) {
+							return false;
+						}
+						break;
+					}
+					case "creative": {
+						// Creative & Writing: exclude image generation models
+						if (model.output?.includes("image")) {
+							return false;
+						}
+						const hasCreativeStreaming = model.providerDetails.some(
+							(p) => p.provider.streaming,
+						);
+						if (!hasCreativeStreaming) {
+							return false;
+						}
+						break;
+					}
+					case "image": {
+						// Image Generation
+						if (!model.output?.includes("image")) {
+							return false;
+						}
+						break;
+					}
+					case "multimodal": {
+						// Multimodal: vision capability
+						const hasVision = model.providerDetails.some(
+							(p) => p.provider.vision,
+						);
+						if (!hasVision) {
+							return false;
+						}
+						break;
+					}
 				}
 			}
+
+			// Capability filters
 			if (
 				filters.capabilities.streaming &&
 				!model.providerDetails.some((p) => p.provider.streaming)
@@ -698,8 +753,8 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 	const clearFilters = () => {
 		setSearchQuery("");
 		setFilters({
+			category: "all",
 			capabilities: {
-				coding: false,
 				streaming: false,
 				vision: false,
 				tools: false,
@@ -721,7 +776,7 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 
 		updateUrlWithFilters({
 			q: undefined,
-			coding: undefined,
+			category: undefined,
 			streaming: undefined,
 			vision: undefined,
 			tools: undefined,
@@ -746,6 +801,7 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 
 	const hasActiveFilters =
 		searchQuery ||
+		(filters.category && filters.category !== "all") ||
 		Object.values(filters.capabilities).some(Boolean) ||
 		(filters.selectedProvider && filters.selectedProvider !== "all") ||
 		filters.inputPrice.min ||
@@ -761,17 +817,74 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 			className={`transition-all duration-200 ${showFilters ? "opacity-100" : "opacity-0 hidden"}`}
 		>
 			<CardContent className="pt-6">
-				<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+				<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+					{/* Categories */}
+					<div className="space-y-3">
+						<h3 className="font-medium text-sm">Use Case</h3>
+						<Select
+							value={filters.category}
+							onValueChange={(value) => {
+								setFilters((prev) => ({ ...prev, category: value }));
+								updateUrlWithFilters({
+									category: value !== "all" ? value : undefined,
+								});
+							}}
+						>
+							<SelectTrigger className="w-full">
+								<SelectValue placeholder="All Use Cases" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="all">
+									<div className="flex items-center gap-2">
+										<List className="h-4 w-4 text-muted-foreground" />
+										All Use Cases
+									</div>
+								</SelectItem>
+								<SelectItem value="code">
+									<div className="flex items-center gap-2">
+										<Code className="h-4 w-4 text-indigo-500" />
+										Code Generation
+									</div>
+								</SelectItem>
+								<SelectItem value="chat">
+									<div className="flex items-center gap-2">
+										<Bot className="h-4 w-4 text-blue-500" />
+										Chat & Assistants
+									</div>
+								</SelectItem>
+								<SelectItem value="reasoning">
+									<div className="flex items-center gap-2">
+										<Brain className="h-4 w-4 text-orange-500" />
+										Reasoning & Analysis
+									</div>
+								</SelectItem>
+								<SelectItem value="creative">
+									<div className="flex items-center gap-2">
+										<PenTool className="h-4 w-4 text-purple-500" />
+										Creative & Writing
+									</div>
+								</SelectItem>
+								<SelectItem value="image">
+									<div className="flex items-center gap-2">
+										<ImagePlus className="h-4 w-4 text-pink-500" />
+										Image Generation
+									</div>
+								</SelectItem>
+								<SelectItem value="multimodal">
+									<div className="flex items-center gap-2">
+										<Sparkles className="h-4 w-4 text-amber-500" />
+										Multimodal (Vision)
+									</div>
+								</SelectItem>
+							</SelectContent>
+						</Select>
+					</div>
+
+					{/* Capabilities */}
 					<div className="space-y-3">
 						<h3 className="font-medium text-sm">Capabilities</h3>
 						<div className="space-y-2">
 							{[
-								{
-									key: "coding",
-									label: "Coding Recommended",
-									icon: Code,
-									color: "text-indigo-500",
-								},
 								{
 									key: "streaming",
 									label: "Streaming",

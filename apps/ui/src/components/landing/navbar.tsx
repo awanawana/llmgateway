@@ -77,7 +77,7 @@ export const Navbar = ({
 	const config = useAppConfig();
 
 	const menuItems: Array<{ name: string; href: string; external?: boolean }> = [
-		{ name: "Pricing", href: "/#pricing" },
+		{ name: "Pricing", href: "/pricing" },
 		{ name: "Docs", href: config.docsUrl ?? "", external: true },
 		{ name: "Models", href: "/models" },
 	];

@@ -5,7 +5,6 @@ import Features from "@/components/landing/features";
 import Footer from "@/components/landing/footer";
 import { Graph } from "@/components/landing/graph";
 import { HeroRSC } from "@/components/landing/hero-rsc";
-import { PricingPlans } from "@/components/landing/pricing-plans";
 import { Testimonials } from "@/components/landing/testimonials";
 
 export default function Home() {
@@ -15,7 +14,6 @@ export default function Home() {
 			<Features />
 			<Graph />
 			<CodeExample />
-			<PricingPlans />
 			<Testimonials />
 			<Faq />
 			<CallToAction />
