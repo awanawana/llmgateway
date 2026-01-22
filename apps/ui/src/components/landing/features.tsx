@@ -37,7 +37,7 @@ const features: FeatureItem[] = [
 		),
 		title: "Unified API Interface",
 		description:
-			"Compatible with the OpenAI API format for seamless migration and integration.",
+			"Drop-in replacement for OpenAI SDK. Change one line of code to access any provider.",
 		slug: "unified-api-interface",
 	},
 	{
@@ -62,7 +62,8 @@ const features: FeatureItem[] = [
 			</svg>
 		),
 		title: "Multi-provider Support",
-		description: "Connect to various LLM providers through a single gateway.",
+		description:
+			"20+ providers including OpenAI, Anthropic, Google, and more. Add new models instantly.",
 		slug: "multi-provider-support",
 	},
 	{
@@ -110,7 +111,7 @@ const features: FeatureItem[] = [
 		),
 		title: "Performance Monitoring",
 		description:
-			"Compare different models' performance and cost-effectiveness.",
+			"Track latency, throughput, and token usage in real-time. Find bottlenecks before users do.",
 		slug: "performance-monitoring",
 	},
 	{
@@ -150,7 +151,8 @@ const features: FeatureItem[] = [
 			</svg>
 		),
 		title: "Secure Key Management",
-		description: "Manage API keys for different providers in one secure place.",
+		description:
+			"One API key for your team. Keep provider credentials secure and rotate them without code changes.",
 		slug: "secure-key-management",
 	},
 	{
@@ -190,7 +192,8 @@ const features: FeatureItem[] = [
 			</svg>
 		),
 		title: "Self-hosted or Cloud",
-		description: "Deploy on your own infrastructure or use our hosted version.",
+		description:
+			"Run on your infrastructure for full control, or use our managed cloud. Open source under AGPLv3.",
 		slug: "self-hosted-or-cloud",
 	},
 	{
@@ -214,9 +217,9 @@ const features: FeatureItem[] = [
 				/>
 			</svg>
 		),
-		title: "Cost-aware analytics",
+		title: "Cost-aware Analytics",
 		description:
-			"See requests, tokens, total spend, and average cost per 1K tokens across 7 or 30 days.",
+			"Know exactly what you're spending. Track cost per request, per model, and per project in real-time.",
 		slug: "cost-aware-analytics",
 	},
 	{
@@ -236,9 +239,9 @@ const features: FeatureItem[] = [
 				<circle cx="102" cy="106" r="3" fill="#22C55E" />
 			</svg>
 		),
-		title: "Per‑model/provider breakdown",
+		title: "Per-model Breakdown",
 		description:
-			"Break down usage and spend by provider and model so you can quickly spot expensive outliers.",
+			"See which models are eating your budget. Identify expensive outliers and optimize usage instantly.",
 		slug: "per-model-provider-breakdown",
 	},
 	{
@@ -261,9 +264,9 @@ const features: FeatureItem[] = [
 				<circle cx="104" cy="60" r="6" fill="#F97316" />
 			</svg>
 		),
-		title: "Errors & reliability monitoring",
+		title: "Reliability Monitoring",
 		description:
-			"Monitor error rate, cache hit rate, and reliability trends directly from the dashboard.",
+			"Track error rates by provider, catch issues early, and leverage caching to boost reliability and speed.",
 		slug: "errors-reliability-monitoring",
 	},
 	{
@@ -283,9 +286,9 @@ const features: FeatureItem[] = [
 				<circle cx="80" cy="102" r="4" fill="#F97316" />
 			</svg>
 		),
-		title: "Project‑level usage explorer",
+		title: "Project-level Insights",
 		description:
-			"Drill into each project's requests, models, errors, cache, and costs with dedicated charts and tables.",
+			"Organize usage by project. Allocate budgets, track team spending, and bill customers accurately.",
 		slug: "project-level-usage-explorer",
 	},
 ];
@@ -297,9 +300,13 @@ export default function Features() {
 			className="py-20 border-b border-zinc-200 dark:border-zinc-800"
 		>
 			<div className="container mx-auto px-4">
-				<h2 className="text-3xl font-bold tracking-tight mb-12 text-center text-zinc-900 dark:text-white">
-					Features
+				<h2 className="text-3xl font-bold tracking-tight mb-4 text-center text-zinc-900 dark:text-white">
+					Everything you need to ship AI products faster
 				</h2>
+				<p className="text-center text-muted-foreground mb-12 max-w-2xl mx-auto">
+					From prototype to production, LLM Gateway handles the infrastructure
+					so you can focus on building.
+				</p>
 				<ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
 					{features.map((feature, i) => (
 						<GridItem

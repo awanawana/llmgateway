@@ -159,11 +159,12 @@ export function Hero({
 								<div className="text-center max-w-4xl mx-auto">
 									<AnimatedGroup variants={transitionVariants}>
 										<h1 className="text-balance text-2xl md:text-3xl lg:text-4xl font-medium tracking-tight text-foreground/80">
-											Use any model, from any provider with just one API.
+											One API for every LLM. Switch providers in seconds.
 										</h1>
 										<p className="mt-4 md:mt-6 max-w-2xl mx-auto text-balance text-base md:text-lg text-muted-foreground">
-											Route, manage, and analyze your LLM requests across
-											multiple providers with one unified API interface.
+											Stop juggling multiple API keys and SDKs. Access OpenAI,
+											Anthropic, Google, and 20+ providers through a single
+											OpenAI-compatible endpoint with built-in analytics.
 										</p>
 									</AnimatedGroup>
 
@@ -192,7 +193,7 @@ export function Hero({
 													className="shadow-2xl shadow-blue-500/25 px-10 md:px-12 py-3 md:py-4"
 												>
 													<span className="flex items-center gap-3 text-center text-xl leading-none font-bold tracking-tight whitespace-pre-wrap text-white md:text-2xl">
-														<span>Get My API Key</span>
+														<span>Start Building Free</span>
 														<ArrowRight className="size-6 md:size-7 transition-transform group-hover:translate-x-1" />
 													</span>
 												</ShimmerButton>
@@ -214,7 +215,7 @@ export function Hero({
 														clipRule="evenodd"
 													/>
 												</svg>
-												Free tier included
+												$5 free credit included
 											</span>
 											<span className="flex items-center gap-1.5">
 												<svg
@@ -280,7 +281,7 @@ export function Hero({
 								>
 									<div className="mx-auto mt-10 max-w-4xl px-6">
 										<p className="mb-4 text-center text-sm text-muted-foreground">
-											Switching from another provider?
+											Migrate from another provider in under 5 minutes
 										</p>
 										<div className="flex flex-wrap items-center justify-center gap-3">
 											{migrations.map((migration) => (

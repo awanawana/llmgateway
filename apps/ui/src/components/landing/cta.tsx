@@ -10,11 +10,10 @@ export default function CallToAction() {
 			<div className="container mx-auto px-4">
 				<div className="max-w-3xl mx-auto text-center">
 					<h2 className="text-3xl font-bold tracking-tight mb-6 text-zinc-900 dark:text-white">
-						Ready to Simplify Your LLM Integration?
+						Ship your AI features today
 					</h2>
 					<p className="text-zinc-600 dark:text-zinc-400 mb-10">
-						Start using LLM Gateway today and take control of your AI
-						infrastructure.
+						Get started in minutes with $5 free credit. No credit card required.
 					</p>
 
 					<div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -22,7 +21,7 @@ export default function CallToAction() {
 							className="bg-zinc-900 dark:bg-white text-white dark:text-black hover:bg-zinc-700 dark:hover:bg-zinc-200 px-8 py-6 text-base w-full sm:w-auto font-medium"
 							asChild
 						>
-							<AuthLink href="/signup">Create Free Account</AuthLink>
+							<AuthLink href="/signup">Start Building Free</AuthLink>
 						</Button>
 						<Button
 							variant="outline"
@@ -30,7 +29,7 @@ export default function CallToAction() {
 							asChild
 						>
 							<a href={config.githubUrl ?? ""} target="_blank">
-								Self-host LLM Gateway
+								Deploy on Your Infrastructure
 							</a>
 						</Button>
 					</div>
