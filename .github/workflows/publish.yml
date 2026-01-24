@@ -18,6 +18,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Collect versions
@@ -46,6 +47,7 @@ jobs:
           pnpm -r exec sed -i 's/"workspace:\*"/"*"/g' "package.json"
 
       - name: Semantic Release (models)
-        run: pnpm --filter @llmgateway/models exec -- pnpm semantic-release
+        working-directory: packages/models
+        run: pnpm semantic-release
         env:
           GITHUB_TOKEN: ${{ github.token }}

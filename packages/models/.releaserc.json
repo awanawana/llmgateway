@@ -1,15 +1,39 @@
 {
-	"extends": "semantic-release-monorepo",
+	"branches": ["main"],
+	"tagFormat": "@llmgateway/models@${version}",
 	"plugins": [
-		"@semantic-release/commit-analyzer",
+		[
+			"@semantic-release/commit-analyzer",
+			{
+				"preset": "angular",
+				"releaseRules": [
+					{ "type": "feat", "release": "minor" },
+					{ "type": "fix", "release": "patch" },
+					{ "type": "perf", "release": "patch" },
+					{ "type": "refactor", "release": "patch" }
+				]
+			}
+		],
 		"@semantic-release/release-notes-generator",
 		[
 			"@semantic-release/npm",
 			{
-				"npmPublish": true,
-				"provenance": true
+				"npmPublish": false,
+				"pkgRoot": "."
 			}
 		],
-		"@semantic-release/github"
+		[
+			"@semantic-release/exec",
+			{
+				"publishCmd": "npm publish --provenance --access public"
+			}
+		],
+		[
+			"@semantic-release/github",
+			{
+				"successComment": false,
+				"failComment": false
+			}
+		]
 	]
 }
