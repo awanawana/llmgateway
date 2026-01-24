@@ -29,10 +29,10 @@
 			}
 		],
 		[
-			"@semantic-release/github",
+			"@semantic-release/git",
 			{
-				"successComment": false,
-				"failComment": false
+				"assets": ["package.json"],
+				"message": "chore(release): ${nextRelease.gitTag} [skip ci]"
 			}
 		]
 	]
