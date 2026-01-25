@@ -139,6 +139,7 @@ When creating a new package in `packages/`, include these config files. Copy the
 - Always use top-level `import`, never use require or dynamic imports
 - Use conventional commit message format and limit the commit message title to max 50 characters
 - Do not --amend commits after pushing to remote
+- When resolving conflicts involving `pnpm-lock.yaml`, just run `pnpm install` to automatically resolve them
 - When writing pull request titles, use the conventional commit message format and limit to max 50 characters
 - Always use pnpm for package management
 - Use cookies for user-settings which are not saved in the database to ensure SSR works
