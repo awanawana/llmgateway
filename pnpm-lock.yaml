@@ -297,9 +297,15 @@ importers:
       '@llmgateway/actions':
         specifier: workspace:*
         version: link:../../packages/actions
+      '@llmgateway/audit':
+        specifier: workspace:*
+        version: link:../../ee/audit
       '@llmgateway/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@llmgateway/guardrails':
+        specifier: workspace:*
+        version: link:../../ee/guardrails
       '@llmgateway/instrumentation':
         specifier: workspace:*
         version: link:../../packages/instrumentation
@@ -618,6 +624,9 @@ importers:
       '@llmgateway/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@llmgateway/guardrails':
+        specifier: workspace:*
+        version: link:../../ee/guardrails
       '@llmgateway/instrumentation':
         specifier: workspace:*
         version: link:../../packages/instrumentation
@@ -1127,6 +1136,27 @@ importers:
       zod:
         specifier: 3.25.75
         version: 3.25.75
+
+  ee/audit:
+    dependencies:
+      '@llmgateway/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@llmgateway/logger':
+        specifier: workspace:*
+        version: link:../../packages/logger
+      drizzle-orm:
+        specifier: 1.0.0-beta.1
+        version: 1.0.0-beta.1(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(@types/mssql@9.1.8)(@types/pg@8.15.5)(better-sqlite3@12.6.0)(gel@2.1.0)(mssql@11.0.1)(pg@8.16.3)(sql.js@1.13.0)
+
+  ee/guardrails:
+    dependencies:
+      '@llmgateway/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      drizzle-orm:
+        specifier: 1.0.0-beta.1
+        version: 1.0.0-beta.1(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(@types/mssql@9.1.8)(@types/pg@8.15.5)(better-sqlite3@12.6.0)(gel@2.1.0)(mssql@11.0.1)(pg@8.16.3)(sql.js@1.13.0)
 
   packages/actions:
     dependencies:
