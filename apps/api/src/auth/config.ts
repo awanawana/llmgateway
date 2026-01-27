@@ -824,6 +824,39 @@ export const apiAuth: ReturnType<typeof betterAuth> = instrumentBetterAuth(
 							newSession.user.email,
 							newSession.user.name || undefined,
 						);
+
+						// Don't trust OAuth provider's email verification status
+						// Set emailVerified to false and send verification email
+						await db
+							.update(tables.user)
+							.set({ emailVerified: false })
+							.where(eq(tables.user.id, userId));
+
+						// Send verification email using Better Auth's API
+						try {
+							await apiAuth.api.sendVerificationEmail({
+								body: {
+									email: newSession.user.email,
+									callbackURL: `${uiUrl}/dashboard?emailVerified=true`,
+								},
+							});
+
+							logger.info("Sent verification email for OAuth signup", {
+								userId,
+								email: newSession.user.email,
+								provider: account.providerId,
+							});
+						} catch (error) {
+							logger.error(
+								"Failed to send verification email for OAuth signup",
+								{
+									...(error instanceof Error ? { err: error } : { error }),
+									userId,
+									email: newSession.user.email,
+									provider: account.providerId,
+								},
+							);
+						}
 					}
 				}
 			}),
