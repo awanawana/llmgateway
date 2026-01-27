@@ -368,7 +368,7 @@ async function createResendContact(
 			}
 		}
 
-		logger.debug("Attempting to create/update Resend contact", {
+		logger.debug("Attempting to create Resend contact", {
 			email,
 			firstName,
 			lastName,
@@ -512,7 +512,7 @@ export const apiAuth: ReturnType<typeof betterAuth> = instrumentBetterAuth(
 						email: string;
 						name?: string | null;
 					}) => {
-						// Fetch the user's onboarding status to include in Brevo
+						// Fetch the user's onboarding status to include in Resend
 						const dbUser = await db.query.user.findFirst({
 							where: {
 								id: {
@@ -524,11 +524,9 @@ export const apiAuth: ReturnType<typeof betterAuth> = instrumentBetterAuth(
 							},
 						});
 
-						// Add verified email to Brevo CRM with onboarding status
+						// Add verified email to Resend contacts with onboarding status
 						await createResendContact(user.email, user.name || undefined, {
-							...(dbUser?.onboardingCompleted && {
-								ONBOARDING_COMPLETED: true,
-							}),
+							onboarding_completed: dbUser?.onboardingCompleted ?? false,
 						});
 
 						// Send Discord notification for new verified signup
@@ -789,7 +787,7 @@ export const apiAuth: ReturnType<typeof betterAuth> = instrumentBetterAuth(
 				});
 
 				// Check if this is a social login (user has emailVerified but no email verification sent)
-				// In this case, we should add them to Brevo
+				// In this case, we should add them to Resend
 				if (isHosted && newSession.user.emailVerified) {
 					await createResendContact(
 						newSession.user.email,

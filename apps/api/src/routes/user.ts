@@ -466,10 +466,10 @@ user.openapi(completeOnboarding, async (c) => {
 		.where(eq(tables.user.id, authUser.id))
 		.returning();
 
-	// Only update Resend contact if email is verified (contact exists in Resend)
+	// Update Resend contact if email is verified (contact exists in Resend)
 	if (updatedUser.emailVerified) {
 		await updateResendContactAttributes(updatedUser.email, {
-			ONBOARDING_COMPLETED: true,
+			onboarding_completed: true,
 		});
 	}
 
