@@ -226,7 +226,7 @@ export async function sendContactEmail(data: ContactFormData) {
 	const resend = new Resend(resendApiKey);
 
 	const { error } = await resend.emails.send({
-		from: "LLMGateway Contact Form <contact@llmgateway.io>",
+		from: "LLMGateway Contact Form <contact@mail.llmgateway.io>",
 		to: ["contact@llmgateway.io"],
 		replyTo: validatedData.email,
 		subject: `Enterprise Contact Request from ${validatedData.name}`,
