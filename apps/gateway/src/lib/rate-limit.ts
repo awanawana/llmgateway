@@ -1,6 +1,7 @@
 import { redisClient } from "@llmgateway/cache";
-import { cdb as db } from "@llmgateway/db";
 import { logger } from "@llmgateway/logger";
+
+import { getOrganizationById } from "./db-cache.js";
 
 import type { ModelDefinition } from "@llmgateway/models";
 
@@ -50,13 +51,7 @@ function getRateLimitKey(organizationId: string, model: string): string {
  */
 async function hasElevatedLimits(organizationId: string): Promise<boolean> {
 	try {
-		const org = await db.query.organization.findFirst({
-			where: {
-				id: {
-					eq: organizationId,
-				},
-			},
-		});
+		const org = await getOrganizationById(organizationId);
 		return Boolean(org && parseFloat(org.credits || "0") > 0);
 	} catch (error) {
 		logger.error(
