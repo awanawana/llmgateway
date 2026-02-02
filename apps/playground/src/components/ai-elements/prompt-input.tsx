@@ -27,7 +27,7 @@ import {
 	type ReactNode,
 	type RefObject,
 	useCallback,
-	useContext,
+	use,
 	useEffect,
 	useLayoutEffect,
 	useMemo,
@@ -97,7 +97,7 @@ const PromptInputContext = createContext<PromptInputController | null>(null);
 const LocalAttachmentsContext = createContext<AttachmentsContext | null>(null);
 
 export const usePromptInputController = () => {
-	const ctx = useContext(PromptInputContext);
+	const ctx = use(PromptInputContext);
 	if (!ctx) {
 		throw new Error(
 			"Wrap your component inside <PromptInputProvider> to use usePromptInputController().",
@@ -109,7 +109,7 @@ export const usePromptInputController = () => {
 // Optional variants (do NOT throw). Useful for dual-mode components.
 const optional_usePromptInputController = () => {
 	// eslint-disable-next-line react-hooks/rules-of-hooks
-	return useContext(PromptInputContext);
+	return use(PromptInputContext);
 };
 
 // (Removed provider-specific attachments hooks; unified on LocalAttachmentsContext)
@@ -215,11 +215,11 @@ export function PromptInputProvider({
 	);
 
 	return (
-		<PromptInputContext.Provider value={controller}>
-			<LocalAttachmentsContext.Provider value={attachments}>
+		<PromptInputContext value={controller}>
+			<LocalAttachmentsContext value={attachments}>
 				{children}
-			</LocalAttachmentsContext.Provider>
-		</PromptInputContext.Provider>
+			</LocalAttachmentsContext>
+		</PromptInputContext>
 	);
 }
 
@@ -228,7 +228,7 @@ export function PromptInputProvider({
 // ============================================================================
 
 export const usePromptInputAttachments = () => {
-	const context = useContext(LocalAttachmentsContext);
+	const context = use(LocalAttachmentsContext);
 	if (!context) {
 		throw new Error(
 			"usePromptInputAttachments must be used within a PromptInput or PromptInputProvider",
@@ -764,9 +764,7 @@ export const PromptInput = ({
 	return usingProvider ? (
 		inner
 	) : (
-		<LocalAttachmentsContext.Provider value={ctx}>
-			{inner}
-		</LocalAttachmentsContext.Provider>
+		<LocalAttachmentsContext value={ctx}>{inner}</LocalAttachmentsContext>
 	);
 };
 
