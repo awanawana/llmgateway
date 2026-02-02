@@ -8,7 +8,12 @@ import { reportKeyError, reportKeySuccess } from "@/lib/api-key-health.js";
 import { isCodingModel } from "@/lib/coding-models.js";
 import { calculateCosts, shouldBillCancelledRequests } from "@/lib/costs.js";
 import { throwIamException, validateModelAccess } from "@/lib/iam.js";
-import { calculateDataStorageCost, insertLog } from "@/lib/logs.js";
+import {
+	calculateDataStorageCost,
+	insertLog,
+	insertPendingLog,
+	updateLog,
+} from "@/lib/logs.js";
 import { createCombinedSignal, isTimeoutError } from "@/lib/timeout-config.js";
 
 import {
@@ -1923,6 +1928,42 @@ chat.openapi(completions, async (c) => {
 		});
 	}
 
+	// Insert pending log to track requests that may timeout or be cancelled
+	// This is done before cache checks so we can detect issues with the request flow
+	let pendingLogId: string | null = null;
+	try {
+		pendingLogId = await insertPendingLog({
+			requestId,
+			organizationId: project.organizationId,
+			projectId: apiKey.projectId,
+			apiKeyId: apiKey.id,
+			requestedModel: initialRequestedModel,
+			requestedProvider: requestedProvider || null,
+			mode: project.mode,
+			usedMode: providerKey?.id ? "api-keys" : "credits",
+			messages,
+			streamed: stream || false,
+			source: source || null,
+			userAgent: userAgent || null,
+		});
+	} catch (error) {
+		// Log the error but don't fail the request - we can still process without tracking
+		logger.warn("Failed to insert pending log, continuing without tracking", {
+			requestId,
+			error: error instanceof Error ? error.message : String(error),
+		});
+	}
+
+	// Helper to finalize log - updates pending log if available, otherwise inserts new log
+	const finalizeLog = async (
+		logData: Parameters<typeof insertLog>[0],
+	): Promise<unknown> => {
+		if (pendingLogId) {
+			return await updateLog({ ...logData, logId: pendingLogId });
+		}
+		return await insertLog(logData);
+	};
+
 	// Check if caching is enabled for this project
 	const { enabled: cachingEnabled, duration: cacheDuration } =
 		await isCachingEnabled(project.id);
@@ -2063,7 +2104,7 @@ chat.openapi(completions, async (c) => {
 					inputImageCount,
 				);
 
-				await insertLog({
+				await finalizeLog({
 					...baseLogEntry,
 					duration: 0, // No processing time for cached response
 					timeToFirstToken: null, // Not applicable for cached response
@@ -2187,7 +2228,7 @@ chat.openapi(completions, async (c) => {
 					inputImageCount,
 				);
 
-				await insertLog({
+				await finalizeLog({
 					...baseLogEntry,
 					duration,
 					timeToFirstToken: null, // Not applicable for cached response
@@ -2575,7 +2616,7 @@ chat.openapi(completions, async (c) => {
 						undefined, // No plugin results for error case
 					);
 
-					await insertLog({
+					await finalizeLog({
 						...baseLogEntry,
 						duration: Date.now() - startTime,
 						timeToFirstToken: null,
@@ -2694,7 +2735,7 @@ chat.openapi(completions, async (c) => {
 						undefined, // No plugin results for canceled request
 					);
 
-					await insertLog({
+					await finalizeLog({
 						...baseLogEntry,
 						duration: Date.now() - startTime,
 						timeToFirstToken: null, // Not applicable for canceled request
@@ -2802,7 +2843,7 @@ chat.openapi(completions, async (c) => {
 						undefined, // No plugin results for error case
 					);
 
-					await insertLog({
+					await finalizeLog({
 						...baseLogEntry,
 						duration: Date.now() - startTime,
 						timeToFirstToken: null, // Not applicable for error case
@@ -2961,7 +3002,7 @@ chat.openapi(completions, async (c) => {
 					undefined, // No plugin results for error case
 				);
 
-				await insertLog({
+				await finalizeLog({
 					...baseLogEntry,
 					duration: Date.now() - startTime,
 					timeToFirstToken: null, // Not applicable for error case
@@ -4326,7 +4367,7 @@ chat.openapi(completions, async (c) => {
 				const shouldIncludeTokensForBilling =
 					!canceled || (canceled && billCancelledRequests);
 
-				await insertLog({
+				await finalizeLog({
 					...baseLogEntry,
 					duration,
 					timeToFirstToken,
@@ -4558,7 +4599,7 @@ chat.openapi(completions, async (c) => {
 			undefined, // No plugin results for error case
 		);
 
-		await insertLog({
+		await finalizeLog({
 			...baseLogEntry,
 			duration,
 			timeToFirstToken: null, // Not applicable for error case
@@ -4690,7 +4731,7 @@ chat.openapi(completions, async (c) => {
 			undefined, // No plugin results for canceled request
 		);
 
-		await insertLog({
+		await finalizeLog({
 			...baseLogEntry,
 			duration,
 			timeToFirstToken: null, // Not applicable for canceled request
@@ -4802,7 +4843,7 @@ chat.openapi(completions, async (c) => {
 			undefined, // No plugin results for error case
 		);
 
-		await insertLog({
+		await finalizeLog({
 			...baseLogEntry,
 			duration,
 			timeToFirstToken: null, // Not applicable for error case
@@ -5128,7 +5169,7 @@ chat.openapi(completions, async (c) => {
 		});
 	}
 
-	await insertLog({
+	await finalizeLog({
 		...baseLogEntry,
 		duration,
 		timeToFirstToken: null, // Not applicable for non-streaming requests
