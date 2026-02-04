@@ -2,12 +2,12 @@
 id: openrouter
 slug: openrouter
 title: Migrate from OpenRouter
-description: Switch to LLM Gateway for 50% lower fees on Pro, better analytics, and self-hosting options. Two-line code change.
+description: Switch to LLM Gateway for built-in analytics, self-hosting options, and simpler API. Two-line code change.
 date: 2026-01-20
 fromProvider: OpenRouter
 ---
 
-LLM Gateway works just like OpenRouter—same API format, same model names—but with lower fees on Pro (2.5% vs 5%), built-in analytics, and the option to self-host. Migration takes two lines of code.
+LLM Gateway works just like OpenRouter—same API format, same model names—but with built-in analytics and the option to self-host. Migration takes two lines of code.
 
 ## Quick Migration
 
