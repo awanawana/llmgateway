@@ -183,14 +183,17 @@ export function parseProviderResponse(
 		case "obsidian": {
 			// Check if response is missing candidates - treat as content filter
 			if (!json.candidates || json.candidates.length === 0) {
-				logger.warn(
-					"[parse-provider-response] Google response missing candidates",
-					{
-						usedProvider,
-						usedModel,
-						fullResponse: json,
-					},
-				);
+				// Only log warning if there's no blockReason explaining why
+				if (!json.promptFeedback?.blockReason) {
+					logger.warn(
+						"[parse-provider-response] Google response missing candidates",
+						{
+							usedProvider,
+							usedModel,
+							fullResponse: json,
+						},
+					);
+				}
 				finishReason = "content_filter";
 			}
 
