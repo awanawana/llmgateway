@@ -3,34 +3,34 @@ import Stripe from "stripe";
 import { z } from "zod";
 
 import {
+	closeRedisClient,
 	consumeFromQueue,
 	LOG_QUEUE,
-	closeRedisClient,
 	publishToQueue,
 } from "@llmgateway/cache";
 import {
-	db,
-	log,
-	organization,
-	eq,
-	sql,
 	and,
-	lt,
-	tables,
 	apiKey,
-	inArray,
-	type LogInsertData,
 	closeDatabase,
+	db,
+	eq,
+	inArray,
+	log,
+	type LogInsertData,
+	lt,
+	organization,
+	sql,
+	tables,
 } from "@llmgateway/db";
 import { logger } from "@llmgateway/logger";
 import { hasErrorCode } from "@llmgateway/models";
 import { BYOK_FEE_PERCENTAGE, calculateFees } from "@llmgateway/shared";
 
 import {
-	calculateMinutelyHistory,
-	calculateCurrentMinuteHistory,
-	calculateAggregatedStatistics,
 	backfillHistoryIfNeeded,
+	calculateAggregatedStatistics,
+	calculateCurrentMinuteHistory,
+	calculateMinutelyHistory,
 } from "./services/stats-calculator.js";
 import { syncProvidersAndModels } from "./services/sync-models.js";
 
