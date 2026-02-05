@@ -648,7 +648,7 @@ export const anthropicModels = [
 		],
 	},
 	{
-		id: "claude-opus-4-6-20260205",
+		id: "claude-opus-4-6",
 		name: "Claude Opus 4.6",
 		description:
 			"Claude Opus 4.6 is Anthropic's latest flagship model with advanced reasoning capabilities for complex coding, agentic workflows, and long-running tasks.",
@@ -657,7 +657,7 @@ export const anthropicModels = [
 		providers: [
 			{
 				providerId: "anthropic",
-				modelName: "claude-opus-4-6-20260205",
+				modelName: "claude-opus-4-6",
 				inputPrice: 5.0 / 1e6,
 				outputPrice: 25.0 / 1e6,
 				cachedInputPrice: 0.5 / 1e6,
