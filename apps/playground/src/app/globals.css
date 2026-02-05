@@ -143,3 +143,13 @@
 	content-visibility: auto;
 	contain-intrinsic-size: 0 120px;
 }
+
+/* Shiki dual theme support - switch to dark theme variables when dark mode is active */
+html.dark .shiki,
+html.dark .shiki span {
+	color: var(--shiki-dark) !important;
+	background-color: var(--shiki-dark-bg) !important;
+	font-style: var(--shiki-dark-font-style) !important;
+	font-weight: var(--shiki-dark-font-weight) !important;
+	text-decoration: var(--shiki-dark-text-decoration) !important;
+}
