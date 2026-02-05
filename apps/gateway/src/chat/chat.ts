@@ -443,12 +443,18 @@ chat.openapi(completions, async (c) => {
 		});
 	}
 
-	// Fetch organization for coding model restriction check
+	// Fetch organization for coding model restriction check and credit validation
 	const organization = await findOrganizationById(project.organizationId);
+
+	if (!organization) {
+		throw new HTTPException(500, {
+			message: "Could not find organization",
+		});
+	}
 
 	// Run guardrails check for enterprise organizations
 	let guardrailResult: Awaited<ReturnType<typeof checkGuardrails>> | undefined;
-	if (organization?.plan === "enterprise") {
+	if (organization.plan === "enterprise") {
 		guardrailResult = await checkGuardrails({
 			organizationId: project.organizationId,
 			messages: messages as Parameters<typeof checkGuardrails>[0]["messages"],
@@ -1319,35 +1325,26 @@ chat.openapi(completions, async (c) => {
 
 		usedToken = providerKey.token;
 	} else if (project.mode === "credits") {
-		// Check if the organization has enough credits using cached helper function
-		const orgForCredits = await findOrganizationById(project.organizationId);
-
-		if (!orgForCredits) {
-			throw new HTTPException(500, {
-				message: "Could not find organization",
-			});
-		}
-
 		// Check both regular credits AND dev plan credits
-		const regularCredits = parseFloat(orgForCredits.credits || "0");
+		const regularCredits = parseFloat(organization.credits || "0");
 		const devPlanCreditsRemaining =
-			orgForCredits.devPlan !== "none"
-				? parseFloat(orgForCredits.devPlanCreditsLimit || "0") -
-					parseFloat(orgForCredits.devPlanCreditsUsed || "0")
+			organization.devPlan !== "none"
+				? parseFloat(organization.devPlanCreditsLimit || "0") -
+					parseFloat(organization.devPlanCreditsUsed || "0")
 				: 0;
 		const totalAvailableCredits = regularCredits + devPlanCreditsRemaining;
 
 		if (totalAvailableCredits <= 0 && !(modelInfo as ModelDefinition).free) {
-			if (orgForCredits.devPlan !== "none" && devPlanCreditsRemaining <= 0) {
-				const renewalDate = orgForCredits.devPlanExpiresAt
-					? new Date(orgForCredits.devPlanExpiresAt).toLocaleDateString()
+			if (organization.devPlan !== "none" && devPlanCreditsRemaining <= 0) {
+				const renewalDate = organization.devPlanExpiresAt
+					? new Date(organization.devPlanExpiresAt).toLocaleDateString()
 					: "your next billing date";
 				throw new HTTPException(402, {
 					message: `Dev Plan credit limit reached. Upgrade your plan or wait for renewal on ${renewalDate}.`,
 				});
 			}
 			throw new HTTPException(402, {
-				message: "Organization has insufficient credits",
+				message: `Organization ${organization.id} has insufficient credits`,
 			});
 		}
 
@@ -1370,22 +1367,12 @@ chat.openapi(completions, async (c) => {
 			usedToken = providerKey.token;
 		} else {
 			// No API key available, fall back to credits
-			const orgForHybridCredits = await findOrganizationById(
-				project.organizationId,
-			);
-
-			if (!orgForHybridCredits) {
-				throw new HTTPException(500, {
-					message: "Could not find organization",
-				});
-			}
-
 			// Check both regular credits AND dev plan credits
-			const regularCredits = parseFloat(orgForHybridCredits.credits || "0");
+			const regularCredits = parseFloat(organization.credits || "0");
 			const devPlanCreditsRemaining =
-				orgForHybridCredits.devPlan !== "none"
-					? parseFloat(orgForHybridCredits.devPlanCreditsLimit || "0") -
-						parseFloat(orgForHybridCredits.devPlanCreditsUsed || "0")
+				organization.devPlan !== "none"
+					? parseFloat(organization.devPlanCreditsLimit || "0") -
+						parseFloat(organization.devPlanCreditsUsed || "0")
 					: 0;
 			const totalAvailableCredits = regularCredits + devPlanCreditsRemaining;
 
@@ -1393,14 +1380,9 @@ chat.openapi(completions, async (c) => {
 				totalAvailableCredits <= 0 &&
 				!isModelTrulyFree(modelInfo as ModelDefinition)
 			) {
-				if (
-					orgForHybridCredits.devPlan !== "none" &&
-					devPlanCreditsRemaining <= 0
-				) {
-					const renewalDate = orgForHybridCredits.devPlanExpiresAt
-						? new Date(
-								orgForHybridCredits.devPlanExpiresAt,
-							).toLocaleDateString()
+				if (organization.devPlan !== "none" && devPlanCreditsRemaining <= 0) {
+					const renewalDate = organization.devPlanExpiresAt
+						? new Date(organization.devPlanExpiresAt).toLocaleDateString()
 						: "your next billing date";
 					throw new HTTPException(402, {
 						message: `No API key set for provider. Dev Plan credit limit reached. Upgrade your plan or wait for renewal on ${renewalDate}.`,
