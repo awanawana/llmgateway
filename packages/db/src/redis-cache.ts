@@ -20,7 +20,7 @@ export class RedisCache extends Cache {
 	private readonly tablePrefix = "drizzle:tables:";
 	private readonly tagPrefix = "drizzle:tags:";
 	private readonly tableKeysPrefix = "drizzle:table_keys:";
-	private readonly defaultTtl = 300; // 5 minutes in seconds
+	private readonly defaultTtl = 60; // 1 minute in seconds
 	private readonly batchSize = 500; // Max keys to process in one batch
 
 	public constructor(redisClient: Redis) {
