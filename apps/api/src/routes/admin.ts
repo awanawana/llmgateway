@@ -2,6 +2,8 @@ import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 
+import { adminMiddleware } from "@/middleware/admin.js";
+
 import {
 	and,
 	asc,
@@ -19,6 +21,8 @@ import {
 import type { ServerTypes } from "@/vars.js";
 
 export const admin = new OpenAPIHono<ServerTypes>();
+
+admin.use("/*", adminMiddleware);
 
 const adminMetricsSchema = z.object({
 	totalSignups: z.number(),
@@ -85,20 +89,6 @@ const transactionsListSchema = z.object({
 	limit: z.number(),
 	offset: z.number(),
 });
-
-function isAdminEmail(email: string | null | undefined): boolean {
-	const adminEmailsEnv = process.env.ADMIN_EMAILS || "";
-	const adminEmails = adminEmailsEnv
-		.split(",")
-		.map((value) => value.trim().toLowerCase())
-		.filter(Boolean);
-
-	if (!email || adminEmails.length === 0) {
-		return false;
-	}
-
-	return adminEmails.includes(email.toLowerCase());
-}
 
 const getMetrics = createRoute({
 	method: "get",
@@ -206,20 +196,6 @@ const getOrganizationTransactions = createRoute({
 });
 
 admin.openapi(getMetrics, async (c) => {
-	const authUser = c.get("user");
-
-	if (!authUser) {
-		throw new HTTPException(401, {
-			message: "Unauthorized",
-		});
-	}
-
-	if (!isAdminEmail(authUser.email)) {
-		throw new HTTPException(403, {
-			message: "Admin access required",
-		});
-	}
-
 	// Total signups (all users)
 	const [signupsRow] = await db
 		.select({
@@ -284,20 +260,6 @@ admin.openapi(getMetrics, async (c) => {
 });
 
 admin.openapi(getOrganizations, async (c) => {
-	const authUser = c.get("user");
-
-	if (!authUser) {
-		throw new HTTPException(401, {
-			message: "Unauthorized",
-		});
-	}
-
-	if (!isAdminEmail(authUser.email)) {
-		throw new HTTPException(403, {
-			message: "Admin access required",
-		});
-	}
-
 	const query = c.req.valid("query");
 	const limit = query.limit ?? 50;
 	const offset = query.offset ?? 0;
@@ -372,20 +334,6 @@ admin.openapi(getOrganizations, async (c) => {
 });
 
 admin.openapi(getOrganizationMetrics, async (c) => {
-	const authUser = c.get("user");
-
-	if (!authUser) {
-		throw new HTTPException(401, {
-			message: "Unauthorized",
-		});
-	}
-
-	if (!isAdminEmail(authUser.email)) {
-		throw new HTTPException(403, {
-			message: "Admin access required",
-		});
-	}
-
 	const { orgId } = c.req.valid("param");
 	const query = c.req.valid("query");
 	const windowParam = query.window ?? "1d";
@@ -524,20 +472,6 @@ admin.openapi(getOrganizationMetrics, async (c) => {
 });
 
 admin.openapi(getOrganizationTransactions, async (c) => {
-	const authUser = c.get("user");
-
-	if (!authUser) {
-		throw new HTTPException(401, {
-			message: "Unauthorized",
-		});
-	}
-
-	if (!isAdminEmail(authUser.email)) {
-		throw new HTTPException(403, {
-			message: "Admin access required",
-		});
-	}
-
 	const { orgId } = c.req.valid("param");
 	const query = c.req.valid("query");
 	const limit = query.limit ?? 25;
