@@ -589,7 +589,7 @@ export const anthropicModels = [
 		id: "claude-opus-4-5-20251101",
 		name: "Claude Opus 4.5",
 		description:
-			"Claude Opus 4.5 is Anthropic’s advanced reasoning model built for complex coding, agentic workflows, and long-running tasks with improved multimodal performance, efficiency, and reliability.",
+			"Claude Opus 4.5 is Anthropic's advanced reasoning model built for complex coding, agentic workflows, and long-running tasks with improved multimodal performance, efficiency, and reliability.",
 		family: "anthropic",
 		releasedAt: new Date("2025-11-24"),
 		providers: [
@@ -644,6 +644,33 @@ export const anthropicModels = [
 				streaming: true,
 				vision: true,
 				tools: true,
+			},
+		],
+	},
+	{
+		id: "claude-opus-4-6-20260205",
+		name: "Claude Opus 4.6",
+		description:
+			"Claude Opus 4.6 is Anthropic's latest flagship model with advanced reasoning capabilities for complex coding, agentic workflows, and long-running tasks.",
+		family: "anthropic",
+		releasedAt: new Date("2026-02-05"),
+		providers: [
+			{
+				providerId: "anthropic",
+				modelName: "claude-opus-4-6-20260205",
+				inputPrice: 5.0 / 1e6,
+				outputPrice: 25.0 / 1e6,
+				cachedInputPrice: 0.5 / 1e6,
+				minCacheableTokens: 4096,
+				requestPrice: 0,
+				contextSize: 200000,
+				maxOutput: 32000,
+				reasoning: true,
+				streaming: true,
+				vision: true,
+				tools: true,
+				jsonOutputSchema: true,
+				supportedParameters: ["temperature", "max_tokens", "top_p", "effort"],
 			},
 		],
 	},
