@@ -308,9 +308,9 @@ describe("calculateCosts", () => {
 			2, // 2 input images
 		);
 
-		// Each input image is 560 tokens at $2/1M = $0.00112 per image
+		// imageInputPrice is $0.0011 per token, 2 images = 1120 tokens
 		expect(result.imageInputTokens).toBe(1120); // 2 * 560
-		expect(result.imageInputCost).toBeCloseTo(0.00224); // 1120 * 2e-6
+		expect(result.imageInputCost).toBeCloseTo(1.232); // 1120 * 0.0011
 		// promptTokens should NOT include image tokens
 		expect(result.promptTokens).toBe(1000);
 		expect(result.inputCost).toBeGreaterThan(0);
