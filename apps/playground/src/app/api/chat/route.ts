@@ -341,6 +341,17 @@ export async function POST(req: Request) {
 			image_config,
 			web_search,
 		},
+		fetch: async (url, init) => {
+			console.log("[playground] Gateway request URL:", url);
+			console.log("[playground] Gateway request body:", init?.body);
+			const res = await fetch(url, init);
+			if (!res.ok) {
+				const cloned = res.clone();
+				const text = await cloned.text();
+				console.log("[playground] Gateway error response:", res.status, text);
+			}
+			return res;
+		},
 	}) as any;
 
 	// Respect root model IDs passed from the client without adding a provider prefix.
@@ -617,10 +628,24 @@ export async function POST(req: Request) {
 
 		const hasTools = Object.keys(allTools).length > 0;
 
+		const convertedMessages = await convertToModelMessages(messages);
+		console.log(
+			"[playground] selectedModel:",
+			selectedModel,
+			"| provider:",
+			provider,
+			"| model:",
+			model,
+		);
+		console.log(
+			"[playground] convertedMessages:",
+			JSON.stringify(convertedMessages, null, 2),
+		);
+
 		// Streaming chat with optional MCP tools
 		const result = streamText({
 			model: llmgateway.chat(selectedModel),
-			messages: await convertToModelMessages(messages),
+			messages: convertedMessages,
 			...(hasTools ? { tools: allTools, maxSteps: 10 } : {}),
 			onFinish: async () => {
 				// Clean up MCP clients when streaming is done
