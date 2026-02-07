@@ -1329,21 +1329,26 @@ export async function prepareRequestBody(
 				}
 			}
 
-			// Add image generation config if provided
+			// Enable image output for image generation models or when image_config is provided
 			if (
+				imageGenerations ||
 				image_config?.aspect_ratio !== undefined ||
 				image_config?.image_size !== undefined
 			) {
-				// Set responseModalities to enable image output
 				requestBody.generationConfig.responseModalities = ["TEXT", "IMAGE"];
-				requestBody.generationConfig.imageConfig = {};
-				if (image_config.aspect_ratio !== undefined) {
-					requestBody.generationConfig.imageConfig.aspectRatio =
-						image_config.aspect_ratio;
-				}
-				if (image_config.image_size !== undefined) {
-					requestBody.generationConfig.imageConfig.imageSize =
-						image_config.image_size;
+				if (
+					image_config?.aspect_ratio !== undefined ||
+					image_config?.image_size !== undefined
+				) {
+					requestBody.generationConfig.imageConfig = {};
+					if (image_config.aspect_ratio !== undefined) {
+						requestBody.generationConfig.imageConfig.aspectRatio =
+							image_config.aspect_ratio;
+					}
+					if (image_config.image_size !== undefined) {
+						requestBody.generationConfig.imageConfig.imageSize =
+							image_config.image_size;
+					}
 				}
 			}
 

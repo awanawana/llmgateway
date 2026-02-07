@@ -187,5 +187,30 @@ export async function transformGoogleMessages(
 		result.push({ role, parts });
 	}
 
-	return result;
+	// Google requires strict alternation of user/model turns and non-empty content.
+	// Filter out empty messages and merge consecutive same-role messages.
+	const cleaned: GoogleMessageExtended[] = [];
+	for (const msg of result) {
+		// Skip messages with no parts or only empty text parts
+		const nonEmptyParts = msg.parts.filter((p) => {
+			if (p.text !== undefined) {
+				return p.text.trim() !== "";
+			}
+			// Keep non-text parts (inline_data, functionCall, functionResponse, etc.)
+			return true;
+		});
+		if (nonEmptyParts.length === 0) {
+			continue;
+		}
+
+		const last = cleaned[cleaned.length - 1];
+		if (last && last.role === msg.role) {
+			// Merge consecutive same-role messages
+			last.parts.push(...nonEmptyParts);
+		} else {
+			cleaned.push({ role: msg.role, parts: nonEmptyParts });
+		}
+	}
+
+	return cleaned;
 }
