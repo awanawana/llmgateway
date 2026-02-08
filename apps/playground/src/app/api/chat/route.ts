@@ -628,7 +628,40 @@ export async function POST(req: Request) {
 
 		const hasTools = Object.keys(allTools).length > 0;
 
-		const convertedMessages = await convertToModelMessages(messages);
+		const rawMessages = await convertToModelMessages(messages);
+
+		// Sanitize messages: remove empty assistant messages and merge consecutive same-role messages.
+		// The AI SDK may produce empty assistant messages (e.g. image-only responses stored with content:"")
+		// and consecutive user messages when a user sends multiple follow-ups.
+		const sanitizedMessages: typeof rawMessages = [];
+		for (const msg of rawMessages) {
+			// Skip assistant messages with no meaningful content
+			if (msg.role === "assistant") {
+				const hasContent = Array.isArray(msg.content)
+					? msg.content.some((part) =>
+							"text" in part ? part.text.trim() !== "" : true,
+						)
+					: typeof msg.content === "string" && msg.content.trim() !== "";
+				if (!hasContent) {
+					continue;
+				}
+			}
+
+			// Merge consecutive same-role messages
+			const last = sanitizedMessages[sanitizedMessages.length - 1];
+			if (last && last.role === msg.role && last.role === "user") {
+				const lastContent = Array.isArray(last.content)
+					? last.content
+					: [{ type: "text" as const, text: last.content as string }];
+				const msgContent = Array.isArray(msg.content)
+					? msg.content
+					: [{ type: "text" as const, text: msg.content as string }];
+				(last as any).content = [...lastContent, ...msgContent];
+			} else {
+				sanitizedMessages.push(msg);
+			}
+		}
+
 		console.log(
 			"[playground] selectedModel:",
 			selectedModel,
@@ -637,15 +670,11 @@ export async function POST(req: Request) {
 			"| model:",
 			model,
 		);
-		console.log(
-			"[playground] convertedMessages:",
-			JSON.stringify(convertedMessages, null, 2),
-		);
 
 		// Streaming chat with optional MCP tools
 		const result = streamText({
 			model: llmgateway.chat(selectedModel),
-			messages: convertedMessages,
+			messages: sanitizedMessages,
 			...(hasTools ? { tools: allTools, maxSteps: 10 } : {}),
 			onFinish: async () => {
 				// Clean up MCP clients when streaming is done
