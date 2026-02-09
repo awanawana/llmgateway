@@ -1877,6 +1877,45 @@ chat.openapi(completions, async (c) => {
 		}
 	}
 
+	// Strip unsupported parameters based on model's supportedParameters
+	if (finalModelInfo) {
+		const providerMapping = finalModelInfo.providers.find(
+			(p) => p.providerId === usedProvider && p.modelName === usedModel,
+		);
+		const supported = (providerMapping as ProviderModelMapping | undefined)
+			?.supportedParameters;
+		if (supported && supported.length > 0) {
+			if (temperature !== undefined && !supported.includes("temperature")) {
+				temperature = undefined;
+			}
+			if (top_p !== undefined && !supported.includes("top_p")) {
+				top_p = undefined;
+			}
+			if (
+				frequency_penalty !== undefined &&
+				!supported.includes("frequency_penalty")
+			) {
+				frequency_penalty = undefined;
+			}
+			if (
+				presence_penalty !== undefined &&
+				!supported.includes("presence_penalty")
+			) {
+				presence_penalty = undefined;
+			}
+			if (max_tokens !== undefined && !supported.includes("max_tokens")) {
+				max_tokens = undefined;
+			}
+		}
+	}
+
+	// Anthropic does not allow temperature and top_p to be set simultaneously
+	if (usedProvider === "anthropic") {
+		if (temperature !== undefined && top_p !== undefined) {
+			top_p = undefined;
+		}
+	}
+
 	// Check if the request can be canceled
 	const requestCanBeCanceled =
 		providers.find((p) => p.id === usedProvider)?.cancellation === true;
