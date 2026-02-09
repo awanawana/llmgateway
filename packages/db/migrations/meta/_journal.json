@@ -610,6 +610,13 @@
       "when": 1770068951667,
       "tag": "1770068951_simple_magma",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "8",
+      "when": 1770626225332,
+      "tag": "1770626225_clever_silhouette",
+      "breakpoints": true
     }
   ]
 }
