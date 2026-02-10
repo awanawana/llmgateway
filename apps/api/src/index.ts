@@ -74,7 +74,7 @@ app.onError((error, c) => {
 	if (error instanceof HTTPException) {
 		const status = error.status;
 
-		if (status >= 500) {
+		if (status >= 500 && status !== 502) {
 			logger.error("HTTPException", error);
 		}
 

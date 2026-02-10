@@ -6,6 +6,7 @@ import {
 	propagation,
 } from "@opentelemetry/api";
 import { createMiddleware } from "hono/factory";
+import { HTTPException } from "hono/http-exception";
 
 import { logger } from "@llmgateway/logger";
 
@@ -115,11 +116,18 @@ export function createTracingMiddleware(options: TracingMiddlewareOptions) {
 						message: error instanceof Error ? error.message : String(error),
 					});
 
-					// Log error with trace context
-					logger.error(
-						"Request failed",
-						error instanceof Error ? error : { error: String(error) },
-					);
+					// Log error with trace context (skip error-level for upstream provider errors)
+					if (error instanceof HTTPException && error.status === 502) {
+						logger.warn(
+							"Upstream provider error",
+							error instanceof Error ? error : { error: String(error) },
+						);
+					} else {
+						logger.error(
+							"Request failed",
+							error instanceof Error ? error : { error: String(error) },
+						);
+					}
 
 					throw error;
 				} finally {

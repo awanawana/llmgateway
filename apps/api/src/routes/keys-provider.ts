@@ -207,7 +207,7 @@ keysProvider.openapi(create, async (c) => {
 			statusCode: validationResult.statusCode,
 			error: errorMessage,
 		});
-		throw new HTTPException(500, {
+		throw new HTTPException(502, {
 			message: `Error from provider: ${errorMessage} and status code ${validationResult.statusCode} (using model ${validationResult.model}). Please try again later or contact support.`,
 		});
 	}
