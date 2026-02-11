@@ -530,6 +530,10 @@ admin.openapi(getOrganizationMetrics, async (c) => {
 					sql<number>`COALESCE(SUM(${projectHourlyStats.discountSavings}), 0)`.as(
 						"discountSavings",
 					),
+				cachedInputCost:
+					sql<number>`COALESCE(SUM(${projectHourlyStats.cachedInputCost}), 0)`.as(
+						"cachedInputCost",
+					),
 			})
 			.from(projectHourlyStats)
 			.where(
@@ -549,8 +553,7 @@ admin.openapi(getOrganizationMetrics, async (c) => {
 			outputTokens = Number(totals.outputTokens) || 0;
 			outputCost = Number(totals.outputCost) || 0;
 			cachedTokens = Number(totals.cachedTokens) || 0;
-			// cachedCost is not stored in aggregation tables, estimate from cachedTokens
-			cachedCost = 0;
+			cachedCost = Number(totals.cachedInputCost) || 0;
 			discountSavings = Number(totals.discountSavings) || 0;
 		}
 
