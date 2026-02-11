@@ -8,6 +8,7 @@ import {
 	Server,
 	TrendingDown,
 } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,24 @@ import {
 	type TokenWindow,
 } from "@/lib/admin-organizations";
 import { cn } from "@/lib/utils";
+
+const validWindows = new Set<TokenWindow>([
+	"1h",
+	"4h",
+	"12h",
+	"1d",
+	"7d",
+	"30d",
+	"90d",
+	"365d",
+]);
+
+function parseWindow(value: string | null): TokenWindow {
+	if (value && validWindows.has(value as TokenWindow)) {
+		return value as TokenWindow;
+	}
+	return "1d";
+}
 
 function formatCompactNumber(value: number): string {
 	if (value >= 1_000_000_000) {
@@ -90,9 +109,13 @@ function MetricCard({
 }
 
 export function OrgMetricsSection({ orgId }: { orgId: string }) {
+	const searchParams = useSearchParams();
+	const router = useRouter();
+	const pathname = usePathname();
+
+	const window = parseWindow(searchParams.get("window"));
 	const [metrics, setMetrics] = useState<OrganizationMetrics | null>(null);
 	const [loading, setLoading] = useState(true);
-	const [window, setWindow] = useState<TokenWindow>("1d");
 
 	const loadMetrics = useCallback(
 		async (w: TokenWindow) => {
@@ -104,14 +127,24 @@ export function OrgMetricsSection({ orgId }: { orgId: string }) {
 		[orgId],
 	);
 
-	// Load metrics automatically on mount
+	// Load metrics automatically on mount and when window changes
 	useEffect(() => {
 		loadMetrics(window);
 	}, [loadMetrics, window]);
 
-	const handleWindowChange = useCallback((w: TokenWindow) => {
-		setWindow(w);
-	}, []);
+	const handleWindowChange = useCallback(
+		(w: TokenWindow) => {
+			const params = new URLSearchParams(searchParams.toString());
+			if (w === "1d") {
+				params.delete("window");
+			} else {
+				params.set("window", w);
+			}
+			const query = params.toString();
+			router.push(query ? `${pathname}?${query}` : pathname);
+		},
+		[searchParams, router, pathname],
+	);
 
 	if (loading) {
 		return (
