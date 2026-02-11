@@ -1120,7 +1120,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
-                    window?: "1d" | "7d";
+                    window?: "1h" | "4h" | "12h" | "1d" | "7d" | "30d" | "90d" | "365d";
                 };
                 header?: never;
                 path: {
@@ -1149,7 +1149,7 @@ export interface paths {
                                 status: string | null;
                             };
                             /** @enum {string} */
-                            window: "1d" | "7d";
+                            window: "1h" | "4h" | "12h" | "1d" | "7d" | "30d" | "90d" | "365d";
                             startDate: string;
                             endDate: string;
                             totalRequests: number;

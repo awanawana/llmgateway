@@ -135,7 +135,17 @@ export function OrgMetricsSection({ orgId }: { orgId: string }) {
 		);
 	}
 
-	const windowLabel = window === "7d" ? "Last 7 days" : "Last 24 hours";
+	const windowLabels: Record<TokenWindow, string> = {
+		"1h": "Last 1 hour",
+		"4h": "Last 4 hours",
+		"12h": "Last 12 hours",
+		"1d": "Last 24 hours",
+		"7d": "Last 7 days",
+		"30d": "Last 30 days",
+		"90d": "Last 90 days",
+		"365d": "Last 365 days",
+	};
+	const windowLabel = windowLabels[window];
 
 	return (
 		<section className="space-y-4">
@@ -149,18 +159,60 @@ export function OrgMetricsSection({ orgId }: { orgId: string }) {
 				</div>
 				<div className="flex items-center gap-1">
 					<Button
+						variant={window === "1h" ? "default" : "outline"}
+						size="sm"
+						onClick={() => handleWindowChange("1h")}
+					>
+						1h
+					</Button>
+					<Button
+						variant={window === "4h" ? "default" : "outline"}
+						size="sm"
+						onClick={() => handleWindowChange("4h")}
+					>
+						4h
+					</Button>
+					<Button
+						variant={window === "12h" ? "default" : "outline"}
+						size="sm"
+						onClick={() => handleWindowChange("12h")}
+					>
+						12h
+					</Button>
+					<Button
 						variant={window === "1d" ? "default" : "outline"}
 						size="sm"
 						onClick={() => handleWindowChange("1d")}
 					>
-						Last 24h
+						24h
 					</Button>
 					<Button
 						variant={window === "7d" ? "default" : "outline"}
 						size="sm"
 						onClick={() => handleWindowChange("7d")}
 					>
-						Last 7d
+						7d
+					</Button>
+					<Button
+						variant={window === "30d" ? "default" : "outline"}
+						size="sm"
+						onClick={() => handleWindowChange("30d")}
+					>
+						30d
+					</Button>
+					<Button
+						variant={window === "90d" ? "default" : "outline"}
+						size="sm"
+						onClick={() => handleWindowChange("90d")}
+					>
+						90d
+					</Button>
+					<Button
+						variant={window === "365d" ? "default" : "outline"}
+						size="sm"
+						onClick={() => handleWindowChange("365d")}
+					>
+						365d
 					</Button>
 				</div>
 			</div>

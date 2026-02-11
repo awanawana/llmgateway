@@ -36,7 +36,16 @@ const adminMetricsSchema = z.object({
 	totalOrganizations: z.number(),
 });
 
-const tokenWindowSchema = z.enum(["1d", "7d"]);
+const tokenWindowSchema = z.enum([
+	"1h",
+	"4h",
+	"12h",
+	"1d",
+	"7d",
+	"30d",
+	"90d",
+	"365d",
+]);
 
 const organizationSchema = z.object({
 	id: z.string(),
@@ -454,8 +463,18 @@ admin.openapi(getOrganizationMetrics, async (c) => {
 	const projectIds = projects.map((p) => p.id);
 
 	const now = new Date();
-	const days = windowParam === "7d" ? 7 : 1;
-	const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+	const windowHours: Record<string, number> = {
+		"1h": 1,
+		"4h": 4,
+		"12h": 12,
+		"1d": 24,
+		"7d": 7 * 24,
+		"30d": 30 * 24,
+		"90d": 90 * 24,
+		"365d": 365 * 24,
+	};
+	const hours = windowHours[windowParam] ?? 24;
+	const startDate = new Date(now.getTime() - hours * 60 * 60 * 1000);
 
 	let totalRequests = 0;
 	let totalTokens = 0;
