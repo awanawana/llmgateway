@@ -497,6 +497,11 @@ export const log = pgTable(
 				error_type: string;
 				succeeded: boolean;
 			}>;
+			filteredProviders?: Array<{
+				providerId: string;
+				reasons: string[];
+			}>;
+			strippedParameters?: string[];
 		}>(),
 		processedAt: timestamp(),
 		rawRequest: jsonb(),

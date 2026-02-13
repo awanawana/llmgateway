@@ -104,6 +104,62 @@ import { validateModelCapabilities } from "./tools/validate-model-capabilities.j
 import type { OriginalRequestParams } from "./tools/resolve-provider-context.js";
 import type { ServerTypes } from "@/vars.js";
 
+/**
+ * Collects the reasons why a provider mapping would be filtered out during routing.
+ * Returns an empty array if the provider passes all checks.
+ */
+function getProviderFilterReasons(
+	provider: ProviderModelMapping,
+	options: {
+		webSearchTool?: boolean;
+		responseFormatType?: string;
+		hasImages?: boolean;
+		hasTools?: boolean;
+		reasoningEffort?: string;
+		reasoningMaxTokens?: number;
+		noReasoning?: boolean;
+	},
+): string[] {
+	const reasons: string[] = [];
+
+	if (options.noReasoning && provider.reasoning === true) {
+		reasons.push("no_reasoning requested but provider has reasoning");
+	}
+	if (options.reasoningEffort !== undefined && provider.reasoning !== true) {
+		reasons.push("reasoning_effort not supported");
+	}
+	if (
+		options.reasoningMaxTokens !== undefined &&
+		provider.reasoningMaxTokens !== true
+	) {
+		reasons.push("reasoning_max_tokens not supported");
+	}
+	if (options.hasTools && provider.tools !== true) {
+		reasons.push("tools not supported");
+	}
+	if (options.webSearchTool && provider.webSearch !== true) {
+		reasons.push("web_search not supported");
+	}
+	if (
+		(options.responseFormatType === "json_object" ||
+			options.responseFormatType === "json_schema") &&
+		provider.jsonOutput !== true
+	) {
+		reasons.push("json_output not supported");
+	}
+	if (
+		options.responseFormatType === "json_schema" &&
+		provider.jsonOutputSchema !== true
+	) {
+		reasons.push("json_schema not supported");
+	}
+	if (options.hasImages && provider.vision !== true) {
+		reasons.push("vision not supported");
+	}
+
+	return reasons;
+}
+
 // Pre-compiled regex pattern to avoid recompilation per request
 const SSE_FIELD_PATTERN = /^[a-zA-Z_-]+:\s*/;
 
@@ -717,8 +773,21 @@ chat.openapi(completions, async (c) => {
 
 		let selectedModel: ModelDefinition | undefined;
 		let selectedProviders: any[] = [];
+		let selectedFilteredProviders: Array<{
+			providerId: string;
+			reasons: string[];
+		}> = [];
 		let lowestPrice = Number.MAX_VALUE;
 		const now = new Date(); // Cache current time for deprecation checks
+		const autoFilterOpts = {
+			webSearchTool: !!webSearchTool,
+			responseFormatType: response_format?.type,
+			hasImages,
+			hasTools: tools !== undefined || tool_choice !== undefined,
+			reasoningEffort: reasoning_effort,
+			reasoningMaxTokens: reasoning_max_tokens,
+			noReasoning: no_reasoning,
+		};
 
 		for (const modelDef of models) {
 			if (modelDef.id === "auto" || modelDef.id === "custom") {
@@ -743,6 +812,10 @@ chat.openapi(completions, async (c) => {
 			);
 
 			// Filter by context size requirement, reasoning capability, and deprecation status
+			const filteredOutForModel: Array<{
+				providerId: string;
+				reasons: string[];
+			}> = [];
 			const suitableProviders = availableModelProviders.filter((provider) => {
 				// Skip deprecated provider mappings
 				if (
@@ -756,69 +829,27 @@ chat.openapi(completions, async (c) => {
 				const modelContextSize = provider.contextSize ?? 8192;
 				const contextSizeMet = modelContextSize >= requiredContextSize;
 
-				// If no_reasoning is true, exclude reasoning models
-				if (
-					no_reasoning &&
-					(provider as ProviderModelMapping).reasoning === true
-				) {
+				if (!contextSizeMet) {
+					filteredOutForModel.push({
+						providerId: provider.providerId,
+						reasons: ["context_size too small"],
+					});
 					return false;
 				}
 
-				// Check reasoning capability if reasoning_effort is specified
-				if (
-					reasoning_effort !== undefined &&
-					(provider as ProviderModelMapping).reasoning !== true
-				) {
+				const reasons = getProviderFilterReasons(
+					provider as ProviderModelMapping,
+					autoFilterOpts,
+				);
+				if (reasons.length > 0) {
+					filteredOutForModel.push({
+						providerId: provider.providerId,
+						reasons,
+					});
 					return false;
 				}
 
-				// Check reasoning.max_tokens support if specified
-				if (
-					reasoning_max_tokens !== undefined &&
-					(provider as ProviderModelMapping).reasoningMaxTokens !== true
-				) {
-					return false;
-				}
-
-				// Check tool capability if tools or tool_choice is specified
-				if (
-					(tools !== undefined || tool_choice !== undefined) &&
-					(provider as ProviderModelMapping).tools !== true
-				) {
-					return false;
-				}
-
-				// Check web search capability if web search tool is requested
-				if (
-					webSearchTool &&
-					(provider as ProviderModelMapping).webSearch !== true
-				) {
-					return false;
-				}
-
-				// Check JSON output capability if json_object or json_schema response format is requested
-				if (
-					response_format?.type === "json_object" ||
-					response_format?.type === "json_schema"
-				) {
-					if ((provider as ProviderModelMapping).jsonOutput !== true) {
-						return false;
-					}
-				}
-
-				// Check JSON schema output capability if json_schema response format is requested
-				if (response_format?.type === "json_schema") {
-					if ((provider as ProviderModelMapping).jsonOutputSchema !== true) {
-						return false;
-					}
-				}
-
-				// Check vision capability if images are present in messages
-				if (hasImages && (provider as ProviderModelMapping).vision !== true) {
-					return false;
-				}
-
-				return contextSizeMet;
+				return true;
 			});
 
 			if (suitableProviders.length > 0) {
@@ -836,6 +867,7 @@ chat.openapi(completions, async (c) => {
 						lowestPrice = totalPrice;
 						selectedModel = modelDef;
 						selectedProviders = suitableProviders;
+						selectedFilteredProviders = filteredOutForModel;
 					}
 				}
 			}
@@ -875,6 +907,9 @@ chat.openapi(completions, async (c) => {
 					routingMetadata = {
 						...cheapestResult.metadata,
 						...(noFallback ? { noFallback: true } : {}),
+						...(selectedFilteredProviders.length > 0
+							? { filteredProviders: selectedFilteredProviders }
+							: {}),
 					};
 				} else {
 					// Fallback to first available provider if price comparison fails
@@ -966,6 +1001,16 @@ chat.openapi(completions, async (c) => {
 				// Filter model providers to only those available (excluding the low-uptime one)
 				// If web search is requested, also filter to providers that support it
 				// If JSON output is requested, also filter to providers that support it
+				const filteredOutProvidersFallback: Array<{
+					providerId: string;
+					reasons: string[];
+				}> = [];
+				const filterOpts = {
+					webSearchTool: !!webSearchTool,
+					responseFormatType: response_format?.type,
+					hasImages,
+					hasTools: tools !== undefined || tool_choice !== undefined,
+				};
 				const availableModelProviders = modelInfo.providers.filter(
 					(provider) => {
 						if (!availableProviders.includes(provider.providerId)) {
@@ -981,34 +1026,15 @@ chat.openapi(completions, async (c) => {
 						) {
 							return false;
 						}
-						// If web search tool is requested, only include providers that support it
-						if (webSearchTool) {
-							if ((provider as ProviderModelMapping).webSearch !== true) {
-								return false;
-							}
-						}
-						// If JSON output is requested, only include providers that support it
-						if (
-							response_format?.type === "json_object" ||
-							response_format?.type === "json_schema"
-						) {
-							if ((provider as ProviderModelMapping).jsonOutput !== true) {
-								return false;
-							}
-						}
-						// If JSON schema output is requested, only include providers that support it
-						if (response_format?.type === "json_schema") {
-							if (
-								(provider as ProviderModelMapping).jsonOutputSchema !== true
-							) {
-								return false;
-							}
-						}
-						// If images are present in messages, only include providers that support vision
-						if (
-							hasImages &&
-							(provider as ProviderModelMapping).vision !== true
-						) {
+						const reasons = getProviderFilterReasons(
+							provider as ProviderModelMapping,
+							filterOpts,
+						);
+						if (reasons.length > 0) {
+							filteredOutProvidersFallback.push({
+								providerId: provider.providerId,
+								reasons,
+							});
 							return false;
 						}
 						return true;
@@ -1085,6 +1111,9 @@ chat.openapi(completions, async (c) => {
 										originalProviderScore,
 										...cheapestResult.metadata.providerScores,
 									],
+									...(filteredOutProvidersFallback.length > 0
+										? { filteredProviders: filteredOutProvidersFallback }
+										: {}),
 								};
 							}
 						}
@@ -1117,6 +1146,16 @@ chat.openapi(completions, async (c) => {
 			// Filter model providers to only those available
 			// If web search is requested, also filter to providers that support it
 			// If JSON output is requested, also filter to providers that support it
+			const filteredOutProvidersDirect: Array<{
+				providerId: string;
+				reasons: string[];
+			}> = [];
+			const directFilterOpts = {
+				webSearchTool: !!webSearchTool,
+				responseFormatType: response_format?.type,
+				hasImages,
+				hasTools: tools !== undefined || tool_choice !== undefined,
+			};
 			const availableModelProviders = modelInfo.providers.filter((provider) => {
 				if (!availableProviders.includes(provider.providerId)) {
 					return false;
@@ -1128,29 +1167,15 @@ chat.openapi(completions, async (c) => {
 				) {
 					return false;
 				}
-				// If web search tool is requested, only include providers that support it
-				if (webSearchTool) {
-					if ((provider as ProviderModelMapping).webSearch !== true) {
-						return false;
-					}
-				}
-				// If JSON output is requested, only include providers that support it
-				if (
-					response_format?.type === "json_object" ||
-					response_format?.type === "json_schema"
-				) {
-					if ((provider as ProviderModelMapping).jsonOutput !== true) {
-						return false;
-					}
-				}
-				// If JSON schema output is requested, also include providers that support it
-				if (response_format?.type === "json_schema") {
-					if ((provider as ProviderModelMapping).jsonOutputSchema !== true) {
-						return false;
-					}
-				}
-				// If images are present in messages, only include providers that support vision
-				if (hasImages && (provider as ProviderModelMapping).vision !== true) {
+				const reasons = getProviderFilterReasons(
+					provider as ProviderModelMapping,
+					directFilterOpts,
+				);
+				if (reasons.length > 0) {
+					filteredOutProvidersDirect.push({
+						providerId: provider.providerId,
+						reasons,
+					});
 					return false;
 				}
 				return true;
@@ -1194,6 +1219,9 @@ chat.openapi(completions, async (c) => {
 					routingMetadata = {
 						...cheapestResult.metadata,
 						...(noFallback ? { noFallback: true } : {}),
+						...(filteredOutProvidersDirect.length > 0
+							? { filteredProviders: filteredOutProvidersDirect }
+							: {}),
 					};
 				} else {
 					usedProvider = availableModelProviders[0].providerId;
@@ -1966,6 +1994,7 @@ chat.openapi(completions, async (c) => {
 	};
 
 	// Strip unsupported parameters based on model's supportedParameters
+	const strippedParameters: string[] = [];
 	if (finalModelInfo) {
 		const providerMapping = finalModelInfo.providers.find(
 			(p) => p.providerId === usedProvider && p.modelName === usedModel,
@@ -1975,26 +2004,35 @@ chat.openapi(completions, async (c) => {
 		if (supported && supported.length > 0) {
 			if (temperature !== undefined && !supported.includes("temperature")) {
 				temperature = undefined;
+				strippedParameters.push("temperature");
 			}
 			if (top_p !== undefined && !supported.includes("top_p")) {
 				top_p = undefined;
+				strippedParameters.push("top_p");
 			}
 			if (
 				frequency_penalty !== undefined &&
 				!supported.includes("frequency_penalty")
 			) {
 				frequency_penalty = undefined;
+				strippedParameters.push("frequency_penalty");
 			}
 			if (
 				presence_penalty !== undefined &&
 				!supported.includes("presence_penalty")
 			) {
 				presence_penalty = undefined;
+				strippedParameters.push("presence_penalty");
 			}
 			if (max_tokens !== undefined && !supported.includes("max_tokens")) {
 				max_tokens = undefined;
+				strippedParameters.push("max_tokens");
 			}
 		}
+	}
+	// Attach stripped parameters to routing metadata
+	if (strippedParameters.length > 0 && routingMetadata) {
+		routingMetadata.strippedParameters = strippedParameters;
 	}
 
 	// Anthropic does not allow temperature and top_p to be set simultaneously

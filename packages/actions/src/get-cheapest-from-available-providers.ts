@@ -88,6 +88,13 @@ export interface RoutingMetadata {
 		error_type: string;
 		succeeded: boolean;
 	}>;
+	// Provider mappings that were filtered out because they don't support requested params/features
+	filteredProviders?: Array<{
+		providerId: string;
+		reasons: string[];
+	}>;
+	// Parameters that were stripped from the request because the selected provider doesn't support them
+	strippedParameters?: string[];
 }
 
 export interface ProviderSelectionResult<T extends AvailableModelProvider> {
