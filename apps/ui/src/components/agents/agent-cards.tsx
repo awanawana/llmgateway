@@ -101,10 +101,10 @@ export function AgentCards() {
 	const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
 
 	const copyToClipboard = useCallback((url: string) => {
-		const repoPath = url
-			.replace("https://github.com/", "")
-			.replace("/tree/main/", "/");
-		navigator.clipboard.writeText(`npx degit ${repoPath}`);
+		const templateName = url.split("/").pop();
+		navigator.clipboard.writeText(
+			`npx @llmgateway/cli init --template ${templateName}`,
+		);
 		setCopiedUrl(url);
 		setTimeout(() => setCopiedUrl(null), 2000);
 	}, []);
