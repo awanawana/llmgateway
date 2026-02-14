@@ -45,6 +45,7 @@ const referralSources = [
 	{ value: "reddit", label: "Reddit" },
 	{ value: "producthunt", label: "ProductHunt" },
 	{ value: "devntell", label: "DevNTell podcast" },
+	{ value: "linkedin", label: "LinkedIn" },
 	{ value: "other", label: "Other" },
 ];
 
