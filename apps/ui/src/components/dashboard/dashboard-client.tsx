@@ -49,7 +49,6 @@ import {
 	SelectValue,
 } from "@/lib/components/select";
 import { useApi } from "@/lib/fetch-client";
-import { cn } from "@/lib/utils";
 
 import type { ActivitT } from "@/types/activity";
 
@@ -220,15 +219,7 @@ export function DashboardClient({ initialActivityData }: DashboardClientProps) {
 		return tokens.toString();
 	};
 
-	const isOrganizationLoading = !selectedOrganization;
-
-	const shouldShowGetStartedState =
-		!isLoading &&
-		!isOrganizationLoading &&
-		selectedOrganization &&
-		selectedOrganization.credits === "0";
-
-	const isInitialLoading = isOrganizationLoading;
+	const isInitialLoading = !selectedOrganization;
 
 	if (isInitialLoading) {
 		return (
@@ -320,62 +311,7 @@ export function DashboardClient({ initialActivityData }: DashboardClientProps) {
 				<DateRangePicker buildUrl={buildUrl} />
 
 				<div className="space-y-4">
-					{shouldShowGetStartedState && (
-						<div className="flex flex-col gap-3 py-12">
-							<div className="flex items-center justify-center w-16 h-16 bg-muted rounded-full">
-								<CreditCard className="w-8 h-8 text-muted-foreground" />
-							</div>
-							<div className="text-center">
-								<h3 className="text-lg font-semibold mb-2">
-									Welcome to LLM Gateway!
-								</h3>
-								<p className="text-muted-foreground mb-4">
-									Get started by adding credits to your account or upgrading to
-									Pro.
-								</p>
-								<div className="flex justify-center gap-2">
-									{selectedOrganization && selectedProject && (
-										<>
-											<CreateApiKeyDialog
-												selectedProject={selectedProject}
-												disabled={
-													planLimits
-														? planLimits.currentCount >= planLimits.maxKeys
-														: false
-												}
-												disabledMessage={
-													planLimits
-														? `Free plan allows maximum ${planLimits.maxKeys} API keys per project`
-														: undefined
-												}
-											>
-												<Button
-													variant="outline"
-													disabled={
-														!selectedProject ||
-														(planLimits
-															? planLimits.currentCount >= planLimits.maxKeys
-															: false)
-													}
-													className="flex items-center"
-												>
-													<Key className="mr-2 h-4 w-4" />
-													Create API Key
-												</Button>
-											</CreateApiKeyDialog>
-											<TopUpCreditsButton />
-										</>
-									)}
-								</div>
-							</div>
-						</div>
-					)}
-
-					<div
-						className={cn("grid gap-4 md:grid-cols-2 lg:grid-cols-4", {
-							"pointer-events-none opacity-20": shouldShowGetStartedState,
-						})}
-					>
+					<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
 						<MetricCard
 							label="Organization Credits"
 							value={`$${
@@ -490,11 +426,7 @@ export function DashboardClient({ initialActivityData }: DashboardClientProps) {
 							accent="blue"
 						/>
 					</div>
-					<div
-						className={cn("grid gap-4 md:grid-cols-2 lg:grid-cols-7", {
-							"pointer-events-none opacity-20": shouldShowGetStartedState,
-						})}
-					>
+					<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
 						<Card className="col-span-4">
 							<CardHeader>
 								<div className="flex items-start justify-between">
@@ -562,11 +494,7 @@ export function DashboardClient({ initialActivityData }: DashboardClientProps) {
 						</Card>
 					</div>
 
-					<div
-						className={cn("grid gap-4 md:grid-cols-2 lg:grid-cols-7", {
-							"pointer-events-none opacity-20": shouldShowGetStartedState,
-						})}
-					>
+					<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
 						<div className="col-span-4 space-y-4">
 							<CostBreakdownCard initialActivityData={initialActivityData} />
 							<RecentActivityCard
