@@ -131,6 +131,7 @@ export function OnboardingWizard() {
 					messages: [{ role: "user", content: prompt.trim() }],
 					max_tokens: 200,
 					free_models_only: true,
+					onboarding: true,
 				}),
 				signal: controller.signal,
 			});

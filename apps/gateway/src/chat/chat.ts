@@ -285,6 +285,7 @@ chat.openapi(completions, async (c) => {
 		tools,
 		tool_choice,
 		free_models_only,
+		onboarding,
 		no_reasoning,
 		sensitive_word_check,
 		image_config,
@@ -1472,6 +1473,7 @@ chat.openapi(completions, async (c) => {
 			project.organizationId,
 			usedModel,
 			modelInfo as ModelDefinition,
+			{ skipEmailVerification: onboarding },
 		);
 	}
 
