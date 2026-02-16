@@ -645,6 +645,13 @@
       "when": 1770892067392,
       "tag": "1770892067_long_toad",
       "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "8",
+      "when": 1771244411470,
+      "tag": "1771244411_fearless_roulette",
+      "breakpoints": true
     }
   ]
 }
