@@ -243,6 +243,12 @@ async function handleCheckoutSessionCompleted(
 		`Processing checkout session completed for customer: ${customer}, subscription: ${subscription}`,
 	);
 
+	// Handle credit top-up checkout sessions
+	if (!subscription && metadata?.type === "credit_topup") {
+		await handleCreditTopUpCheckout(session);
+		return;
+	}
+
 	if (!subscription) {
 		logger.info("Not a subscription checkout session, skipping");
 		return;
@@ -483,6 +489,175 @@ async function handleCheckoutSessionCompleted(
 		);
 		throw error;
 	}
+}
+
+async function handleCreditTopUpCheckout(session: Stripe.Checkout.Session) {
+	const { customer, metadata } = session;
+
+	const creditAmount = parseFloat(metadata?.baseAmount || "0");
+	if (!creditAmount) {
+		logger.error("Missing baseAmount in credit top-up checkout metadata");
+		return;
+	}
+
+	const result = await resolveOrganizationFromStripeEvent({
+		metadata: metadata as { organizationId?: string } | undefined,
+		customer: typeof customer === "string" ? customer : customer?.id,
+	});
+
+	if (!result) {
+		logger.error(
+			"Could not resolve organization from credit top-up checkout session",
+		);
+		return;
+	}
+
+	const { organizationId, organization } = result;
+	const totalAmountInDollars = (session.amount_total || 0) / 100;
+
+	// Calculate bonus for first-time credit purchases
+	let bonusAmount = 0;
+	let finalCreditAmount = creditAmount;
+	const bonusMultiplier = process.env.FIRST_TIME_CREDIT_BONUS_MULTIPLIER
+		? parseFloat(process.env.FIRST_TIME_CREDIT_BONUS_MULTIPLIER)
+		: 0;
+
+	if (bonusMultiplier && bonusMultiplier > 1) {
+		const userEmail = metadata?.userEmail;
+		let isEmailVerified = false;
+
+		if (userEmail) {
+			const user = await db.query.user.findFirst({
+				where: {
+					email: { eq: userEmail },
+				},
+			});
+			isEmailVerified = user?.emailVerified ?? false;
+		}
+
+		if (isEmailVerified) {
+			const previousPurchases = await db.query.transaction.findFirst({
+				where: {
+					organizationId: { eq: organizationId },
+					type: { eq: "credit_topup" },
+					status: { eq: "completed" },
+				},
+			});
+
+			if (!previousPurchases) {
+				const potentialBonus = creditAmount * (bonusMultiplier - 1);
+				const maxBonus = 50;
+				bonusAmount = Math.min(potentialBonus, maxBonus);
+				finalCreditAmount = creditAmount + bonusAmount;
+
+				logger.info(
+					`Applied first-time bonus of $${bonusAmount} to organization ${organizationId} (${bonusMultiplier}x multiplier, max $${maxBonus})`,
+				);
+			}
+		}
+	}
+
+	// Update organization credits
+	await db
+		.update(tables.organization)
+		.set({
+			credits: sql`${tables.organization.credits} + ${finalCreditAmount}`,
+			paymentFailureCount: 0,
+			lastPaymentFailureAt: null,
+		})
+		.where(eq(tables.organization.id, organizationId));
+
+	const transactionDescription =
+		bonusAmount > 0
+			? `Credit top-up via Stripe Checkout (+$${bonusAmount.toFixed(2)} first-time bonus)`
+			: "Credit top-up via Stripe Checkout";
+
+	const stripePaymentIntentId = session.payment_intent as string | undefined;
+
+	const [completedTransaction] = await db
+		.insert(tables.transaction)
+		.values({
+			organizationId,
+			type: "credit_topup",
+			creditAmount: finalCreditAmount.toString(),
+			amount: totalAmountInDollars.toString(),
+			currency: (session.currency || "USD").toUpperCase(),
+			status: "completed",
+			stripePaymentIntentId: stripePaymentIntentId || null,
+			description: transactionDescription,
+		})
+		.returning();
+
+	// Generate and email invoice
+	const lineItems = [
+		{
+			description: `Credit Top-up ($${creditAmount})`,
+			amount: totalAmountInDollars,
+		},
+	];
+
+	if (bonusAmount > 0) {
+		lineItems.push({
+			description: `First-time bonus (+$${bonusAmount.toFixed(2)})`,
+			amount: 0,
+		});
+	}
+
+	try {
+		await generateAndEmailInvoice({
+			invoiceNumber: completedTransaction.id,
+			invoiceDate: new Date(),
+			organizationName: organization.name,
+			billingEmail: organization.billingEmail,
+			billingCompany: organization.billingCompany,
+			billingAddress: organization.billingAddress,
+			billingTaxId: organization.billingTaxId,
+			billingNotes: organization.billingNotes,
+			lineItems,
+			currency: (session.currency || "USD").toUpperCase(),
+		});
+	} catch (e) {
+		logger.error(
+			"Invoice email failed (credit top-up checkout); suppressing webhook failure",
+			e as Error,
+		);
+	}
+
+	posthog.groupIdentify({
+		groupType: "organization",
+		groupKey: organizationId,
+		properties: {
+			name: organization.name,
+		},
+	});
+	posthog.capture({
+		distinctId: "organization",
+		event: "credits_purchased",
+		groups: {
+			organization: organizationId,
+		},
+		properties: {
+			amount: creditAmount,
+			totalPaid: totalAmountInDollars,
+			source: "stripe_checkout",
+			organization: organizationId,
+		},
+	});
+
+	// Send Discord notification
+	const userEmail = metadata?.userEmail;
+	if (userEmail) {
+		const user = await db.query.user.findFirst({
+			where: {
+				email: { eq: userEmail },
+			},
+		});
+		await notifyCreditsPurchased(userEmail, user?.name, creditAmount);
+	}
+
+	logger.info(
+		`Added ${finalCreditAmount} credits to organization ${organizationId} via Stripe Checkout (paid $${totalAmountInDollars} including fees)`,
+	);
 }
 
 async function handlePaymentIntentSucceeded(

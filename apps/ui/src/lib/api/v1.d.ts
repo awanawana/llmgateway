@@ -4021,6 +4021,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/payments/create-checkout-session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        amount: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description Stripe Checkout session created successfully */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            checkoutUrl: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/payments/calculate-fees": {
         parameters: {
             query?: never;

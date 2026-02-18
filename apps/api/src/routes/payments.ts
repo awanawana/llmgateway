@@ -583,6 +583,121 @@ payments.openapi(topUpWithSavedMethod, async (c) => {
 		success: true,
 	});
 });
+const createCheckoutSession = createRoute({
+	method: "post",
+	path: "/create-checkout-session",
+	request: {
+		body: {
+			content: {
+				"application/json": {
+					schema: z.object({
+						amount: z.number().int().min(5),
+					}),
+				},
+			},
+		},
+	},
+	responses: {
+		200: {
+			content: {
+				"application/json": {
+					schema: z.object({
+						checkoutUrl: z.string(),
+					}),
+				},
+			},
+			description: "Stripe Checkout session created successfully",
+		},
+	},
+});
+
+payments.openapi(createCheckoutSession, async (c) => {
+	const user = c.get("user");
+
+	if (!user) {
+		throw new HTTPException(401, {
+			message: "Unauthorized",
+		});
+	}
+
+	if (!user.emailVerified) {
+		throw new HTTPException(403, {
+			message:
+				"Email verification required. Please check your inbox or tap 'Resend Email' in the dashboard.",
+		});
+	}
+
+	const { amount } = c.req.valid("json");
+
+	const userOrganization = await db.query.userOrganization.findFirst({
+		where: {
+			userId: user.id,
+		},
+		with: {
+			organization: true,
+		},
+	});
+
+	if (!userOrganization || !userOrganization.organization) {
+		throw new HTTPException(404, {
+			message: "Organization not found",
+		});
+	}
+
+	const organizationId = userOrganization.organization.id;
+	const stripeCustomerId = await ensureStripeCustomer(organizationId);
+
+	const feeBreakdown = calculateFees({ amount });
+
+	const session = await stripe.checkout.sessions.create({
+		customer: stripeCustomerId,
+		mode: "payment",
+		line_items: [
+			{
+				price_data: {
+					currency: "usd",
+					product_data: {
+						name: `Credit Top-Up ($${amount})`,
+						description: `$${amount} in credits for your LLMGateway account`,
+					},
+					unit_amount: Math.round(feeBreakdown.totalAmount * 100),
+				},
+				quantity: 1,
+			},
+		],
+		success_url: `${process.env.UI_URL || "http://localhost:3002"}/dashboard/${organizationId}/org/billing?success=true`,
+		cancel_url: `${process.env.UI_URL || "http://localhost:3002"}/dashboard/${organizationId}/org/billing?canceled=true`,
+		metadata: {
+			organizationId,
+			type: "credit_topup",
+			baseAmount: amount.toString(),
+			platformFee: feeBreakdown.platformFee.toString(),
+			userEmail: user.email,
+			userId: user.id,
+		},
+	});
+
+	if (!session.url) {
+		throw new HTTPException(500, {
+			message: "Failed to generate checkout URL",
+		});
+	}
+
+	await logAuditEvent({
+		organizationId,
+		userId: user.id,
+		action: "payment.credit_topup",
+		resourceType: "payment",
+		metadata: {
+			amount,
+		},
+	});
+
+	return c.json({
+		checkoutUrl: session.url,
+	});
+});
+
 const calculateFeesRoute = createRoute({
 	method: "post",
 	path: "/calculate-fees",

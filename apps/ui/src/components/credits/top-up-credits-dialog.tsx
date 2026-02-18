@@ -6,7 +6,7 @@ import {
 	useElements,
 	useStripe as useStripeElements,
 } from "@stripe/react-stripe-js";
-import { CreditCard, Plus } from "lucide-react";
+import { CreditCard, ExternalLink, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/lib/components/button";
@@ -165,6 +165,12 @@ function AmountStep({
 }) {
 	const presetAmounts = [10, 25, 50, 100];
 	const api = useApi();
+	const { toast } = useToast();
+	const [checkoutLoading, setCheckoutLoading] = useState(false);
+	const { mutateAsync: createCheckoutSession } = api.useMutation(
+		"post",
+		"/payments/create-checkout-session",
+	);
 	const { data: feeData, isLoading: feeDataLoading } = api.useQuery(
 		"post",
 		"/payments/calculate-fees",
@@ -177,24 +183,23 @@ function AmountStep({
 	);
 
 	const hasBonus = feeData?.bonusAmount && feeData.bonusAmount > 0;
-	// const showIneligibilityMessage =
-	// 	feeData?.bonusEnabled &&
-	// 	!feeData?.bonusEligible &&
-	// 	feeData?.bonusIneligibilityReason;
 
-	// const getIneligibilityMessage = () => {
-	// 	if (!feeData?.bonusIneligibilityReason) {
-	// 		return "";
-	// 	}
-	// 	switch (feeData.bonusIneligibilityReason) {
-	// 		case "email_not_verified":
-	// 			return "Please verify your email to qualify for the first-time credit bonus.";
-	// 		case "already_purchased":
-	// 			return "First-time credit bonus is only available for new customers.";
-	// 		default:
-	// 			return "You are not eligible for the current promotion.";
-	// 	}
-	// };
+	const handleStripeCheckout = async () => {
+		setCheckoutLoading(true);
+		try {
+			const { checkoutUrl } = await createCheckoutSession({
+				body: { amount },
+			});
+			window.location.href = checkoutUrl;
+		} catch (error: any) {
+			toast({
+				title: "Checkout Failed",
+				description: error?.message || "Failed to create checkout session.",
+				variant: "destructive",
+			});
+			setCheckoutLoading(false);
+		}
+	};
 
 	return (
 		<>
@@ -217,7 +222,6 @@ function AmountStep({
 						required
 					/>
 				</div>
-				{/* Promo code UI removed */}
 				<div className="flex flex-wrap gap-2">
 					{presetAmounts.map((preset) => (
 						<Button
@@ -230,14 +234,6 @@ function AmountStep({
 						</Button>
 					))}
 				</div>
-
-				{/* {showIneligibilityMessage && (
-					<div className="border rounded-lg p-3 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
-						<p className="text-sm text-amber-800 dark:text-amber-200">
-							ℹ️ {getIneligibilityMessage()}
-						</p>
-					</div>
-				)} */}
 
 				{amount >= 5 && (
 					<div className="border rounded-lg p-4 bg-muted/50">
@@ -274,17 +270,47 @@ function AmountStep({
 					</div>
 				)}
 			</div>
-			<DialogFooter>
-				<Button type="button" variant="outline" onClick={onCancel}>
-					Cancel
-				</Button>
+			<DialogFooter className="flex flex-col gap-3 sm:flex-col">
+				<div className="flex justify-end gap-2">
+					<Button type="button" variant="outline" onClick={onCancel}>
+						Cancel
+					</Button>
+					<Button
+						type="button"
+						onClick={onNext}
+						disabled={amount < 5 || feeDataLoading || checkoutLoading}
+					>
+						Pay with Card
+					</Button>
+				</div>
+				<div className="relative">
+					<div className="absolute inset-0 flex items-center">
+						<span className="w-full border-t" />
+					</div>
+					<div className="relative flex justify-center text-xs uppercase">
+						<span className="bg-background px-2 text-muted-foreground">or</span>
+					</div>
+				</div>
 				<Button
 					type="button"
-					onClick={onNext}
-					disabled={amount < 5 || feeDataLoading}
+					variant="outline"
+					className="w-full"
+					onClick={handleStripeCheckout}
+					disabled={amount < 5 || feeDataLoading || checkoutLoading}
 				>
-					Continue
+					{checkoutLoading ? (
+						"Redirecting..."
+					) : (
+						<>
+							<ExternalLink className="mr-2 h-4 w-4" />
+							Pay with Stripe Checkout
+						</>
+					)}
 				</Button>
+				<p className="text-xs text-muted-foreground text-center">
+					Stripe Checkout supports additional payment methods like Google Pay,
+					Apple Pay, and more.
+				</p>
 			</DialogFooter>
 		</>
 	);
