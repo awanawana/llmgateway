@@ -127,9 +127,10 @@ export function OnboardingWizard() {
 					Authorization: `Bearer ${apiKey}`,
 				},
 				body: JSON.stringify({
-					model: "gemini-3-flash-preview-free",
+					model: "auto",
 					messages: [{ role: "user", content: prompt.trim() }],
 					max_tokens: 200,
+					free_models_only: true,
 					onboarding: true,
 				}),
 				signal: controller.signal,
