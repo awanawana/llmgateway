@@ -50,7 +50,6 @@ export function extractTokenUsage(
 		case "google-ai-studio":
 		case "google-vertex":
 		case "obsidian":
-		case "avalanche":
 			if (data.usageMetadata) {
 				promptTokens = data.usageMetadata.promptTokenCount ?? null;
 				let rawCandidates = data.usageMetadata.candidatesTokenCount ?? null;

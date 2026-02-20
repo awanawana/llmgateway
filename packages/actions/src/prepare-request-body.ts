@@ -1340,8 +1340,7 @@ export async function prepareRequestBody(
 		}
 		case "google-ai-studio":
 		case "google-vertex":
-		case "obsidian":
-		case "avalanche": {
+		case "obsidian": {
 			delete requestBody.model; // Not used in body
 			delete requestBody.stream; // Stream is handled via URL parameter
 			delete requestBody.messages; // Not used in body for Google providers

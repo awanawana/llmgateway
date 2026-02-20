@@ -132,28 +132,6 @@ export const providers = [
 		color: "#1a1a1a",
 		website: null,
 		announcement: null,
-		priority: 1.5,
-	},
-	{
-		id: "avalanche",
-		name: "Avalanche",
-		description: "Avalanche - Google Vertex-compatible LLM provider.",
-		env: {
-			required: {
-				apiKey: "LLM_AVALANCHE_API_KEY",
-				baseUrl: "LLM_AVALANCHE_BASE_URL",
-				project: "LLM_AVALANCHE_PROJECT",
-			},
-			optional: {
-				region: "LLM_AVALANCHE_REGION",
-			},
-		},
-		streaming: true,
-		cancellation: true,
-		color: "#1a1a1a",
-		website: null,
-		announcement: null,
-		priority: 1.3,
 	},
 	{
 		id: "groq",

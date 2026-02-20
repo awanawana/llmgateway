@@ -40,8 +40,7 @@ export function extractToolCalls(data: any, provider: Provider): any[] | null {
 			return null;
 		case "google-ai-studio":
 		case "google-vertex":
-		case "obsidian":
-		case "avalanche": {
+		case "obsidian": {
 			// Google AI Studio tool calls in streaming
 			// Include thoughtSignature if present (required for Gemini 3 multi-turn conversations)
 			// Note: Redis caching of thought_signature happens in transform-streaming-to-openai.ts
