@@ -166,7 +166,11 @@ const apiKeysListSchema = z.object({
 const getMetrics = createRoute({
 	method: "get",
 	path: "/metrics",
-	request: {},
+	request: {
+		query: z.object({
+			range: timeseriesRangeSchema.default("all").optional(),
+		}),
+	},
 	responses: {
 		200: {
 			content: {
@@ -321,12 +325,31 @@ const getOrganizationApiKeys = createRoute({
 });
 
 admin.openapi(getMetrics, async (c) => {
-	// Total signups (all users)
+	const query = c.req.valid("query");
+	const range = query.range ?? "all";
+
+	const rangeDays: Record<string, number | null> = {
+		"7d": 7,
+		"30d": 30,
+		"90d": 90,
+		"365d": 365,
+		all: null,
+	};
+	const days = range in rangeDays ? rangeDays[range] : null;
+
+	let startDate: Date | null = null;
+	if (days !== null) {
+		startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+		startDate.setUTCHours(0, 0, 0, 0);
+	}
+
+	// Total signups
 	const [signupsRow] = await db
 		.select({
 			count: sql<number>`COUNT(*)`.as("count"),
 		})
-		.from(tables.user);
+		.from(tables.user)
+		.where(startDate ? gte(tables.user.createdAt, startDate) : undefined);
 
 	const totalSignups = Number(signupsRow?.count ?? 0);
 
@@ -336,7 +359,14 @@ admin.openapi(getMetrics, async (c) => {
 			count: sql<number>`COUNT(*)`.as("count"),
 		})
 		.from(tables.user)
-		.where(eq(tables.user.emailVerified, true));
+		.where(
+			startDate
+				? and(
+						eq(tables.user.emailVerified, true),
+						gte(tables.user.createdAt, startDate),
+					)
+				: eq(tables.user.emailVerified, true),
+		);
 
 	const verifiedUsers = Number(verifiedRow?.count ?? 0);
 
@@ -349,11 +379,18 @@ admin.openapi(getMetrics, async (c) => {
 				),
 		})
 		.from(tables.transaction)
-		.where(eq(tables.transaction.status, "completed"));
+		.where(
+			startDate
+				? and(
+						eq(tables.transaction.status, "completed"),
+						gte(tables.transaction.createdAt, startDate),
+					)
+				: eq(tables.transaction.status, "completed"),
+		);
 
 	const payingCustomers = Number(payingRow?.count ?? 0);
 
-	// Total revenue (all completed transactions)
+	// Total revenue (completed transactions)
 	const [revenueRow] = await db
 		.select({
 			value:
@@ -362,7 +399,14 @@ admin.openapi(getMetrics, async (c) => {
 				),
 		})
 		.from(tables.transaction)
-		.where(eq(tables.transaction.status, "completed"));
+		.where(
+			startDate
+				? and(
+						eq(tables.transaction.status, "completed"),
+						gte(tables.transaction.createdAt, startDate),
+					)
+				: eq(tables.transaction.status, "completed"),
+		);
 
 	const totalRevenue = Number(revenueRow?.value ?? 0);
 
@@ -371,11 +415,14 @@ admin.openapi(getMetrics, async (c) => {
 		.select({
 			count: sql<number>`COUNT(*)`.as("count"),
 		})
-		.from(tables.organization);
+		.from(tables.organization)
+		.where(
+			startDate ? gte(tables.organization.createdAt, startDate) : undefined,
+		);
 
 	const totalOrganizations = Number(orgsRow?.count ?? 0);
 
-	// Total topped up (all-time credits from completed transactions)
+	// Total topped up (credits from completed transactions)
 	const [toppedUpRow] = await db
 		.select({
 			value:
@@ -384,11 +431,18 @@ admin.openapi(getMetrics, async (c) => {
 				),
 		})
 		.from(tables.transaction)
-		.where(eq(tables.transaction.status, "completed"));
+		.where(
+			startDate
+				? and(
+						eq(tables.transaction.status, "completed"),
+						gte(tables.transaction.createdAt, startDate),
+					)
+				: eq(tables.transaction.status, "completed"),
+		);
 
 	const totalToppedUp = Number(toppedUpRow?.value ?? 0);
 
-	// Total spent (all-time usage cost from hourly stats)
+	// Total spent (usage cost from hourly stats)
 	const [spentRow] = await db
 		.select({
 			value:
@@ -396,7 +450,10 @@ admin.openapi(getMetrics, async (c) => {
 					"value",
 				),
 		})
-		.from(projectHourlyStats);
+		.from(projectHourlyStats)
+		.where(
+			startDate ? gte(projectHourlyStats.hourTimestamp, startDate) : undefined,
+		);
 
 	const totalSpent = Number(spentRow?.value ?? 0);
 
@@ -422,7 +479,7 @@ const getTimeseries = createRoute({
 	path: "/metrics/timeseries",
 	request: {
 		query: z.object({
-			range: timeseriesRangeSchema.default("30d").optional(),
+			range: timeseriesRangeSchema.default("all").optional(),
 		}),
 	},
 	responses: {
@@ -439,7 +496,7 @@ const getTimeseries = createRoute({
 
 admin.openapi(getTimeseries, async (c) => {
 	const query = c.req.valid("query");
-	const range = query.range ?? "30d";
+	const range = query.range ?? "all";
 
 	const now = new Date();
 	const rangeDays: Record<string, number | null> = {

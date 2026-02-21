@@ -1066,7 +1066,9 @@ export interface paths {
         };
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    range?: "7d" | "30d" | "90d" | "365d" | "all";
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;

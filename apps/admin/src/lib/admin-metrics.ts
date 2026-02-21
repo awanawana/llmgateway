@@ -41,21 +41,24 @@ async function hasSession(): Promise<boolean> {
 	return !!(sessionCookie || secureSessionCookie);
 }
 
-export async function getAdminDashboardMetrics(): Promise<AdminDashboardMetrics | null> {
+export async function getAdminDashboardMetrics(
+	range: TimeseriesRange = "all",
+): Promise<AdminDashboardMetrics | null> {
 	if (!(await hasSession())) {
 		return null;
 	}
 
 	const data = await fetchServerData<AdminDashboardMetrics>(
 		"GET",
-		"/admin/metrics",
+		"/admin/metrics" as "/admin/metrics",
+		{ params: { query: { range } } },
 	);
 
 	return data;
 }
 
 export async function getAdminTimeseriesMetrics(
-	range: TimeseriesRange = "30d",
+	range: TimeseriesRange = "all",
 ): Promise<AdminTimeseriesMetrics | null> {
 	if (!(await hasSession())) {
 		return null;

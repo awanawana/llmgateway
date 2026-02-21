@@ -27,7 +27,7 @@ export function TimeRangePicker({ value }: { value: TimeseriesRange }) {
 
 	function onChange(newRange: string) {
 		const params = new URLSearchParams(searchParams.toString());
-		if (newRange === "30d") {
+		if (newRange === "all") {
 			params.delete("range");
 		} else {
 			params.set("range", newRange);

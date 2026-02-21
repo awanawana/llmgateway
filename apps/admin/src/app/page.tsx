@@ -109,13 +109,13 @@ export default async function Page({
 	searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
 	const params = await searchParams;
-	const rangeParam = typeof params.range === "string" ? params.range : "30d";
+	const rangeParam = typeof params.range === "string" ? params.range : "all";
 	const range: TimeseriesRange = validRanges.has(rangeParam)
 		? (rangeParam as TimeseriesRange)
-		: "30d";
+		: "all";
 
 	const [metrics, timeseries] = await Promise.all([
-		getAdminDashboardMetrics(),
+		getAdminDashboardMetrics(range),
 		getAdminTimeseriesMetrics(range),
 	]);
 
