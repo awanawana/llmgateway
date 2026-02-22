@@ -20,6 +20,8 @@
 		"@ai-sdk/openai": "3.0.25",
 		"@ai-sdk/react": "3.0.29",
 		"@hookform/resolvers": "5.2.2",
+		"@json-render/core": "0.8.0",
+		"@json-render/react": "0.8.0",
 		"@llmgateway/ai-sdk-provider": "3.1.1",
 		"@llmgateway/models": "workspace:*",
 		"@llmgateway/shared": "workspace:*",

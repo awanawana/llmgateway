@@ -10,10 +10,12 @@ import {
 	LogOutIcon,
 	MoreVerticalIcon,
 	Loader2,
+	Users,
+	Paintbrush,
 } from "lucide-react";
 // import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -96,6 +98,7 @@ export function ChatSidebar({
 }: ChatSidebarProps) {
 	const queryClient = useQueryClient();
 	const router = useRouter();
+	const pathname = usePathname();
 	const posthog = usePostHog();
 	const { user, isLoading: isUserLoading } = useUser();
 	const { signOut } = useAuth();
@@ -393,6 +396,44 @@ export function ChatSidebar({
 						)}
 						New Chat
 					</Button>
+					<div className="flex gap-1 w-full">
+						<Link
+							href="/"
+							className={`flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+								pathname === "/"
+									? "bg-primary text-primary-foreground"
+									: "text-muted-foreground hover:bg-muted hover:text-foreground"
+							}`}
+							prefetch={true}
+						>
+							<MessageSquare className="h-3.5 w-3.5" />
+							Chat
+						</Link>
+						<Link
+							href="/group"
+							className={`flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+								pathname === "/group"
+									? "bg-primary text-primary-foreground"
+									: "text-muted-foreground hover:bg-muted hover:text-foreground"
+							}`}
+							prefetch={true}
+						>
+							<Users className="h-3.5 w-3.5" />
+							Group
+						</Link>
+						<Link
+							href="/canvas"
+							className={`flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+								pathname === "/canvas"
+									? "bg-primary text-primary-foreground"
+									: "text-muted-foreground hover:bg-muted hover:text-foreground"
+							}`}
+							prefetch={true}
+						>
+							<Paintbrush className="h-3.5 w-3.5" />
+							Canvas
+						</Link>
+					</div>
 				</div>
 			</SidebarHeader>
 
