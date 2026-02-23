@@ -1505,7 +1505,9 @@ chat.openapi(completions, async (c) => {
 			usedProvider,
 			providerKey?.baseUrl ?? undefined,
 			usedModel,
-			usedProvider === "google-ai-studio" || usedProvider === "google-vertex"
+			usedProvider === "google-ai-studio" ||
+				usedProvider === "google-vertex" ||
+				usedProvider === "avalanche"
 				? usedToken
 				: undefined,
 			stream,
@@ -2011,7 +2013,8 @@ chat.openapi(completions, async (c) => {
 	if (
 		usedProvider === "google-ai-studio" ||
 		usedProvider === "google-vertex" ||
-		usedProvider === "obsidian"
+		usedProvider === "obsidian" ||
+		usedProvider === "avalanche"
 	) {
 		const { redisClient } = await import("@llmgateway/cache");
 		for (const message of messages) {
@@ -3661,7 +3664,9 @@ chat.openapi(completions, async (c) => {
 								// For Google providers, add usage information when available
 								if (
 									usedProvider === "google-ai-studio" ||
-									usedProvider === "google-vertex"
+									usedProvider === "google-vertex" ||
+									usedProvider === "obsidian" ||
+									usedProvider === "avalanche"
 								) {
 									const usage = extractTokenUsage(
 										data,
@@ -3830,6 +3835,8 @@ chat.openapi(completions, async (c) => {
 								const contentChunk = extractContent(
 									usedProvider === "google-ai-studio" ||
 										usedProvider === "google-vertex" ||
+										usedProvider === "obsidian" ||
+										usedProvider === "avalanche" ||
 										usedProvider === "anthropic"
 										? data
 										: transformedData,
@@ -3849,7 +3856,8 @@ chat.openapi(completions, async (c) => {
 								if (
 									usedProvider === "google-ai-studio" ||
 									usedProvider === "google-vertex" ||
-									usedProvider === "obsidian"
+									usedProvider === "obsidian" ||
+									usedProvider === "avalanche"
 								) {
 									const parts = data.candidates?.[0]?.content?.parts ?? [];
 									for (const part of parts) {
@@ -3876,7 +3884,8 @@ chat.openapi(completions, async (c) => {
 								} else if (
 									usedProvider === "google-ai-studio" ||
 									usedProvider === "google-vertex" ||
-									usedProvider === "obsidian"
+									usedProvider === "obsidian" ||
+									usedProvider === "avalanche"
 								) {
 									// For Google, count when grounding metadata is present
 									if (data.candidates?.[0]?.groundingMetadata) {
@@ -3911,6 +3920,8 @@ chat.openapi(completions, async (c) => {
 								const reasoningContentChunk = extractReasoning(
 									usedProvider === "google-ai-studio" ||
 										usedProvider === "google-vertex" ||
+										usedProvider === "obsidian" ||
+										usedProvider === "avalanche" ||
 										usedProvider === "anthropic"
 										? data
 										: transformedData,
@@ -3970,6 +3981,7 @@ chat.openapi(completions, async (c) => {
 									case "google-ai-studio":
 									case "google-vertex":
 									case "obsidian":
+									case "avalanche":
 										// Preserve original Google finish reason for logging
 										if (data.promptFeedback?.blockReason) {
 											finishReason = data.promptFeedback.blockReason;
@@ -4267,7 +4279,9 @@ chat.openapi(completions, async (c) => {
 					// These include both finishReason values and promptFeedback.blockReason values
 					const isGoogleContentFilterStreaming =
 						(usedProvider === "google-ai-studio" ||
-							usedProvider === "google-vertex") &&
+							usedProvider === "google-vertex" ||
+							usedProvider === "obsidian" ||
+							usedProvider === "avalanche") &&
 						(finishReason === "SAFETY" ||
 							finishReason === "PROHIBITED_CONTENT" ||
 							finishReason === "RECITATION" ||
@@ -4368,7 +4382,8 @@ chat.openapi(completions, async (c) => {
 										const providerExcludesImageInput =
 											usedProvider === "google-ai-studio" ||
 											usedProvider === "google-vertex" ||
-											usedProvider === "obsidian";
+											usedProvider === "obsidian" ||
+											usedProvider === "avalanche";
 										const imageInputAdj = providerExcludesImageInput
 											? inputImageCount * 560
 											: 0;
@@ -4647,7 +4662,9 @@ chat.openapi(completions, async (c) => {
 					// Enhanced logging for Google models streaming to debug missing responses
 					if (
 						usedProvider === "google-ai-studio" ||
-						usedProvider === "google-vertex"
+						usedProvider === "google-vertex" ||
+						usedProvider === "obsidian" ||
+						usedProvider === "avalanche"
 					) {
 						logger.debug("Google model streaming response completed", {
 							usedProvider,
@@ -5803,7 +5820,8 @@ chat.openapi(completions, async (c) => {
 	if (
 		usedProvider === "google-ai-studio" ||
 		usedProvider === "google-vertex" ||
-		usedProvider === "obsidian"
+		usedProvider === "obsidian" ||
+		usedProvider === "avalanche"
 	) {
 		logger.debug("Google model response parsed", {
 			usedProvider,
@@ -5983,7 +6001,8 @@ chat.openapi(completions, async (c) => {
 	const isGoogleContentFilter =
 		(usedProvider === "google-ai-studio" ||
 			usedProvider === "google-vertex" ||
-			usedProvider === "obsidian") &&
+			usedProvider === "obsidian" ||
+			usedProvider === "avalanche") &&
 		(finishReason === "SAFETY" ||
 			finishReason === "PROHIBITED_CONTENT" ||
 			finishReason === "RECITATION" ||
