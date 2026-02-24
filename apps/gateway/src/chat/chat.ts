@@ -606,16 +606,29 @@ chat.openapi(completions, async (c) => {
 	const maxImageSizeMB = userPlan === "pro" ? proLimitMB : freeLimitMB;
 
 	// Validate IAM rules for model access
+	// Pass modelInfo (with deactivated providers already filtered) so IAM validation
+	// only considers active providers. This prevents a deny rule from being bypassed
+	// when the only remaining active provider is a denied one but deactivated providers
+	// are still "allowed" by the IAM rules.
 	const iamValidation = await validateModelAccess(
 		apiKey.id,
 		modelInfo.id,
 		requestedProvider,
+		modelInfo,
 	);
 	if (!iamValidation.allowed) {
 		throwIamException(iamValidation.reason!);
 	}
 	// IAM allowed providers - used to filter available providers during routing
 	const iamAllowedProviders = iamValidation.allowedProviders;
+
+	// IAM-filtered model providers for routing and retry fallback paths.
+	// Recomputed after auto-routing because that block replaces modelInfo.
+	let iamFilteredModelProviders = iamAllowedProviders
+		? modelInfo.providers.filter((p) =>
+				iamAllowedProviders.includes(p.providerId),
+			)
+		: modelInfo.providers;
 
 	// Validate the custom provider against the database if one was requested
 	if (requestedProvider === "custom" && customProviderName) {
@@ -737,16 +750,26 @@ chat.openapi(completions, async (c) => {
 				continue;
 			}
 
+			// Validate IAM rules for this candidate model and filter providers.
+			// We must re-evaluate per model because iamAllowedProviders was computed
+			// for the "auto" model which only has the "llmgateway" provider.
+			const candidateIam = await validateModelAccess(
+				apiKey.id,
+				modelDef.id,
+				undefined,
+				modelDef,
+			);
+			if (!candidateIam.allowed) {
+				continue;
+			}
+			const candidateAllowedProviders = candidateIam.allowedProviders;
+
 			// Check if any of the model's providers are available
-			// Note: We don't filter by iamAllowedProviders here because it was computed
-			// for the "auto" model, not the actual models being considered for selection
 			const availableModelProviders = modelDef.providers.filter(
 				(provider) =>
 					availableProviders.includes(provider.providerId) &&
-					// Filter by IAM allowed providers only for non-auto models
-					(requestedModel === "auto" ||
-						!iamAllowedProviders ||
-						iamAllowedProviders.includes(provider.providerId)),
+					(!candidateAllowedProviders ||
+						candidateAllowedProviders.includes(provider.providerId)),
 			);
 
 			// Filter by context size requirement, reasoning capability, and deprecation status
@@ -906,6 +929,26 @@ chat.openapi(completions, async (c) => {
 		}
 		// Clear requestedProvider so retry/fallback logic knows this was auto-routed
 		requestedProvider = undefined;
+
+		// Re-validate IAM against the resolved model so deny_providers /
+		// allow_providers rules are enforced for retries and the single-provider
+		// shortcut.  The original iamAllowedProviders was computed for the "auto"
+		// model (which only has the "llmgateway" provider) and is not meaningful
+		// for the resolved model.
+		const resolvedIamValidation = await validateModelAccess(
+			apiKey.id,
+			modelInfo.id,
+			undefined,
+			modelInfo,
+		);
+		if (!resolvedIamValidation.allowed) {
+			throwIamException(resolvedIamValidation.reason!);
+		}
+		iamFilteredModelProviders = resolvedIamValidation.allowedProviders
+			? modelInfo.providers.filter((p) =>
+					resolvedIamValidation.allowedProviders!.includes(p.providerId),
+				)
+			: modelInfo.providers;
 	} else if (
 		(usedProvider === "llmgateway" && usedModel === "custom") ||
 		usedModel === "custom"
@@ -1089,9 +1132,15 @@ chat.openapi(completions, async (c) => {
 	}
 
 	if (!usedProvider) {
-		if (modelInfo.providers.length === 1) {
-			usedProvider = modelInfo.providers[0].providerId;
-			usedModel = modelInfo.providers[0].modelName;
+		if (iamFilteredModelProviders.length === 0) {
+			throw new HTTPException(403, {
+				message: `Access denied: No providers are allowed for model ${modelInfo.id} after applying IAM rules. All active providers for this model are denied by your API key's IAM configuration.`,
+			});
+		}
+
+		if (iamFilteredModelProviders.length === 1) {
+			usedProvider = iamFilteredModelProviders[0].providerId;
+			usedModel = iamFilteredModelProviders[0].modelName;
 		} else {
 			const providerIds = modelInfo.providers.map((p) => p.providerId);
 			const providerKeys = await findProviderKeysByProviders(
@@ -2249,7 +2298,7 @@ chat.openapi(completions, async (c) => {
 						const nextProvider = selectNextProvider(
 							routingMetadata?.providerScores ?? [],
 							failedProviderIds,
-							modelInfo.providers,
+							iamFilteredModelProviders,
 						);
 						if (!nextProvider) {
 							break;
@@ -4862,7 +4911,7 @@ chat.openapi(completions, async (c) => {
 			const nextProvider = selectNextProvider(
 				routingMetadata?.providerScores ?? [],
 				failedProviderIds,
-				modelInfo.providers,
+				iamFilteredModelProviders,
 			);
 			if (!nextProvider) {
 				break;
