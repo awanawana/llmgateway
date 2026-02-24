@@ -26,6 +26,7 @@ import { logger } from "@llmgateway/logger";
 import { hasErrorCode } from "@llmgateway/models";
 import { calculateFees } from "@llmgateway/shared";
 
+import { runFollowUpEmailsLoop } from "./services/follow-up-emails.js";
 import {
 	PROJECT_STATS_REFRESH_INTERVAL_SECONDS,
 	refreshProjectHourlyStats,
@@ -1246,6 +1247,9 @@ export async function startWorker() {
 	logger.info(
 		`- Project hourly stats: runs every ${PROJECT_STATS_REFRESH_INTERVAL_SECONDS} seconds for dashboard aggregations`,
 	);
+	logger.info(
+		"- Follow-up emails: runs every hour to check for lifecycle emails",
+	);
 
 	void runMinutelyHistoryLoop();
 	void runCurrentMinuteHistoryLoop();
@@ -1255,6 +1259,18 @@ export async function startWorker() {
 	void runAutoTopUpLoop();
 	void runBatchProcessLoop();
 	void runDataRetentionLoop();
+	void runFollowUpEmailsLoop({
+		shouldStop: () => shouldStop,
+		acquireLock,
+		releaseLock,
+		interruptibleSleep,
+		registerLoop: () => {
+			activeLoops++;
+		},
+		unregisterLoop: () => {
+			activeLoops--;
+		},
+	});
 }
 
 export async function stopWorker(): Promise<boolean> {
