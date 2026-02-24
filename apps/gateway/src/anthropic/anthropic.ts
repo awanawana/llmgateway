@@ -466,11 +466,13 @@ anthropic.openapi(messages, async (c) => {
 			statusText: response.statusText,
 		});
 		const errorData = await response.text();
-		throw new HTTPException(
-			response.status as 400 | 401 | 402 | 403 | 404 | 429 | 500,
+		return c.json(
 			{
+				error: true,
+				status: response.status,
 				message: `Request failed: ${errorData}`,
 			},
+			response.status as 400 | 401 | 402 | 403 | 404 | 429 | 500,
 		);
 	}
 
