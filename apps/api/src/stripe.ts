@@ -491,6 +491,154 @@ async function handleCheckoutSessionCompleted(
 	}
 }
 
+async function applyFirstTimeBonus({
+	organizationId,
+	creditAmount,
+	isEmailVerified,
+}: {
+	organizationId: string;
+	creditAmount: number;
+	isEmailVerified: boolean;
+}): Promise<{ finalCreditAmount: number; bonusAmount: number }> {
+	let bonusAmount = 0;
+	let finalCreditAmount = creditAmount;
+	const bonusMultiplier = process.env.FIRST_TIME_CREDIT_BONUS_MULTIPLIER
+		? parseFloat(process.env.FIRST_TIME_CREDIT_BONUS_MULTIPLIER)
+		: 0;
+
+	if (bonusMultiplier && bonusMultiplier > 1 && isEmailVerified) {
+		const previousPurchases = await db.query.transaction.findFirst({
+			where: {
+				organizationId: { eq: organizationId },
+				type: { eq: "credit_topup" },
+				status: { eq: "completed" },
+			},
+		});
+
+		if (!previousPurchases) {
+			const potentialBonus = creditAmount * (bonusMultiplier - 1);
+			const maxBonus = 50;
+			bonusAmount = Math.min(potentialBonus, maxBonus);
+			finalCreditAmount = creditAmount + bonusAmount;
+
+			logger.info(
+				`Applied first-time bonus of $${bonusAmount} to organization ${organizationId} (${bonusMultiplier}x multiplier, max $${maxBonus})`,
+			);
+		}
+	}
+
+	return { finalCreditAmount, bonusAmount };
+}
+
+async function recordCreditTopUp({
+	organizationId,
+	finalCreditAmount,
+	bonusAmount,
+	creditAmount,
+	totalAmountInDollars,
+	currency,
+	stripePaymentIntentId,
+	description,
+	organization,
+	source,
+}: {
+	organizationId: string;
+	finalCreditAmount: number;
+	bonusAmount: number;
+	creditAmount: number;
+	totalAmountInDollars: number;
+	currency: string;
+	stripePaymentIntentId: string | null;
+	description: string;
+	organization: {
+		name: string;
+		billingEmail: string | null;
+		billingCompany: string | null;
+		billingAddress: string | null;
+		billingTaxId: string | null;
+		billingNotes: string | null;
+	};
+	source: string;
+}) {
+	await db
+		.update(tables.organization)
+		.set({
+			credits: sql`${tables.organization.credits} + ${finalCreditAmount}`,
+			paymentFailureCount: 0,
+			lastPaymentFailureAt: null,
+		})
+		.where(eq(tables.organization.id, organizationId));
+
+	const [completedTransaction] = await db
+		.insert(tables.transaction)
+		.values({
+			organizationId,
+			type: "credit_topup",
+			creditAmount: finalCreditAmount.toString(),
+			amount: totalAmountInDollars.toString(),
+			currency,
+			status: "completed",
+			stripePaymentIntentId,
+			description,
+		})
+		.returning();
+
+	const lineItems = [
+		{
+			description: `Credit Top-up ($${creditAmount})`,
+			amount: totalAmountInDollars,
+		},
+	];
+
+	if (bonusAmount > 0) {
+		lineItems.push({
+			description: `First-time bonus (+$${bonusAmount.toFixed(2)})`,
+			amount: 0,
+		});
+	}
+
+	try {
+		await generateAndEmailInvoice({
+			invoiceNumber: completedTransaction.id,
+			invoiceDate: new Date(),
+			organizationName: organization.name,
+			billingEmail: organization.billingEmail || "",
+			billingCompany: organization.billingCompany,
+			billingAddress: organization.billingAddress,
+			billingTaxId: organization.billingTaxId,
+			billingNotes: organization.billingNotes,
+			lineItems,
+			currency,
+		});
+	} catch (e) {
+		logger.error(
+			"Invoice email failed (credit top-up); suppressing webhook failure",
+			e as Error,
+		);
+	}
+
+	posthog.groupIdentify({
+		groupType: "organization",
+		groupKey: organizationId,
+		properties: {
+			name: organization.name,
+		},
+	});
+	posthog.capture({
+		distinctId: "organization",
+		event: "credits_purchased",
+		groups: {
+			organization: organizationId,
+		},
+		properties: {
+			amount: creditAmount,
+			totalPaid: totalAmountInDollars,
+			source,
+			organization: organizationId,
+		},
+	});
+}
+
 async function handleCreditTopUpCheckout(session: Stripe.Checkout.Session) {
 	const { customer, metadata } = session;
 
@@ -515,144 +663,61 @@ async function handleCreditTopUpCheckout(session: Stripe.Checkout.Session) {
 	const { organizationId, organization } = result;
 	const totalAmountInDollars = (session.amount_total || 0) / 100;
 
-	// Calculate bonus for first-time credit purchases
-	let bonusAmount = 0;
-	let finalCreditAmount = creditAmount;
-	const bonusMultiplier = process.env.FIRST_TIME_CREDIT_BONUS_MULTIPLIER
-		? parseFloat(process.env.FIRST_TIME_CREDIT_BONUS_MULTIPLIER)
-		: 0;
+	const stripePaymentIntentId = session.payment_intent as string | undefined;
 
-	if (bonusMultiplier && bonusMultiplier > 1) {
-		const userEmail = metadata?.userEmail;
-		let isEmailVerified = false;
+	// Idempotency check: skip if this checkout session was already processed
+	const existingTransaction = await db.query.transaction.findFirst({
+		where: {
+			organizationId: { eq: organizationId },
+			stripePaymentIntentId: stripePaymentIntentId
+				? { eq: stripePaymentIntentId }
+				: undefined,
+			type: { eq: "credit_topup" },
+			status: { eq: "completed" },
+		},
+	});
 
-		if (userEmail) {
-			const user = await db.query.user.findFirst({
+	if (existingTransaction) {
+		logger.info(
+			`Skipping duplicate credit top-up checkout for organization ${organizationId} (transaction ${existingTransaction.id} already exists)`,
+		);
+		return;
+	}
+
+	// Resolve user once for bonus eligibility and notifications
+	const userEmail = metadata?.userEmail;
+	const resolvedUser = userEmail
+		? await db.query.user.findFirst({
 				where: {
 					email: { eq: userEmail },
 				},
-			});
-			isEmailVerified = user?.emailVerified ?? false;
-		}
+			})
+		: null;
 
-		if (isEmailVerified) {
-			const previousPurchases = await db.query.transaction.findFirst({
-				where: {
-					organizationId: { eq: organizationId },
-					type: { eq: "credit_topup" },
-					status: { eq: "completed" },
-				},
-			});
-
-			if (!previousPurchases) {
-				const potentialBonus = creditAmount * (bonusMultiplier - 1);
-				const maxBonus = 50;
-				bonusAmount = Math.min(potentialBonus, maxBonus);
-				finalCreditAmount = creditAmount + bonusAmount;
-
-				logger.info(
-					`Applied first-time bonus of $${bonusAmount} to organization ${organizationId} (${bonusMultiplier}x multiplier, max $${maxBonus})`,
-				);
-			}
-		}
-	}
-
-	// Update organization credits
-	await db
-		.update(tables.organization)
-		.set({
-			credits: sql`${tables.organization.credits} + ${finalCreditAmount}`,
-			paymentFailureCount: 0,
-			lastPaymentFailureAt: null,
-		})
-		.where(eq(tables.organization.id, organizationId));
-
-	const transactionDescription =
-		bonusAmount > 0
-			? `Credit top-up via Stripe Checkout (+$${bonusAmount.toFixed(2)} first-time bonus)`
-			: "Credit top-up via Stripe Checkout";
-
-	const stripePaymentIntentId = session.payment_intent as string | undefined;
-
-	const [completedTransaction] = await db
-		.insert(tables.transaction)
-		.values({
-			organizationId,
-			type: "credit_topup",
-			creditAmount: finalCreditAmount.toString(),
-			amount: totalAmountInDollars.toString(),
-			currency: (session.currency || "USD").toUpperCase(),
-			status: "completed",
-			stripePaymentIntentId: stripePaymentIntentId || null,
-			description: transactionDescription,
-		})
-		.returning();
-
-	// Generate and email invoice
-	const lineItems = [
-		{
-			description: `Credit Top-up ($${creditAmount})`,
-			amount: totalAmountInDollars,
-		},
-	];
-
-	if (bonusAmount > 0) {
-		lineItems.push({
-			description: `First-time bonus (+$${bonusAmount.toFixed(2)})`,
-			amount: 0,
-		});
-	}
-
-	try {
-		await generateAndEmailInvoice({
-			invoiceNumber: completedTransaction.id,
-			invoiceDate: new Date(),
-			organizationName: organization.name,
-			billingEmail: organization.billingEmail,
-			billingCompany: organization.billingCompany,
-			billingAddress: organization.billingAddress,
-			billingTaxId: organization.billingTaxId,
-			billingNotes: organization.billingNotes,
-			lineItems,
-			currency: (session.currency || "USD").toUpperCase(),
-		});
-	} catch (e) {
-		logger.error(
-			"Invoice email failed (credit top-up checkout); suppressing webhook failure",
-			e as Error,
-		);
-	}
-
-	posthog.groupIdentify({
-		groupType: "organization",
-		groupKey: organizationId,
-		properties: {
-			name: organization.name,
-		},
-	});
-	posthog.capture({
-		distinctId: "organization",
-		event: "credits_purchased",
-		groups: {
-			organization: organizationId,
-		},
-		properties: {
-			amount: creditAmount,
-			totalPaid: totalAmountInDollars,
-			source: "stripe_checkout",
-			organization: organizationId,
-		},
+	const { finalCreditAmount, bonusAmount } = await applyFirstTimeBonus({
+		organizationId,
+		creditAmount,
+		isEmailVerified: resolvedUser?.emailVerified ?? false,
 	});
 
-	// Send Discord notification
-	const userEmail = metadata?.userEmail;
+	await recordCreditTopUp({
+		organizationId,
+		finalCreditAmount,
+		bonusAmount,
+		creditAmount,
+		totalAmountInDollars,
+		currency: (session.currency || "USD").toUpperCase(),
+		stripePaymentIntentId: stripePaymentIntentId || null,
+		description:
+			bonusAmount > 0
+				? `Credit top-up via Stripe Checkout (+$${bonusAmount.toFixed(2)} first-time bonus)`
+				: "Credit top-up via Stripe Checkout",
+		organization,
+		source: "stripe_checkout",
+	});
+
 	if (userEmail) {
-		const user = await db.query.user.findFirst({
-			where: {
-				email: { eq: userEmail },
-			},
-		});
-		await notifyCreditsPurchased(userEmail, user?.name, creditAmount);
+		await notifyCreditsPurchased(userEmail, resolvedUser?.name, creditAmount);
 	}
 
 	logger.info(
@@ -683,73 +748,43 @@ async function handlePaymentIntentSucceeded(
 	}
 	const { organizationId, organization } = result;
 
+	// Idempotency check: skip if this payment intent was already processed
+	const existingTransaction = await db.query.transaction.findFirst({
+		where: {
+			stripePaymentIntentId: { eq: paymentIntent.id },
+			type: { eq: "credit_topup" },
+			status: { eq: "completed" },
+		},
+	});
+
+	if (existingTransaction) {
+		logger.info(
+			`Skipping duplicate payment_intent.succeeded for organization ${organizationId} (transaction ${existingTransaction.id} already processed)`,
+		);
+		return;
+	}
+
 	// Convert amount from cents to dollars
 	const totalAmountInDollars = amount / 100;
 
-	// Calculate bonus for first-time credit purchases
-	let bonusAmount = 0;
-	let finalCreditAmount = creditAmount;
-	const bonusMultiplier = process.env.FIRST_TIME_CREDIT_BONUS_MULTIPLIER
-		? parseFloat(process.env.FIRST_TIME_CREDIT_BONUS_MULTIPLIER)
-		: 0;
-
-	if (bonusMultiplier && bonusMultiplier > 1) {
-		// Check user email verification
-		const userEmail = metadata?.userEmail;
-		let isEmailVerified = false;
-
-		if (userEmail) {
-			const user = await db.query.user.findFirst({
+	// Resolve user once for bonus eligibility and notifications
+	const userEmail = metadata?.userEmail;
+	const resolvedUser = userEmail
+		? await db.query.user.findFirst({
 				where: {
 					email: { eq: userEmail },
 				},
-			});
-			isEmailVerified = user?.emailVerified ?? false;
-		}
+			})
+		: null;
 
-		if (isEmailVerified) {
-			// Check if this is the first credit purchase
-			const previousPurchases = await db.query.transaction.findFirst({
-				where: {
-					organizationId: { eq: organizationId },
-					type: { eq: "credit_topup" },
-					status: { eq: "completed" },
-				},
-			});
-
-			if (!previousPurchases) {
-				// This is the first credit purchase, apply bonus
-				const potentialBonus = creditAmount * (bonusMultiplier - 1);
-				const maxBonus = 50; // Max $50 bonus
-
-				bonusAmount = Math.min(potentialBonus, maxBonus);
-				finalCreditAmount = creditAmount + bonusAmount;
-
-				logger.info(
-					`Applied first-time bonus of $${bonusAmount} to organization ${organizationId} (${bonusMultiplier}x multiplier, max $${maxBonus})`,
-				);
-			}
-		} else {
-			logger.info(
-				`Skipping first-time bonus for organization ${organizationId}: email not verified`,
-			);
-		}
-	}
-
-	// Update organization credits with credit amount (plus bonus if applicable)
-	// Also reset payment failure tracking since payment succeeded
-	await db
-		.update(tables.organization)
-		.set({
-			credits: sql`${tables.organization.credits} + ${finalCreditAmount}`,
-			paymentFailureCount: 0,
-			lastPaymentFailureAt: null,
-		})
-		.where(eq(tables.organization.id, organizationId));
+	const { finalCreditAmount, bonusAmount } = await applyFirstTimeBonus({
+		organizationId,
+		creditAmount,
+		isEmailVerified: resolvedUser?.emailVerified ?? false,
+	});
 
 	// Check if this is an auto top-up with an existing pending transaction
 	const transactionId = metadata?.transactionId;
-	let completedTransaction;
 
 	const transactionDescription =
 		bonusAmount > 0
@@ -757,11 +792,21 @@ async function handlePaymentIntentSucceeded(
 			: "Credit top-up via Stripe";
 
 	if (transactionId) {
-		// Update existing pending transaction
+		// Auto top-up: update credits and handle pending transaction
+		await db
+			.update(tables.organization)
+			.set({
+				credits: sql`${tables.organization.credits} + ${finalCreditAmount}`,
+				paymentFailureCount: 0,
+				lastPaymentFailureAt: null,
+			})
+			.where(eq(tables.organization.id, organizationId));
+
 		const updatedTransaction = await db
 			.update(tables.transaction)
 			.set({
 				status: "completed",
+				stripePaymentIntentId: paymentIntent.id,
 				description:
 					bonusAmount > 0
 						? `Auto top-up completed via Stripe webhook (+$${bonusAmount.toFixed(2)} first-time bonus)`
@@ -773,17 +818,13 @@ async function handlePaymentIntentSucceeded(
 			.returning()
 			.then((rows) => rows[0]);
 
-		if (updatedTransaction) {
-			logger.info(
-				`Updated pending transaction ${transactionId} to completed for organization ${organizationId}`,
-			);
-			completedTransaction = updatedTransaction;
-		} else {
+		let completedTransactionId: string;
+
+		if (!updatedTransaction) {
 			logger.warn(
-				`Could not find pending transaction ${transactionId} for organization ${organizationId}`,
+				`Could not find pending transaction ${transactionId} for organization ${organizationId}, creating new record`,
 			);
-			// Fallback: create new transaction record
-			const [newTransaction] = await db
+			const [fallbackTransaction] = await db
 				.insert(tables.transaction)
 				.values({
 					organizationId,
@@ -796,88 +837,88 @@ async function handlePaymentIntentSucceeded(
 					description: transactionDescription,
 				})
 				.returning();
-			completedTransaction = newTransaction;
+			completedTransactionId = fallbackTransaction.id;
+		} else {
+			completedTransactionId = updatedTransaction.id;
 		}
-	} else {
-		// Create new transaction record (for manual top-ups or old auto top-ups)
-		const [newTransaction] = await db
-			.insert(tables.transaction)
-			.values({
-				organizationId,
-				type: "credit_topup",
-				creditAmount: finalCreditAmount.toString(),
-				amount: totalAmountInDollars.toString(),
+
+		// Generate and email invoice for credit purchase
+		const lineItems = [
+			{
+				description: `Credit Top-up ($${creditAmount})`,
+				amount: totalAmountInDollars,
+			},
+		];
+
+		if (bonusAmount > 0) {
+			lineItems.push({
+				description: `First-time bonus (+$${bonusAmount.toFixed(2)})`,
+				amount: 0,
+			});
+		}
+
+		try {
+			await generateAndEmailInvoice({
+				invoiceNumber: completedTransactionId,
+				invoiceDate: new Date(),
+				organizationName: organization.name,
+				billingEmail: organization.billingEmail || "",
+				billingCompany: organization.billingCompany,
+				billingAddress: organization.billingAddress,
+				billingTaxId: organization.billingTaxId,
+				billingNotes: organization.billingNotes,
+				lineItems,
 				currency: paymentIntent.currency.toUpperCase(),
-				status: "completed",
-				stripePaymentIntentId: paymentIntent.id,
-				description: transactionDescription,
-			})
-			.returning();
-		completedTransaction = newTransaction;
-	}
+			});
+		} catch (e) {
+			logger.error(
+				"Invoice email failed (auto top-up); suppressing webhook failure",
+				e as Error,
+			);
+		}
 
-	// Generate and email invoice for credit purchase
-	const lineItems = [
-		{
-			description: `Credit Top-up ($${creditAmount})`,
-			amount: totalAmountInDollars,
-		},
-	];
-
-	if (bonusAmount > 0) {
-		lineItems.push({
-			description: `First-time bonus (+$${bonusAmount.toFixed(2)})`,
-			amount: 0,
-		});
-	}
-
-	await generateAndEmailInvoice({
-		invoiceNumber: completedTransaction.id,
-		invoiceDate: new Date(),
-		organizationName: organization.name,
-		billingEmail: organization.billingEmail,
-		billingCompany: organization.billingCompany,
-		billingAddress: organization.billingAddress,
-		billingTaxId: organization.billingTaxId,
-		billingNotes: organization.billingNotes,
-		lineItems,
-		currency: paymentIntent.currency.toUpperCase(),
-	});
-
-	posthog.groupIdentify({
-		groupType: "organization",
-		groupKey: organizationId,
-		properties: {
-			name: organization.name,
-		},
-	});
-	posthog.capture({
-		distinctId: "organization",
-		event: "credits_purchased",
-		groups: {
-			organization: organizationId,
-		},
-		properties: {
-			amount: creditAmount,
-			totalPaid: totalAmountInDollars,
-			source: "payment_intent",
-			organization: organizationId,
-		},
-	});
-
-	// Send Discord notification for credit purchase
-	const userEmail = metadata?.userEmail;
-	if (userEmail) {
-		const user = await db.query.user.findFirst({
-			where: {
-				email: { eq: userEmail },
+		posthog.groupIdentify({
+			groupType: "organization",
+			groupKey: organizationId,
+			properties: {
+				name: organization.name,
 			},
 		});
-		await notifyCreditsPurchased(userEmail, user?.name, creditAmount);
+		posthog.capture({
+			distinctId: "organization",
+			event: "credits_purchased",
+			groups: {
+				organization: organizationId,
+			},
+			properties: {
+				amount: creditAmount,
+				totalPaid: totalAmountInDollars,
+				source: "payment_intent",
+				organization: organizationId,
+			},
+		});
+	} else {
+		// Manual top-up: use shared helper
+		await recordCreditTopUp({
+			organizationId,
+			finalCreditAmount,
+			bonusAmount,
+			creditAmount,
+			totalAmountInDollars,
+			currency: paymentIntent.currency.toUpperCase(),
+			stripePaymentIntentId: paymentIntent.id,
+			description: transactionDescription,
+			organization,
+			source: "payment_intent",
+		});
+	}
+
+	if (userEmail) {
+		await notifyCreditsPurchased(userEmail, resolvedUser?.name, creditAmount);
 	}
 
 	logger.info(
-		`Added ${creditAmount} credits to organization ${organizationId} (paid ${totalAmountInDollars} including fees)`,
+		`Added ${finalCreditAmount} credits to organization ${organizationId} (paid ${totalAmountInDollars} including fees)`,
 	);
 }
 

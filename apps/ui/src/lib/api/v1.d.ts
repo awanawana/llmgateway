@@ -4041,6 +4041,8 @@ export interface paths {
                 content: {
                     "application/json": {
                         amount: number;
+                        /** Format: uri */
+                        returnUrl?: string;
                     };
                 };
             };

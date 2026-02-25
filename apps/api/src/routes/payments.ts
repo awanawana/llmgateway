@@ -592,6 +592,7 @@ const createCheckoutSession = createRoute({
 				"application/json": {
 					schema: z.object({
 						amount: z.number().int().min(5),
+						returnUrl: z.string().url().optional(),
 					}),
 				},
 			},
@@ -627,7 +628,7 @@ payments.openapi(createCheckoutSession, async (c) => {
 		});
 	}
 
-	const { amount } = c.req.valid("json");
+	const { amount, returnUrl } = c.req.valid("json");
 
 	const userOrganization = await db.query.userOrganization.findFirst({
 		where: {
@@ -649,6 +650,34 @@ payments.openapi(createCheckoutSession, async (c) => {
 
 	const feeBreakdown = calculateFees({ amount });
 
+	const allowedOrigins = [
+		process.env.UI_URL,
+		process.env.PLAYGROUND_URL,
+		process.env.CODE_URL,
+	].filter(Boolean);
+
+	const defaultBillingUrl = `${process.env.UI_URL || "http://localhost:3002"}/dashboard/${organizationId}/org/billing`;
+
+	let successUrl: string;
+	let cancelUrl: string;
+
+	if (
+		returnUrl &&
+		allowedOrigins.some((origin) => returnUrl.startsWith(origin!))
+	) {
+		const separator = returnUrl.includes("?") ? "&" : "?";
+		successUrl = `${returnUrl}${separator}success=true`;
+		cancelUrl = `${returnUrl}${separator}canceled=true`;
+	} else {
+		successUrl = `${defaultBillingUrl}?success=true`;
+		cancelUrl = `${defaultBillingUrl}?canceled=true`;
+	}
+
+	// IMPORTANT: Metadata is intentionally set on the session only, NOT via
+	// payment_intent_data.metadata. This prevents handlePaymentIntentSucceeded
+	// from also processing this payment (it returns early when baseAmount is
+	// missing from the PaymentIntent metadata). Adding payment_intent_data.metadata
+	// here would cause double-crediting. See handleCreditTopUpCheckout in stripe.ts.
 	const session = await stripe.checkout.sessions.create({
 		customer: stripeCustomerId,
 		mode: "payment",
@@ -665,8 +694,8 @@ payments.openapi(createCheckoutSession, async (c) => {
 				quantity: 1,
 			},
 		],
-		success_url: `${process.env.UI_URL || "http://localhost:3002"}/dashboard/${organizationId}/org/billing?success=true`,
-		cancel_url: `${process.env.UI_URL || "http://localhost:3002"}/dashboard/${organizationId}/org/billing?canceled=true`,
+		success_url: successUrl,
+		cancel_url: cancelUrl,
 		metadata: {
 			organizationId,
 			type: "credit_topup",
@@ -688,6 +717,7 @@ payments.openapi(createCheckoutSession, async (c) => {
 		userId: user.id,
 		action: "payment.credit_topup",
 		resourceType: "payment",
+		resourceId: session.id,
 		metadata: {
 			amount,
 		},

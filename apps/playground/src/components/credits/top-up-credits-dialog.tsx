@@ -200,12 +200,15 @@ function AmountStep({
 		setCheckoutLoading(true);
 		try {
 			const { checkoutUrl } = await createCheckoutSession({
-				body: { amount },
+				body: { amount, returnUrl: window.location.href.split("?")[0] },
 			});
 			window.location.href = checkoutUrl;
-		} catch (error: any) {
+		} catch (error: unknown) {
 			toast.error("Checkout Failed", {
-				description: error?.message || "Failed to create checkout session.",
+				description:
+					error instanceof Error
+						? error.message
+						: "Failed to create checkout session.",
 			});
 			setCheckoutLoading(false);
 		}
