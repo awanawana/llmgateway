@@ -314,13 +314,13 @@ export async function POST(req: Request) {
 		});
 	}
 
-	const headerApiKey = req.headers.get("x-llmgateway-key") || undefined;
-	const headerModel = req.headers.get("x-llmgateway-model") || undefined;
-	const noFallbackHeader = req.headers.get("x-no-fallback") || undefined;
+	const headerApiKey = req.headers.get("x-llmgateway-key") ?? undefined;
+	const headerModel = req.headers.get("x-llmgateway-model") ?? undefined;
+	const noFallbackHeader = req.headers.get("x-no-fallback") ?? undefined;
 
 	const cookieStore = await cookies();
 	const cookieApiKey =
-		cookieStore.get("llmgateway_playground_key")?.value ||
+		cookieStore.get("llmgateway_playground_key")?.value ??
 		cookieStore.get("__Host-llmgateway_playground_key")?.value;
 	const finalApiKey = apiKey ?? headerApiKey ?? cookieApiKey;
 	if (!finalApiKey) {
@@ -330,7 +330,7 @@ export async function POST(req: Request) {
 	}
 
 	const gatewayUrl =
-		process.env.GATEWAY_URL ||
+		process.env.GATEWAY_URL ??
 		(process.env.NODE_ENV === "development"
 			? "http://localhost:4001/v1"
 			: "https://api.llmgateway.io/v1");
@@ -363,7 +363,7 @@ export async function POST(req: Request) {
 	// Initialize MCP clients if servers are provided
 	const mcpClients: McpClientWrapper[] = [];
 	const enabledMcpServers =
-		mcp_servers?.filter((server) => server.enabled) || [];
+		mcp_servers?.filter((server) => server.enabled) ?? [];
 
 	try {
 		// Create MCP clients for each enabled server (with timeout)
@@ -606,7 +606,7 @@ export async function POST(req: Request) {
 						// For unknown tools, use a permissive schema
 						allTools[prefixedName] = tool({
 							description:
-								originalTool.description || `MCP tool: ${prefixedName}`,
+								originalTool.description ?? `MCP tool: ${prefixedName}`,
 							inputSchema: z.object({}).passthrough(),
 							execute: async (args) => {
 								const result = await originalTool.execute(args);
@@ -649,49 +649,56 @@ export async function POST(req: Request) {
 
 		// Add SSE keepalive comments (`: ping`) to prevent proxy/load balancer
 		// timeouts on long-running requests (e.g. tool calls, reasoning).
+		// Uses a push-based ReadableStream with setInterval so that pings are
+		// flushed to the response independently of consumer backpressure.
 		const KEEPALIVE_INTERVAL_MS = 15_000;
-		let keepaliveInterval: ReturnType<typeof setInterval> | null = null;
+		const encoder = new TextEncoder();
+		const reader = sseStream.getReader();
 
-		const clearKeepalive = () => {
-			if (keepaliveInterval) {
-				clearInterval(keepaliveInterval);
-				keepaliveInterval = null;
-			}
-		};
-
-		const keepaliveStream = new TransformStream<string, string>({
+		const streamWithKeepalive = new ReadableStream<Uint8Array>({
 			start(controller) {
-				keepaliveInterval = setInterval(() => {
+				// Send a keepalive ping every KEEPALIVE_INTERVAL_MS.
+				const keepaliveTimer = setInterval(() => {
 					try {
-						controller.enqueue(": ping\n\n");
+						controller.enqueue(encoder.encode(": ping\n\n"));
 					} catch {
-						// Stream closed
-						clearKeepalive();
+						// Stream already closed, clean up.
+						clearInterval(keepaliveTimer);
 					}
 				}, KEEPALIVE_INTERVAL_MS);
+
+				// Read upstream chunks in a loop and forward them.
+				void (async () => {
+					try {
+						while (true) {
+							const { done, value } = await reader.read();
+							if (done) {
+								clearInterval(keepaliveTimer);
+								controller.close();
+								return;
+							}
+							controller.enqueue(encoder.encode(value));
+						}
+					} catch (err) {
+						clearInterval(keepaliveTimer);
+						controller.error(err);
+					}
+				})();
 			},
-			transform(chunk, controller) {
-				controller.enqueue(chunk);
-			},
-			flush() {
-				clearKeepalive();
+			cancel() {
+				void reader.cancel();
 			},
 		});
 
-		const streamWithKeepalive = sseStream.pipeThrough(keepaliveStream);
-
-		return new Response(
-			streamWithKeepalive.pipeThrough(new TextEncoderStream()),
-			{
-				headers: {
-					"content-type": "text/event-stream",
-					"cache-control": "no-cache",
-					connection: "keep-alive",
-					"x-vercel-ai-ui-message-stream": "v1",
-					"x-accel-buffering": "no",
-				},
+		return new Response(streamWithKeepalive, {
+			headers: {
+				"content-type": "text/event-stream",
+				"cache-control": "no-cache",
+				connection: "keep-alive",
+				"x-vercel-ai-ui-message-stream": "v1",
+				"x-accel-buffering": "no",
 			},
-		);
+		});
 	} catch (error: unknown) {
 		// Clean up MCP clients on error
 		for (const { client } of mcpClients) {

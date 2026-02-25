@@ -74,7 +74,7 @@ export const anthropicModels = [
 				tools: true,
 				webSearch: true,
 				webSearchPrice: 0.01, // $10 per 1000 searches
-				deprecatedAt: new Date("2026-01-21"),
+				deprecatedAt: new Date("2025-12-19"),
 				deactivatedAt: new Date("2026-02-19T17:00:00Z"),
 			},
 		],
@@ -199,6 +199,8 @@ export const anthropicModels = [
 				streaming: true,
 				vision: false,
 				tools: true,
+				webSearch: true,
+				webSearchPrice: 0.01, // $10 per 1000 searches
 			},
 			{
 				test: "skip",
@@ -246,6 +248,8 @@ export const anthropicModels = [
 				vision: false,
 				tools: true,
 				jsonOutputSchema: true,
+				webSearch: true,
+				webSearchPrice: 0.01, // $10 per 1000 searches
 			},
 			{
 				test: "skip",
@@ -294,6 +298,8 @@ export const anthropicModels = [
 				vision: false,
 				tools: true,
 				jsonOutputSchema: true,
+				webSearch: true,
+				webSearchPrice: 0.01, // $10 per 1000 searches
 			},
 			{
 				test: "skip",
@@ -331,7 +337,7 @@ export const anthropicModels = [
 				inputPrice: 3.0 / 1e6,
 				outputPrice: 15.0 / 1e6,
 				cachedInputPrice: 0.3 / 1e6,
-				minCacheableTokens: 1024,
+				minCacheableTokens: 4096,
 				requestPrice: 0,
 				contextSize: 200000,
 				maxOutput: 64000,
@@ -341,6 +347,8 @@ export const anthropicModels = [
 				vision: false,
 				tools: true,
 				jsonOutputSchema: true,
+				webSearch: true,
+				webSearchPrice: 0.01, // $10 per 1000 searches
 			},
 			{
 				test: "skip",
@@ -403,6 +411,8 @@ export const anthropicModels = [
 				vision: false,
 				tools: true,
 				jsonOutputSchema: true,
+				webSearch: true,
+				webSearchPrice: 0.01, // $10 per 1000 searches
 			},
 		],
 	},
@@ -428,6 +438,8 @@ export const anthropicModels = [
 				vision: false,
 				tools: true,
 				jsonOutputSchema: true,
+				webSearch: true,
+				webSearchPrice: 0.01, // $10 per 1000 searches
 			},
 		],
 	},
@@ -455,6 +467,8 @@ export const anthropicModels = [
 				streaming: true,
 				vision: false,
 				tools: true,
+				webSearch: true,
+				webSearchPrice: 0.01, // $10 per 1000 searches
 			},
 			{
 				test: "skip",
@@ -501,6 +515,8 @@ export const anthropicModels = [
 				reasoningMaxTokens: true,
 				tools: true,
 				jsonOutputSchema: true,
+				webSearch: true,
+				webSearchPrice: 0.01, // $10 per 1000 searches
 			},
 			{
 				test: "skip",
@@ -535,6 +551,7 @@ export const anthropicModels = [
 				test: "skip",
 				providerId: "anthropic",
 				modelName: "claude-3-5-sonnet-20240620",
+				deactivatedAt: new Date("2026-02-19"),
 				inputPrice: 3.0 / 1e6,
 				outputPrice: 15.0 / 1e6,
 				cachedInputPrice: 0.3 / 1e6,
@@ -597,6 +614,8 @@ export const anthropicModels = [
 				tools: true,
 				webSearch: true,
 				webSearchPrice: 0.01, // $10 per 1000 searches
+				deprecatedAt: new Date("2025-12-19"),
+				deactivatedAt: new Date("2026-02-19T17:00:00Z"),
 			},
 			{
 				providerId: "aws-bedrock",
@@ -690,6 +709,8 @@ export const anthropicModels = [
 				tools: true,
 				jsonOutputSchema: true,
 				supportedParameters: ["temperature", "max_tokens", "top_p", "effort"],
+				webSearch: true,
+				webSearchPrice: 0.01, // $10 per 1000 searches
 			},
 			{
 				test: "skip",
@@ -770,6 +791,8 @@ export const anthropicModels = [
 				tools: true,
 				jsonOutputSchema: true,
 				supportedParameters: ["temperature", "max_tokens", "top_p", "effort"],
+				webSearch: true,
+				webSearchPrice: 0.01, // $10 per 1000 searches
 			},
 		],
 	},

@@ -7,7 +7,7 @@ import { logger } from "@llmgateway/logger";
 import { getDevPlanCreditsLimit, type DevPlanTier } from "@llmgateway/shared";
 
 import { posthog } from "./posthog.js";
-import { stripe } from "./routes/payments.js";
+import { getStripe } from "./routes/payments.js";
 import { notifyCreditsPurchased } from "./utils/discord.js";
 import {
 	generatePaymentFailureEmailHtml,
@@ -34,7 +34,7 @@ export async function ensureStripeCustomer(
 
 	let stripeCustomerId = organization.stripeCustomerId;
 	if (!stripeCustomerId) {
-		const customer = await stripe.customers.create({
+		const customer = await getStripe().customers.create({
 			email: organization.billingEmail,
 			metadata: {
 				organizationId,
@@ -50,7 +50,7 @@ export async function ensureStripeCustomer(
 			.where(eq(tables.organization.id, organizationId));
 	} else {
 		// Update existing customer email if billingEmail has changed
-		await stripe.customers.update(stripeCustomerId, {
+		await getStripe().customers.update(stripeCustomerId, {
 			email: organization.billingEmail,
 		});
 	}
@@ -95,7 +95,7 @@ async function resolveOrganizationFromStripeEvent(eventData: {
 	// 3. Try to get from subscription metadata if subscription ID is available
 	if (!organizationId && eventData.subscription) {
 		try {
-			const stripeSubscription = await stripe.subscriptions.retrieve(
+			const stripeSubscription = await getStripe().subscriptions.retrieve(
 				eventData.subscription,
 			);
 			if (stripeSubscription.metadata?.organizationId) {
@@ -130,7 +130,7 @@ async function resolveOrganizationFromStripeEvent(eventData: {
 			hasMetadata: !!eventData.metadata,
 			customer: eventData.customer,
 			subscription: eventData.subscription,
-			lineItemsCount: eventData.lines?.data?.length || 0,
+			lineItemsCount: eventData.lines?.data?.length ?? 0,
 		});
 		return null;
 	}
@@ -186,9 +186,9 @@ stripeRoutes.openapi(webhookHandler, async (c) => {
 
 	try {
 		const body = await c.req.raw.text();
-		const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
+		const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? "";
 
-		const event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
+		const event = getStripe().webhooks.constructEvent(body, sig, webhookSecret);
 
 		logger.info(JSON.stringify({ kind: "stripe-event", payload: event }));
 
@@ -319,9 +319,9 @@ async function handleCheckoutSessionCompleted(
 					.values({
 						organizationId,
 						type: "dev_plan_start",
-						amount: ((session.amount_total || 0) / 100).toString(),
+						amount: ((session.amount_total ?? 0) / 100).toString(),
 						creditAmount: creditsLimit.toString(),
-						currency: (session.currency || "USD").toUpperCase(),
+						currency: (session.currency ?? "USD").toUpperCase(),
 						status: "completed",
 						stripeInvoiceId: stripeInvoiceId,
 						description: `Dev Plan ${devPlanTier.toUpperCase()} started via Stripe Checkout`,
@@ -342,10 +342,10 @@ async function handleCheckoutSessionCompleted(
 						lineItems: [
 							{
 								description: `Dev Plan ${devPlanTier.toUpperCase()} ($${creditsLimit} credits included)`,
-								amount: (session.amount_total || 0) / 100,
+								amount: (session.amount_total ?? 0) / 100,
 							},
 						],
-						currency: (session.currency || "USD").toUpperCase(),
+						currency: (session.currency ?? "USD").toUpperCase(),
 					});
 				} catch (e) {
 					logger.error(
@@ -420,8 +420,8 @@ async function handleCheckoutSessionCompleted(
 					.values({
 						organizationId,
 						type: "subscription_start",
-						amount: ((session.amount_total || 0) / 100).toString(),
-						currency: (session.currency || "USD").toUpperCase(),
+						amount: ((session.amount_total ?? 0) / 100).toString(),
+						currency: (session.currency ?? "USD").toUpperCase(),
 						status: "completed",
 						stripeInvoiceId: stripeInvoiceId,
 						description: "Pro subscription started via Stripe Checkout",
@@ -442,10 +442,10 @@ async function handleCheckoutSessionCompleted(
 						lineItems: [
 							{
 								description: "Pro Subscription",
-								amount: (session.amount_total || 0) / 100,
+								amount: (session.amount_total ?? 0) / 100,
 							},
 						],
-						currency: (session.currency || "USD").toUpperCase(),
+						currency: (session.currency ?? "USD").toUpperCase(),
 					});
 				} catch (e) {
 					logger.error(
@@ -950,7 +950,7 @@ async function handlePaymentIntentFailed(
 
 	// Extract error details from Stripe
 	const lastPaymentError = paymentIntent.last_payment_error;
-	const errorMessage = lastPaymentError?.message || "Unknown error";
+	const errorMessage = lastPaymentError?.message ?? "Unknown error";
 	const errorCode = lastPaymentError?.code;
 	const declineCode = lastPaymentError?.decline_code;
 
@@ -1120,7 +1120,7 @@ async function handleChargeRefunded(event: Stripe.ChargeRefundedEvent) {
 	}
 
 	// Fetch refunds for this charge since they're not expanded in webhook events
-	const refundsResponse = await stripe.refunds.list({
+	const refundsResponse = await getStripe().refunds.list({
 		charge: charge.id,
 		limit: 1,
 	});
@@ -1135,9 +1135,9 @@ async function handleChargeRefunded(event: Stripe.ChargeRefundedEvent) {
 
 	// Calculate refund amounts
 	const refundAmountInDollars = amount_refunded / 100;
-	const originalAmount = Number.parseFloat(originalTransaction.amount || "0");
+	const originalAmount = Number.parseFloat(originalTransaction.amount ?? "0");
 	const originalCreditAmount = Number.parseFloat(
-		originalTransaction.creditAmount || "0",
+		originalTransaction.creditAmount ?? "0",
 	);
 
 	// Calculate proportional credit refund
@@ -1171,7 +1171,7 @@ async function handleChargeRefunded(event: Stripe.ChargeRefundedEvent) {
 		status: "completed",
 		stripePaymentIntentId: payment_intent as string,
 		relatedTransactionId: originalTransaction.id,
-		refundReason: latestRefund.reason || null,
+		refundReason: latestRefund.reason ?? null,
 		description: `Credit refund: $${refundAmountInDollars.toFixed(2)} (${(refundRatio * 100).toFixed(1)}% of original purchase)`,
 	});
 
@@ -1246,11 +1246,12 @@ async function handleSetupIntentSucceeded(
 	const paymentMethodId =
 		typeof payment_method === "string" ? payment_method : payment_method.id;
 
-	await stripe.paymentMethods.attach(paymentMethodId, {
+	await getStripe().paymentMethods.attach(paymentMethodId, {
 		customer: stripeCustomerId,
 	});
 
-	const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+	const paymentMethod =
+		await getStripe().paymentMethods.retrieve(paymentMethodId);
 
 	const existingPaymentMethods = await db.query.paymentMethod.findMany({
 		where: {

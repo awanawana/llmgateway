@@ -2,7 +2,7 @@
 import { DotsHorizontalIcon } from "@radix-ui/react-icons";
 import { MonitorSmartphone, HelpCircle, Plus } from "lucide-react";
 import Link from "next/link";
-import React, { forwardRef, useId, useRef } from "react";
+import React, { useId, useRef } from "react";
 
 import { Button } from "@/lib/components/button";
 import {
@@ -18,10 +18,13 @@ import { ProviderIcons } from "@llmgateway/shared/components";
 
 import { AnimatedBeam } from "./animated-beam";
 
-const Circle = forwardRef<
-	HTMLDivElement,
-	{ className?: string; children?: React.ReactNode }
->(({ className, children }, ref) => {
+const Circle = ({
+	ref,
+	className,
+	children,
+}: { className?: string; children?: React.ReactNode } & {
+	ref?: React.RefObject<HTMLDivElement | null>;
+}) => {
 	return (
 		<div
 			ref={ref}
@@ -33,7 +36,7 @@ const Circle = forwardRef<
 			{children}
 		</div>
 	);
-});
+};
 
 Circle.displayName = "Circle";
 
@@ -55,14 +58,14 @@ export function Graph() {
 	const AnthropicIcon = ProviderIcons.anthropic;
 
 	const XAIIcon = ProviderIcons.xai;
-	const CloudriftIcon = ProviderIcons.cloudrift;
+	const DeepseekIcon = ProviderIcons.deepseek;
 
 	const logos = [
 		<OpenAIIcon key={useId()} className="w-6 h-6 object-contain" />,
 		<AnthropicIcon key={useId()} className="w-6 h-6 object-contain" />,
 		<XAIIcon key={useId()} className="w-6 h-6 object-contain" />,
 		<DotsHorizontalIcon key={useId()} />,
-		<CloudriftIcon key={useId()} className="w-6 h-6 object-contain" />,
+		<DeepseekIcon key={useId()} className="w-6 h-6 object-contain" />,
 	];
 
 	return (
@@ -110,6 +113,7 @@ export function Graph() {
 										href="mailto:contact@llmgateway.io"
 										className="text-blue-500 underline"
 										target="_blank"
+										rel="noreferrer noopener"
 									>
 										Get in touch
 									</a>

@@ -1,6 +1,10 @@
 import {
+	AlertTriangle,
+	ArrowDownToLine,
+	ArrowUpFromLine,
 	Building2,
 	CircleDollarSign,
+	PiggyBank,
 	ShieldCheck,
 	UserCheck,
 	Users,
@@ -41,7 +45,7 @@ function MetricCard({
 	value: string;
 	subtitle?: string;
 	icon?: React.ReactNode;
-	accent?: "green" | "blue" | "purple";
+	accent?: "green" | "blue" | "purple" | "red";
 }) {
 	return (
 		<div className="bg-card text-card-foreground flex flex-col justify-between gap-3 rounded-xl border border-border/60 p-5 shadow-sm">
@@ -65,6 +69,8 @@ function MetricCard({
 								"border-sky-500/30 bg-sky-500/10 text-sky-400",
 							accent === "purple" &&
 								"border-violet-500/30 bg-violet-500/10 text-violet-400",
+							accent === "red" &&
+								"border-red-500/30 bg-red-500/10 text-red-400",
 						)}
 					>
 						{icon}
@@ -103,13 +109,13 @@ export default async function Page({
 	searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
 	const params = await searchParams;
-	const rangeParam = typeof params.range === "string" ? params.range : "30d";
+	const rangeParam = typeof params.range === "string" ? params.range : "all";
 	const range: TimeseriesRange = validRanges.has(rangeParam)
 		? (rangeParam as TimeseriesRange)
-		: "30d";
+		: "all";
 
 	const [metrics, timeseries] = await Promise.all([
-		getAdminDashboardMetrics(),
+		getAdminDashboardMetrics(range),
 		getAdminTimeseriesMetrics(range),
 	]);
 
@@ -118,7 +124,7 @@ export default async function Page({
 	}
 
 	return (
-		<div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 md:px-8">
+		<div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8 md:px-8">
 			<header className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
 				<div>
 					<h1 className="text-3xl font-semibold tracking-tight">
@@ -175,6 +181,36 @@ export default async function Page({
 					icon={<Building2 className="h-4 w-4" />}
 					accent="blue"
 				/>
+				<MetricCard
+					label="Total Topped Up"
+					value={currencyFormatter.format(metrics.totalToppedUp)}
+					subtitle="All-time credits purchased"
+					icon={<ArrowDownToLine className="h-4 w-4" />}
+					accent="green"
+				/>
+				<MetricCard
+					label="Total Spent"
+					value={currencyFormatter.format(metrics.totalSpent)}
+					subtitle="All-time usage costs"
+					icon={<ArrowUpFromLine className="h-4 w-4" />}
+					accent="purple"
+				/>
+				<MetricCard
+					label="Unused Credits"
+					value={currencyFormatter.format(metrics.unusedCredits)}
+					subtitle="Credits sitting unused across all orgs"
+					icon={<PiggyBank className="h-4 w-4" />}
+					accent="blue"
+				/>
+				{metrics.overage > 0 && (
+					<MetricCard
+						label="Overage"
+						value={currencyFormatter.format(metrics.overage)}
+						subtitle="Spending exceeding topped-up credits"
+						icon={<AlertTriangle className="h-4 w-4" />}
+						accent="red"
+					/>
+				)}
 			</section>
 
 			{timeseries ? (

@@ -1,6 +1,8 @@
 "use client";
 
 import {
+	AlertCircle,
+	AlertTriangle,
 	Check,
 	ChevronDown,
 	ChevronRight,
@@ -58,8 +60,13 @@ import {
 	TableRow,
 } from "@/lib/components/table";
 import { Toggle } from "@/lib/components/toggle";
-import { TooltipProvider } from "@/lib/components/tooltip";
-import { cn } from "@/lib/utils";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@/lib/components/tooltip";
+import { cn, formatDeprecationDate } from "@/lib/utils";
 
 import { getProviderIcon } from "@llmgateway/shared/components";
 
@@ -194,7 +201,7 @@ const ModelTableRow = React.memo(
 		isExpanded: boolean;
 		copiedModel: string | null;
 		onToggleExpand: () => void;
-		onCopy: (text: string, e: React.MouseEvent) => void;
+		onCopy: (text: string, key: string, e: React.MouseEvent) => void;
 		onNavigate: () => void;
 		formatPrice: (
 			price: string | null | undefined,
@@ -235,17 +242,51 @@ const ModelTableRow = React.memo(
 								<div
 									className="w-4 h-4 rounded-sm flex items-center justify-center text-xs font-medium text-white"
 									style={{
-										backgroundColor: row.providerInfo?.color || "#6b7280",
+										backgroundColor: row.providerInfo?.color ?? "#6b7280",
 									}}
 								>
-									{(row.providerInfo?.name || row.provider.providerId)
+									{(row.providerInfo?.name ?? row.provider.providerId)
 										.charAt(0)
 										.toUpperCase()}
 								</div>
 							)}
 							<span className="text-sm">
-								{row.providerInfo?.name || row.provider.providerId}
+								{row.providerInfo?.name ?? row.provider.providerId}
 							</span>
+							{row.provider.deactivatedAt && (
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<span className="shrink-0 cursor-help">
+											<AlertCircle className="h-3.5 w-3.5 text-red-500" />
+										</span>
+									</TooltipTrigger>
+									<TooltipContent>
+										<p className="text-xs">
+											{formatDeprecationDate(
+												row.provider.deactivatedAt,
+												"deactivated",
+											)}
+										</p>
+									</TooltipContent>
+								</Tooltip>
+							)}
+							{!row.provider.deactivatedAt && row.provider.deprecatedAt && (
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<span className="shrink-0 cursor-help">
+											<AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+										</span>
+									</TooltipTrigger>
+									<TooltipContent>
+										<p className="text-xs">
+											{formatDeprecationDate(
+												row.provider.deprecatedAt,
+												"deprecated",
+											)}
+										</p>
+									</TooltipContent>
+								</Tooltip>
+							)}
 							<ExternalLink className="h-3 w-3 text-muted-foreground" />
 						</div>
 					</TableCell>
@@ -261,13 +302,11 @@ const ModelTableRow = React.memo(
 								{row.model.id}
 							</Link>
 							<button
-								onClick={(e) => onCopy(row.model.id, e)}
+								onClick={(e) => onCopy(row.model.id, row.rowKey, e)}
 								className="p-1 hover:bg-muted rounded transition-colors"
-								title={
-									copiedModel === row.model.id ? "Copied!" : "Copy model ID"
-								}
+								title={copiedModel === row.rowKey ? "Copied!" : "Copy model ID"}
 							>
-								{copiedModel === row.model.id ? (
+								{copiedModel === row.rowKey ? (
 									<Check className="h-3 w-3 text-green-500" />
 								) : (
 									<Copy className="h-3 w-3 text-muted-foreground" />
@@ -368,7 +407,7 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 	const [copiedModel, setCopiedModel] = useState<string | null>(null);
 
 	// Search and filter states
-	const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
+	const [searchQuery, setSearchQuery] = useState(searchParams.get("q") ?? "");
 	const [showFilters, setShowFilters] = useState(
 		searchParams.get("filters") === "1",
 	);
@@ -381,7 +420,7 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 		(searchParams.get("sortDir") as SortDirection) === "desc" ? "desc" : "asc",
 	);
 	const [filters, setFilters] = useState({
-		category: searchParams.get("category") || "all",
+		category: searchParams.get("category") ?? "all",
 		capabilities: {
 			streaming: searchParams.get("streaming") === "true",
 			vision: searchParams.get("vision") === "true",
@@ -395,18 +434,18 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 			free: searchParams.get("free") === "true",
 			discounted: searchParams.get("discounted") === "true",
 		},
-		selectedProvider: searchParams.get("provider") || "all",
+		selectedProvider: searchParams.get("provider") ?? "all",
 		inputPrice: {
-			min: searchParams.get("inputPriceMin") || "",
-			max: searchParams.get("inputPriceMax") || "",
+			min: searchParams.get("inputPriceMin") ?? "",
+			max: searchParams.get("inputPriceMax") ?? "",
 		},
 		outputPrice: {
-			min: searchParams.get("outputPriceMin") || "",
-			max: searchParams.get("outputPriceMax") || "",
+			min: searchParams.get("outputPriceMin") ?? "",
+			max: searchParams.get("outputPriceMax") ?? "",
 		},
 		contextSize: {
-			min: searchParams.get("contextSizeMin") || "",
-			max: searchParams.get("contextSizeMax") || "",
+			min: searchParams.get("contextSizeMin") ?? "",
+			max: searchParams.get("contextSizeMax") ?? "",
 		},
 	});
 
@@ -484,15 +523,15 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 					.map((t: string) => t.replace(/[^a-z0-9]/g, ""))
 					.filter(Boolean);
 
-				const providerStrings = (model.providerDetails || []).flatMap((p) => [
+				const providerStrings = (model.providerDetails ?? []).flatMap((p) => [
 					p.provider.providerId,
-					p.providerInfo?.name || "",
+					p.providerInfo?.name ?? "",
 				]);
 				const haystackParts = [
-					model.name || "",
+					model.name ?? "",
 					model.id,
 					model.family,
-					...(model.aliases || []),
+					...(model.aliases ?? []),
 					...providerStrings,
 				];
 				const haystack = normalize(haystackParts.join(" "));
@@ -514,7 +553,7 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 			if (filters.category && filters.category !== "all") {
 				switch (filters.category) {
 					case "code": {
-						// Code generation: needs tools, JSON output, streaming
+						// Code generation: needs tools, JSON output, streaming, and cached input pricing
 						if (model.free) {
 							return false;
 						}
@@ -526,9 +565,10 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 						}
 						const hasCodeCapabilities = model.providerDetails.some(
 							(p) =>
-								(p.provider.jsonOutput || p.provider.jsonOutputSchema) &&
+								(p.provider.jsonOutput ?? p.provider.jsonOutputSchema) &&
 								p.provider.tools &&
-								p.provider.streaming,
+								p.provider.streaming &&
+								p.provider.cachedInputPrice !== null,
 						);
 						if (!hasCodeCapabilities) {
 							return false;
@@ -536,9 +576,10 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 						break;
 					}
 					case "chat": {
-						// Chat & Assistants: general chat models with streaming
+						// Chat & Assistants: general chat models with streaming and cached input pricing
 						const hasStreaming = model.providerDetails.some(
-							(p) => p.provider.streaming,
+							(p) =>
+								p.provider.streaming && p.provider.cachedInputPrice !== null,
 						);
 						if (!hasStreaming) {
 							return false;
@@ -754,19 +795,19 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 				case "provider":
 					// For grid view, sort by first provider name
 					aValue = (
-						a.providerDetails[0]?.providerInfo?.name ||
-						a.providerDetails[0]?.provider.providerId ||
+						a.providerDetails[0]?.providerInfo?.name ??
+						a.providerDetails[0]?.provider.providerId ??
 						""
 					).toLowerCase();
 					bValue = (
-						b.providerDetails[0]?.providerInfo?.name ||
-						b.providerDetails[0]?.provider.providerId ||
+						b.providerDetails[0]?.providerInfo?.name ??
+						b.providerDetails[0]?.provider.providerId ??
 						""
 					).toLowerCase();
 					break;
 				case "name":
-					aValue = (a.name || a.id).toLowerCase();
-					bValue = (b.name || b.id).toLowerCase();
+					aValue = (a.name ?? a.id).toLowerCase();
+					bValue = (b.name ?? b.id).toLowerCase();
 					break;
 				case "inputPrice": {
 					// Get the min input price among all providers for this model
@@ -852,7 +893,7 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 		for (const model of modelsWithProviders) {
 			for (const { provider, providerInfo } of model.providerDetails) {
 				const hasAdditionalPricing =
-					provider.webSearch ||
+					provider.webSearch ??
 					(provider.requestPrice !== null &&
 						provider.requestPrice !== undefined &&
 						parseFloat(provider.requestPrice) > 0);
@@ -888,15 +929,15 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 			switch (sortField) {
 				case "provider":
 					aValue = (
-						a.providerInfo?.name || a.provider.providerId
+						a.providerInfo?.name ?? a.provider.providerId
 					).toLowerCase();
 					bValue = (
-						b.providerInfo?.name || b.provider.providerId
+						b.providerInfo?.name ?? b.provider.providerId
 					).toLowerCase();
 					break;
 				case "name":
-					aValue = (a.model.name || a.model.id).toLowerCase();
-					bValue = (b.model.name || b.model.id).toLowerCase();
+					aValue = (a.model.name ?? a.model.id).toLowerCase();
+					bValue = (b.model.name ?? b.model.id).toLowerCase();
 					break;
 				case "inputPrice": {
 					const aPrice = a.provider.inputPrice;
@@ -965,11 +1006,11 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 	}, []);
 
 	const copyToClipboard = useCallback(
-		async (text: string, e: React.MouseEvent) => {
+		async (text: string, key: string, e: React.MouseEvent) => {
 			e.stopPropagation();
 			try {
 				await navigator.clipboard.writeText(text);
-				setCopiedModel(text);
+				setCopiedModel(key);
 				setTimeout(() => setCopiedModel(null), 2000);
 			} catch (err) {
 				console.error("Failed to copy text:", err);
@@ -1033,6 +1074,9 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 							${discountedPrice}
 						</span>
 					</div>
+					<span className="text-[10px] text-green-600">
+						-{Math.round(discountNum * 100)}% off
+					</span>
 				</div>
 			);
 		}
@@ -1394,7 +1438,7 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 										...prev,
 										inputPrice: { ...prev.inputPrice, min: value },
 									}));
-									updateUrlWithFilters({ inputPriceMin: value || undefined });
+									updateUrlWithFilters({ inputPriceMin: value ?? undefined });
 								}}
 								className="h-8"
 							/>
@@ -1408,7 +1452,7 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 										...prev,
 										inputPrice: { ...prev.inputPrice, max: value },
 									}));
-									updateUrlWithFilters({ inputPriceMax: value || undefined });
+									updateUrlWithFilters({ inputPriceMax: value ?? undefined });
 								}}
 								className="h-8"
 							/>
@@ -1428,7 +1472,7 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 										...prev,
 										outputPrice: { ...prev.outputPrice, min: value },
 									}));
-									updateUrlWithFilters({ outputPriceMin: value || undefined });
+									updateUrlWithFilters({ outputPriceMin: value ?? undefined });
 								}}
 								className="h-8"
 							/>
@@ -1442,7 +1486,7 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 										...prev,
 										outputPrice: { ...prev.outputPrice, max: value },
 									}));
-									updateUrlWithFilters({ outputPriceMax: value || undefined });
+									updateUrlWithFilters({ outputPriceMax: value ?? undefined });
 								}}
 								className="h-8"
 							/>
@@ -1462,7 +1506,7 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 										...prev,
 										contextSize: { ...prev.contextSize, min: value },
 									}));
-									updateUrlWithFilters({ contextSizeMin: value || undefined });
+									updateUrlWithFilters({ contextSizeMin: value ?? undefined });
 								}}
 								className="h-8"
 							/>
@@ -1476,7 +1520,7 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 										...prev,
 										contextSize: { ...prev.contextSize, max: value },
 									}));
-									updateUrlWithFilters({ contextSizeMax: value || undefined });
+									updateUrlWithFilters({ contextSizeMax: value ?? undefined });
 								}}
 								className="h-8"
 							/>
@@ -1639,7 +1683,7 @@ export function AllModels({ children, models, providers }: AllModelsProps) {
 											onChange={(e) => {
 												const value = e.target.value;
 												setSearchQuery(value);
-												updateUrlWithFilters({ q: value || undefined });
+												updateUrlWithFilters({ q: value ?? undefined });
 											}}
 											className="pl-8"
 										/>

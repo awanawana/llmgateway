@@ -692,6 +692,7 @@ export interface paths {
                                     statusCode: number;
                                     statusText: string;
                                     responseText: string;
+                                    cause?: string;
                                 } | null;
                                 cost: number | null;
                                 inputCost: number | null;
@@ -871,6 +872,7 @@ export interface paths {
                                     statusCode: number;
                                     statusText: string;
                                     responseText: string;
+                                    cause?: string;
                                 } | null;
                                 cost: number | null;
                                 inputCost: number | null;
@@ -1030,8 +1032,6 @@ export interface paths {
                                 apiKeysRequestCount: number;
                                 creditsCost: number;
                                 apiKeysCost: number;
-                                creditsServiceFee: number;
-                                apiKeysServiceFee: number;
                                 creditsDataStorageCost: number;
                                 apiKeysDataStorageCost: number;
                                 modelBreakdown: {
@@ -1066,7 +1066,9 @@ export interface paths {
         };
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    range?: "7d" | "30d" | "90d" | "365d" | "all";
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -1085,6 +1087,10 @@ export interface paths {
                             payingCustomers: number;
                             totalRevenue: number;
                             totalOrganizations: number;
+                            totalToppedUp: number;
+                            totalSpent: number;
+                            unusedCredits: number;
+                            overage: number;
                         };
                     };
                 };
@@ -1162,7 +1168,7 @@ export interface paths {
                     limit?: number;
                     offset?: number | null;
                     search?: string;
-                    sortBy?: "name" | "billingEmail" | "plan" | "devPlan" | "credits" | "createdAt" | "status" | "totalCreditsAllTime";
+                    sortBy?: "name" | "billingEmail" | "plan" | "devPlan" | "credits" | "createdAt" | "status" | "totalCreditsAllTime" | "totalSpent";
                     sortOrder?: "asc" | "desc";
                 };
                 header?: never;
@@ -1186,6 +1192,7 @@ export interface paths {
                                 devPlan: string;
                                 credits: string;
                                 totalCreditsAllTime?: string;
+                                totalSpent?: string;
                                 createdAt: string;
                                 status: string | null;
                             }[];
@@ -1241,6 +1248,7 @@ export interface paths {
                                 devPlan: string;
                                 credits: string;
                                 totalCreditsAllTime?: string;
+                                totalSpent?: string;
                                 createdAt: string;
                                 status: string | null;
                             };
@@ -1317,6 +1325,7 @@ export interface paths {
                                 devPlan: string;
                                 credits: string;
                                 totalCreditsAllTime?: string;
+                                totalSpent?: string;
                                 createdAt: string;
                                 status: string | null;
                             };
@@ -1449,6 +1458,63 @@ export interface paths {
                             total: number;
                             limit: number;
                             offset: number;
+                        };
+                    };
+                };
+                /** @description Organization not found. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/organizations/{orgId}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    orgId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Organization members. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            members: {
+                                id: string;
+                                userId: string;
+                                role: string;
+                                createdAt: string;
+                                user: {
+                                    id: string;
+                                    email: string;
+                                    name: string | null;
+                                };
+                            }[];
+                            total: number;
                         };
                     };
                 };
@@ -1969,6 +2035,176 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    sortBy?: "name" | "logsCount" | "errorsCount" | "cachedCount" | "avgTimeToFirstToken" | "modelCount";
+                    sortOrder?: "asc" | "desc";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of providers with stats. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            providers: {
+                                id: string;
+                                name: string;
+                                color: string | null;
+                                status: string;
+                                logsCount: number;
+                                errorsCount: number;
+                                cachedCount: number;
+                                avgTimeToFirstToken: number | null;
+                                modelCount: number;
+                                updatedAt: string;
+                            }[];
+                            total: number;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    search?: string;
+                    family?: string;
+                    sortBy?: "name" | "family" | "logsCount" | "errorsCount" | "cachedCount" | "avgTimeToFirstToken" | "providerCount";
+                    sortOrder?: "asc" | "desc";
+                    limit?: number;
+                    offset?: number | null;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of models with stats. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            models: {
+                                id: string;
+                                name: string;
+                                family: string;
+                                free: boolean;
+                                stability: string;
+                                status: string;
+                                logsCount: number;
+                                errorsCount: number;
+                                cachedCount: number;
+                                avgTimeToFirstToken: number | null;
+                                providerCount: number;
+                                updatedAt: string;
+                            }[];
+                            total: number;
+                            limit: number;
+                            offset: number;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/organizations/{orgId}/gift-credits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    orgId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        creditAmount: number;
+                        comment?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Credits gifted successfully. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            message: string;
+                            credits: string;
+                        };
+                    };
+                };
+                /** @description Organization not found. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            message: string;
+                        };
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -3528,7 +3764,7 @@ export interface paths {
                                 updatedAt: string;
                                 organizationId: string;
                                 /** @enum {string} */
-                                type: "subscription_start" | "subscription_cancel" | "subscription_end" | "credit_topup" | "credit_refund" | "dev_plan_start" | "dev_plan_upgrade" | "dev_plan_downgrade" | "dev_plan_cancel" | "dev_plan_end" | "dev_plan_renewal";
+                                type: "subscription_start" | "subscription_cancel" | "subscription_end" | "credit_topup" | "credit_refund" | "credit_gift" | "dev_plan_start" | "dev_plan_upgrade" | "dev_plan_downgrade" | "dev_plan_cancel" | "dev_plan_end" | "dev_plan_renewal";
                                 amount: string | null;
                                 creditAmount: string | null;
                                 currency: string;
@@ -5010,7 +5246,7 @@ export interface paths {
                                 organizationId: string;
                                 userId: string;
                                 /** @enum {string} */
-                                action: "organization.create" | "organization.update" | "organization.delete" | "project.create" | "project.update" | "project.delete" | "team_member.add" | "team_member.update" | "team_member.remove" | "api_key.create" | "api_key.update_status" | "api_key.update_limit" | "api_key.delete" | "api_key.iam_rule.create" | "api_key.iam_rule.update" | "api_key.iam_rule.delete" | "provider_key.create" | "provider_key.update" | "provider_key.delete" | "subscription.create" | "subscription.cancel" | "subscription.resume" | "subscription.upgrade_yearly" | "payment.method.set_default" | "payment.method.delete" | "payment.credit_topup" | "dev_plan.subscribe" | "dev_plan.cancel" | "dev_plan.resume" | "dev_plan.change_tier" | "dev_plan.update_settings";
+                                action: "organization.create" | "organization.update" | "organization.delete" | "project.create" | "project.update" | "project.delete" | "team_member.add" | "team_member.update" | "team_member.remove" | "api_key.create" | "api_key.update_status" | "api_key.update_limit" | "api_key.delete" | "api_key.iam_rule.create" | "api_key.iam_rule.update" | "api_key.iam_rule.delete" | "provider_key.create" | "provider_key.update" | "provider_key.delete" | "subscription.create" | "subscription.cancel" | "subscription.resume" | "subscription.upgrade_yearly" | "payment.method.set_default" | "payment.method.delete" | "payment.credit_topup" | "credits.gift" | "dev_plan.subscribe" | "dev_plan.cancel" | "dev_plan.resume" | "dev_plan.change_tier" | "dev_plan.update_settings";
                                 /** @enum {string} */
                                 resourceType: "organization" | "project" | "team_member" | "api_key" | "iam_rule" | "provider_key" | "subscription" | "payment_method" | "payment" | "dev_plan";
                                 resourceId: string | null;

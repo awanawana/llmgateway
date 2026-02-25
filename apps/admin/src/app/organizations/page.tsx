@@ -30,7 +30,8 @@ type SortBy =
 	| "credits"
 	| "createdAt"
 	| "status"
-	| "totalCreditsAllTime";
+	| "totalCreditsAllTime"
+	| "totalSpent";
 type SortOrder = "asc" | "desc";
 
 function SortableHeader({
@@ -143,8 +144,8 @@ export default async function OrganizationsPage({
 	}>;
 }) {
 	const params = await searchParams;
-	const page = Math.max(1, parseInt(params?.page || "1", 10));
-	const search = params?.search || "";
+	const page = Math.max(1, parseInt(params?.page ?? "1", 10));
+	const search = params?.search ?? "";
 	const sortBy = (params?.sortBy as SortBy) || "createdAt";
 	const sortOrder = (params?.sortOrder as SortOrder) || "desc";
 	const limit = 25;
@@ -177,7 +178,7 @@ export default async function OrganizationsPage({
 	}
 
 	return (
-		<div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 md:px-8">
+		<div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8 md:px-8">
 			<header className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
 				<div>
 					<h1 className="text-3xl font-semibold tracking-tight">
@@ -207,7 +208,7 @@ export default async function OrganizationsPage({
 				</form>
 			</header>
 
-			<div className="rounded-lg border border-border/60 bg-card">
+			<div className="overflow-x-auto rounded-lg border border-border/60 bg-card">
 				<Table>
 					<TableHeader>
 						<TableRow>
@@ -267,6 +268,15 @@ export default async function OrganizationsPage({
 							</TableHead>
 							<TableHead>
 								<SortableHeader
+									label="Total Spent"
+									sortKey="totalSpent"
+									currentSortBy={sortBy}
+									currentSortOrder={sortOrder}
+									search={search}
+								/>
+							</TableHead>
+							<TableHead>
+								<SortableHeader
 									label="Created"
 									sortKey="createdAt"
 									currentSortBy={sortBy}
@@ -289,7 +299,7 @@ export default async function OrganizationsPage({
 						{data.organizations.length === 0 ? (
 							<TableRow>
 								<TableCell
-									colSpan={8}
+									colSpan={9}
 									className="h-24 text-center text-muted-foreground"
 								>
 									No organizations found
@@ -332,6 +342,11 @@ export default async function OrganizationsPage({
 											parseFloat(org.totalCreditsAllTime ?? "0"),
 										)}
 									</TableCell>
+									<TableCell className="tabular-nums text-muted-foreground">
+										{currencyFormatter.format(
+											parseFloat(org.totalSpent ?? "0"),
+										)}
+									</TableCell>
 									<TableCell className="text-muted-foreground">
 										{formatDate(org.createdAt)}
 									</TableCell>
@@ -341,7 +356,7 @@ export default async function OrganizationsPage({
 												org.status === "active" ? "secondary" : "outline"
 											}
 										>
-											{org.status || "active"}
+											{org.status ?? "active"}
 										</Badge>
 									</TableCell>
 								</TableRow>

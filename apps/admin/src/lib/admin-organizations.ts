@@ -12,6 +12,7 @@ export interface Organization {
 	devPlan: string;
 	credits: string;
 	totalCreditsAllTime?: string;
+	totalSpent?: string;
 	createdAt: string;
 	status: string | null;
 }
@@ -106,12 +107,29 @@ export interface ApiKeysListResponse {
 	offset: number;
 }
 
+export interface Member {
+	id: string;
+	userId: string;
+	role: string;
+	createdAt: string;
+	user: {
+		id: string;
+		email: string;
+		name: string | null;
+	};
+}
+
+export interface MembersListResponse {
+	members: Member[];
+	total: number;
+}
+
 async function hasSession(): Promise<boolean> {
 	const cookieStore = await cookies();
 	const key = "better-auth.session_token";
 	const sessionCookie = cookieStore.get(key);
 	const secureSessionCookie = cookieStore.get(`__Secure-${key}`);
-	const hasAuth = !!(sessionCookie || secureSessionCookie);
+	const hasAuth = !!(sessionCookie ?? secureSessionCookie);
 	if (!hasAuth) {
 		console.log("[admin-organizations] No session cookie found");
 	}
@@ -126,7 +144,8 @@ export type SortBy =
 	| "credits"
 	| "createdAt"
 	| "status"
-	| "totalCreditsAllTime";
+	| "totalCreditsAllTime"
+	| "totalSpent";
 export type SortOrder = "asc" | "desc";
 
 export async function getOrganizations(params?: {
@@ -267,6 +286,28 @@ export async function getOrganizationApiKeys(
 	return data;
 }
 
+export async function getOrganizationMembers(
+	orgId: string,
+): Promise<MembersListResponse | null> {
+	if (!(await hasSession())) {
+		return null;
+	}
+
+	const data = await fetchServerData<MembersListResponse>(
+		"GET",
+		"/admin/organizations/{orgId}/members" as "/admin/organizations/{orgId}",
+		{
+			params: {
+				path: {
+					orgId,
+				},
+			},
+		},
+	);
+
+	return data;
+}
+
 export async function loadMetricsAction(
 	orgId: string,
 	window: TokenWindow,
@@ -387,4 +428,33 @@ export async function loadProjectLogsAction(
 	cursor?: string,
 ): Promise<ProjectLogsResponse | null> {
 	return await getProjectLogs(orgId, projectId, { cursor });
+}
+
+export async function giftCreditsToOrganization(
+	orgId: string,
+	data: { creditAmount: number; comment?: string },
+): Promise<{ success: boolean; error?: string }> {
+	if (!(await hasSession())) {
+		return { success: false, error: "Not authenticated" };
+	}
+
+	const result = await fetchServerData<{ message: string; credits: string }>(
+		"POST",
+		`/admin/organizations/${orgId}/gift-credits` as "/admin/organizations/{orgId}",
+		{
+			params: {
+				path: { orgId },
+			},
+			body: {
+				creditAmount: data.creditAmount,
+				comment: data.comment,
+			},
+		},
+	);
+
+	if (!result) {
+		return { success: false, error: "Failed to gift credits" };
+	}
+
+	return { success: true };
 }

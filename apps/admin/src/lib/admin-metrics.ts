@@ -8,6 +8,10 @@ export interface AdminDashboardMetrics {
 	payingCustomers: number;
 	totalRevenue: number;
 	totalOrganizations: number;
+	totalToppedUp: number;
+	totalSpent: number;
+	unusedCredits: number;
+	overage: number;
 }
 
 export type TimeseriesRange = "7d" | "30d" | "90d" | "365d" | "all";
@@ -34,24 +38,27 @@ async function hasSession(): Promise<boolean> {
 	const key = "better-auth.session_token";
 	const sessionCookie = cookieStore.get(key);
 	const secureSessionCookie = cookieStore.get(`__Secure-${key}`);
-	return !!(sessionCookie || secureSessionCookie);
+	return !!(sessionCookie ?? secureSessionCookie);
 }
 
-export async function getAdminDashboardMetrics(): Promise<AdminDashboardMetrics | null> {
+export async function getAdminDashboardMetrics(
+	range: TimeseriesRange = "all",
+): Promise<AdminDashboardMetrics | null> {
 	if (!(await hasSession())) {
 		return null;
 	}
 
 	const data = await fetchServerData<AdminDashboardMetrics>(
 		"GET",
-		"/admin/metrics",
+		"/admin/metrics" as const,
+		{ params: { query: { range } } },
 	);
 
 	return data;
 }
 
 export async function getAdminTimeseriesMetrics(
-	range: TimeseriesRange = "30d",
+	range: TimeseriesRange = "all",
 ): Promise<AdminTimeseriesMetrics | null> {
 	if (!(await hasSession())) {
 		return null;
@@ -59,7 +66,7 @@ export async function getAdminTimeseriesMetrics(
 
 	const data = await fetchServerData<AdminTimeseriesMetrics>(
 		"GET",
-		"/admin/metrics/timeseries" as "/admin/metrics/timeseries",
+		"/admin/metrics/timeseries" as const,
 		{ params: { query: { range } } },
 	);
 

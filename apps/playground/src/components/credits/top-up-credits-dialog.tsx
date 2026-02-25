@@ -126,7 +126,7 @@ export function TopUpCreditsDialog({
 				) : step === "select-payment" ? (
 					<SelectPaymentStep
 						amount={amount}
-						paymentMethods={paymentMethodsData?.paymentMethods || []}
+						paymentMethods={paymentMethodsData?.paymentMethods ?? []}
 						selectedPaymentMethod={selectedPaymentMethod}
 						setSelectedPaymentMethod={setSelectedPaymentMethod}
 						onUseSelected={() => setStep("confirm-payment")}
@@ -424,7 +424,7 @@ function PaymentStep({
 		} catch (error: any) {
 			toast.error("Payment Failed", {
 				description:
-					error?.message || "An error occurred while processing your payment.",
+					error?.message ?? "An error occurred while processing your payment.",
 			});
 			setLoading(false);
 		}
@@ -637,7 +637,7 @@ function ConfirmPaymentStep({
 		} catch (error: any) {
 			toast.error("Payment Failed", {
 				description:
-					error?.message || "An error occurred while processing your payment.",
+					error?.message ?? "An error occurred while processing your payment.",
 			});
 			setLoading(false);
 		}
