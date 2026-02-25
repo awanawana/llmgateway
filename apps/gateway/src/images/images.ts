@@ -231,18 +231,26 @@ images.openapi(generations, async (c) => {
 	});
 
 	if (!response.ok) {
-		logger.warn("Images API - chat completions request failed", {
-			status: response.status,
-			statusText: response.statusText,
-		});
 		const errorData = await response.text();
 		let errorMessage = `Image generation failed with status ${response.status}`;
+		let parsedError: unknown = null;
 		try {
-			const parsed = JSON.parse(errorData);
+			parsedError = JSON.parse(errorData);
+			const parsed = parsedError as Record<string, any>;
 			errorMessage = parsed?.error?.message ?? parsed?.message ?? errorMessage;
 		} catch {
 			// use default message
 		}
+
+		logger.warn("Images API - chat completions request failed", {
+			status: response.status,
+			statusText: response.statusText,
+			model: request.model,
+			resolvedModel: model,
+			traceId: c.get("traceId"),
+			spanId: c.get("spanId"),
+			errorResponse: parsedError ?? errorData,
+		});
 
 		throw new HTTPException(response.status as any, {
 			message: errorMessage,
@@ -257,6 +265,10 @@ images.openapi(generations, async (c) => {
 	} catch (error) {
 		logger.error("Images API - failed to parse chat completions response", {
 			err: error instanceof Error ? error : new Error(String(error)),
+			model: request.model,
+			resolvedModel: model,
+			traceId: c.get("traceId"),
+			spanId: c.get("spanId"),
 		});
 		throw new HTTPException(500, {
 			message: "Failed to parse image generation response",
@@ -342,12 +354,17 @@ images.openapi(generations, async (c) => {
 	if (imageObjects.length === 0) {
 		logger.warn("Images API - no images found in chat completions response", {
 			model: request.model,
+			resolvedModel: model,
 			hasContent: !!chatResponse.choices?.[0]?.message?.content,
 			hasImages: !!chatResponse.choices?.[0]?.message?.images,
 			contentPreview: chatResponse.choices?.[0]?.message?.content?.slice(
 				0,
 				200,
 			),
+			finishReason: chatResponse.choices?.[0]?.finish_reason,
+			chatResponseId: chatResponse.id,
+			traceId: c.get("traceId"),
+			spanId: c.get("spanId"),
 		});
 		throw new HTTPException(500, {
 			message:

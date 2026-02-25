@@ -108,13 +108,25 @@ app.use("*", async (c, next) => {
 });
 
 app.onError((error, c) => {
+	// Build common request context for all error logs
+	const requestContext: Record<string, unknown> = {
+		path: c.req.path,
+		method: c.req.method,
+		traceId: c.get("traceId"),
+		spanId: c.get("spanId"),
+	};
+
 	if (error instanceof HTTPException) {
 		const status = error.status;
 
 		if (status >= 500) {
-			logger.error("HTTP 500 exception", error);
+			logger.error("HTTP 500 exception", error, requestContext);
 		} else {
-			logger.warn("HTTP client error", { status, message: error.message });
+			logger.warn("HTTP client error", {
+				status,
+				message: error.message,
+				...requestContext,
+			});
 		}
 
 		return c.json(
@@ -133,8 +145,7 @@ app.onError((error, c) => {
 	if (error instanceof Error && error.name === "TimeoutError") {
 		logger.warn("Request timeout", {
 			message: error.message,
-			path: c.req.path,
-			method: c.req.method,
+			...requestContext,
 		});
 		return c.json(
 			{
@@ -151,8 +162,7 @@ app.onError((error, c) => {
 	if (error instanceof Error && error.name === "AbortError") {
 		logger.info("Request aborted by client", {
 			message: error.message,
-			path: c.req.path,
-			method: c.req.method,
+			...requestContext,
 		});
 		return c.json(
 			{
@@ -168,6 +178,7 @@ app.onError((error, c) => {
 	logger.error(
 		"Unhandled error",
 		error instanceof Error ? error : new Error(String(error)),
+		requestContext,
 	);
 	return c.json(
 		{
