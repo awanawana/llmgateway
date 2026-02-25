@@ -81,6 +81,7 @@ const transactionSchema = z.object({
 		"subscription_end",
 		"credit_topup",
 		"credit_refund",
+		"credit_gift",
 		"dev_plan_start",
 		"dev_plan_upgrade",
 		"dev_plan_downgrade",

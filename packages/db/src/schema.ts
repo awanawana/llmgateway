@@ -208,6 +208,7 @@ export const transaction = pgTable(
 				"subscription_end",
 				"credit_topup",
 				"credit_refund",
+				"credit_gift",
 				"dev_plan_start",
 				"dev_plan_upgrade",
 				"dev_plan_downgrade",
@@ -956,6 +957,8 @@ export const auditLogActions = [
 	"payment.method.set_default",
 	"payment.method.delete",
 	"payment.credit_topup",
+	// Credits
+	"credits.gift",
 	// Dev Plan
 	"dev_plan.subscribe",
 	"dev_plan.cancel",
